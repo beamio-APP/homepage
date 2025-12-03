@@ -6,28 +6,29 @@ import p2 from './assets/Website-P2.jpg'
 import V5Video from "./components/ui/V5Video"
 import HeroVideo from './components/ui/HeroVideo'
 import CashcodeAPP from './components/ui/PayLink/index'
+import RedeemLinkLandingScreen from './components/ui/PayLink/RedeemLinkLandingScreen'
 
 export const parseQueryParams = (queryString: string) => {
-  const params = new Map();
+	const params = new Map();
 
-  // Remove the leading '?' if present
-  const cleanQueryString = queryString.startsWith("?")
-    ? queryString.slice(1)
-    : queryString;
+	// Remove the leading '?' if present
+	const cleanQueryString = queryString.startsWith("?")
+		? queryString.slice(1)
+		: queryString;
 
-  // Split the string into key-value pairs
-  const pairs = cleanQueryString.split("&");
+	// Split the string into key-value pairs
+	const pairs = cleanQueryString.split("&");
 
-  for (const pair of pairs) {
-    // Split each pair into key and value
-    const [key, value] = pair.split("=").map(decodeURIComponent);
-    // Only add if key is not undefined
-    if (key) {
-      params.set(key, value || "");
-    }
-  }
+	for (const pair of pairs) {
+		// Split each pair into key and value
+		const [key, value] = pair.split("=").map(decodeURIComponent);
+		// Only add if key is not undefined
+		if (key) {
+		params.set(key, value || "");
+		}
+	}
 
-  return params;
+	return params;
 }
 
 
@@ -38,7 +39,8 @@ const BeamioLanding: React.FC = () => {
 	const [amt, setAmt] = useState('')
 	const [note, setNote]  = useState('')
 	const [recipient, setRecipient] = useState('')
-
+	const [secureCode, setSecureCode] = useState('')
+	const [showCheck, setShowCheck] = useState(false)
 
 	const init = () => {
 		const queryParams = new URLSearchParams(window.location.search)
@@ -48,7 +50,12 @@ const BeamioLanding: React.FC = () => {
 			const address = queryParams.get("address")||''
 			const _amt =  queryParams.get("amount")||''
 			const _note = queryParams.get("note")||''
-			
+			const _secureCode = queryParams.get("secureCode")||''
+			if (_secureCode) {
+				setSecureCode (_secureCode)
+				setShowCheck(true)
+				return 
+			}
 			if (code && address) {
 				setCode(code)
 				setNote(_note)
@@ -70,38 +77,69 @@ const BeamioLanding: React.FC = () => {
   	}, [])
 
   return (
-	<div className="min-h-screen flex flex-col bg-white text-slate-900">
-	  {/* NAV */}
-	  <div className="fixed top-4 left-4 z-50 flex items-center gap-3">
-		<BeamioLogo />
-	  </div>
+		<div className="min-h-screen flex flex-col bg-white text-slate-900">
+			{/* NAV */}
+			<div className="fixed top-4 left-4 z-50 flex items-center gap-3">
+				<BeamioLogo />
+			</div>
 
-	  <div className="mt-16">
-		{/* <Marquee /> */}
-	  </div>
+			<div className="mt-16">
+				{/* <Marquee /> */}
+			</div>
 
-	  <main className="flex-1">
-		
-		<MainPage />
-		{
-			demoOpen && <CashcodeAPP recipient={recipient} code={code} setDemoOpen={setDemoOpen} lang={'en'} id={code} wallet={''} amt={amt} note={note}/>
-		}
-	  </main>
+			<main className="flex-1 ">
+				
+				<MainPage />
+				{
+					demoOpen && <CashcodeAPP recipient={recipient} code={code} setDemoOpen={setDemoOpen} lang={'en'} id={code} wallet={''} amt={amt} note={note}/>
+				}
 
-	  {/* FOOTER */}
-	  <footer className="border-t border-slate-200 bg-slate-50">
-		<div className="mx-auto max-w-6xl px-4 lg:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-		  <p className="text-[11px] text-slate-500">
-			© {new Date().getFullYear()} Beamio · Built on Base · Stablecoin payments
-		  </p>
-		  <div className="flex gap-4 text-[11px] text-slate-500">
-			{/* ✅ 这里直接跳 /terms */}
-			<a href="/terms" className="hover:text-slate-600">Terms</a>
-			<a href="/privacy" className="hover:text-slate-600">Privacy</a>
-		  </div>
+				{
+					showCheck && <RedeemLinkLandingScreen secureCode={secureCode} />
+				}
+			</main>
+
+			{/* FOOTER */}
+			<footer className="border-t border-slate-200 bg-slate-50">
+			<div className="mx-auto max-w-6xl px-4 lg:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+				
+				<p className="text-[11px] text-slate-500">
+				© {new Date().getFullYear()} Beamio · Built on Base · Stablecoin payments
+				</p>
+
+				<div className="flex gap-4 text-[11px] text-slate-500">
+				<a href="/terms" className="hover:text-slate-600">Terms</a>
+				<a href="/privacy" className="hover:text-slate-600">Privacy</a>
+
+				{/* ⭐ 新增 GitHub 链接按钮 */}
+				<a
+					href="https://github.com/beamio-APP"
+					target="_blank"
+					rel="noopener noreferrer"
+					className="hover:text-slate-600 flex items-center gap-1"
+				>
+					{/* 小 GitHub Icon（SVG inline，不依赖外部文件） */}
+					<svg
+					viewBox="0 0 16 16"
+					fill="currentColor"
+					className="w-3.5 h-3.5 opacity-70"
+					>
+					<path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38
+						0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
+						-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2
+						-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.62
+						7.62 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08
+						2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+						0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+					</svg>
+
+					GitHub
+				</a>
+				</div>
+
+			</div>
+			</footer>
 		</div>
-	  </footer>
-	</div>
   )
 }
 

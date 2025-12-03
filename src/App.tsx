@@ -9,11 +9,11 @@ const App: React.FC = () => {
 
 	return (
 		<BrowserRouter>
-		<Routes>
-			<Route path="/" element={<BeamioLanding />} />
-			<Route path="/terms" element={<TermsPage />} />
-			<Route path="/privacy" element={<PrivacyPage />} />
-		</Routes>
+			<Routes>
+				<Route path="/" element={<BeamioLanding />} />
+				<Route path="/terms" element={<TermsPage />} />
+				<Route path="/privacy" element={<PrivacyPage />} />
+			</Routes>
 		</BrowserRouter>
 	)
 }
