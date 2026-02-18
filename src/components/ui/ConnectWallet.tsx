@@ -6,16 +6,39 @@ import okx_icon from "./assets/okx-icon.png";
 import { pickByRDNS } from "../../lib/eip6963";
 import { toWalletClient } from "../../lib/toWalletClient";
 
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+let isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+let isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 function metamaskDeeplinkForThisPage() {
-  // 也可以带上 search/hash：${location.search}${location.hash}
-  	return `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+	const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+	const search = window.location.search || "";
+	const hash = window.location.hash || "";
+	
+	// iOS 需要特殊处理
+	if (isIOS) {
+		// iOS MetaMask 深链格式
+		return `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}${search}${hash}`;
+	}
+	
+	// Android
+	return `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}${search}${hash}`;
 }
 
 
+function coinbaseDeeplinkForThisPage() {
+	const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
+	const encodedUrl = encodeURIComponent(baseUrl);
+	
+	if (isIOS) {
+		return `cbwallet://dapp?url=${encodedUrl}`;
+	}
+	return `cbwallet://dapp?url=${encodedUrl}`;
+}
 
+function okxDeeplinkForThisPage() {
+	const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
+	return `okex://dapp?url=${encodeURIComponent(baseUrl)}`;
+}
 
 type EIP1193Provider = {
   isMetaMask?: boolean;
@@ -116,15 +139,16 @@ export default function ConnectWallet() {
 	[open]
 );
   useEffect(() => {
-	// 暴露一个全局函数，任何地方都能直接调起弹窗
-	(window as any).openConnectWallet = () => setOpen(true);
-
-	return () => {
-		// 清理，避免热更新多次挂载
-		if ((window as any).openConnectWallet) {
-		delete (window as any).openConnectWallet;
-		}
-	};
+		// 暴露一个全局函数，任何地方都能直接调起弹窗
+		(window as any).openConnectWallet = () => setOpen(true);
+		console.log("MetaMask deeplink:", metamaskDeeplinkForThisPage());
+  		 console.log("Coinbase deeplink:", coinbaseDeeplinkForThisPage());
+		return () => {
+			// 清理，避免热更新多次挂载
+			if ((window as any).openConnectWallet) {
+			delete (window as any).openConnectWallet;
+			}
+		};
 	}, []);
 
   function detachListeners() {
@@ -229,20 +253,26 @@ export default function ConnectWallet() {
     try {
       const provider = getInjectedProvider(kind);
       if (!provider) {
-        if (kind === "metamask") {
-          if (isMobile) {
-			// ✅ 在 iOS/Android 浏览器中，直接深链到 MetaMask 打开当前站
-			window.location.href = metamaskDeeplinkForThisPage();
-		} else {
-			// 桌面：跳扩展安装页
-			window.open("https://metamask.io/download/", "_blank");
-		}
-        } else if (kind === "coinbase") {
-          	window.open("https://www.coinbase.com/wallet", "_blank");
-        } else {
-          	window.open("https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge?hl=en", "_blank");
-        }
-        return;
+			if (kind === "metamask") {
+				if (isMobile) {
+					window.location.href = metamaskDeeplinkForThisPage();
+				} else {
+					window.open("https://metamask.io/download/", "_blank");
+				}
+			} else if (kind === "coinbase") {
+				if (isMobile) {
+					window.location.href = coinbaseDeeplinkForThisPage();
+				} else {
+					window.open("https://www.coinbase.com/wallet", "_blank");
+				}
+			} else if (kind === "okx") {
+				if (isMobile) {
+					window.location.href = okxDeeplinkForThisPage();
+				} else {
+					window.open("https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge?hl=en", "_blank");
+				}
+			}
+			return;
       }
 
       // 若当前正连同类型，允许重复打开授权；若已连同类型，直接复用

@@ -629,7 +629,7 @@ export default function CashcodeAPP ({ lang, setDemoOpen, wallet='', amt, note, 
 
 								{ShowNode(note)}
 								<ShowAmount />
-								<TipInput />
+								
 								
 								{error ? (
 									<div className="mt-2 text-[13px] text-red-600" aria-live="polite">

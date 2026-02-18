@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { Volume2, VolumeX } from "lucide-react"
 import video1 from "../../assets/V5-P5c.mp4"
 
 export default function V5Video() {
@@ -35,11 +36,11 @@ export default function V5Video() {
           inline-flex items-center justify-center 
           w-10 h-10 rounded-xl 
           bg-black/30 hover:bg-black/40 
-          text-white text-xl 
+          text-white 
           backdrop-blur-sm transition
         "
       >
-        {muted ? "🔇" : "🔊"}
+        {muted ? <VolumeX className="w-5 h-5" strokeWidth={2} /> : <Volume2 className="w-5 h-5" strokeWidth={2} />}
       </button>
     </div>
   )

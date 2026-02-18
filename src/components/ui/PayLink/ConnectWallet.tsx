@@ -6,15 +6,12 @@ import okx_icon from "../assets/okx-icon.png"
 import { toWalletClient } from "../../../util/toWalletClient"
 import cash_icon from "../assets/BeamioStatic.svg"
 
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
-const isAndroid = /Android/.test(navigator.userAgent)
+const ua = typeof navigator !== "undefined" ? navigator.userAgent : ""
+let isMobile = /Android|iPhone|iPad|iPod/i.test(ua)
+let isIOS = /iPhone|iPad|iPod/.test(ua)
+const isAndroid = /Android/.test(ua)
 
-if (typeof window !== "undefined") {
-	try {
-		sessionStorage.setItem("original_host", window.location.host)
-	} catch {}
-}
+
 
 type EIP1193Provider = {
 	isMetaMask?: boolean
@@ -25,6 +22,40 @@ type EIP1193Provider = {
 }
 
 type WalletKind = "metamask" | "coinbase" | "okx"
+
+if (typeof window !== "undefined") {
+	try {
+		sessionStorage.setItem("original_host", window.location.host)
+	} catch {}
+}
+
+const getDappUrl = () => {
+	return `${window.location.protocol}//${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+
+// MetaMask：官方 dapp deeplink
+const getMetaMaskDeeplink = () => {
+	const dappUrl = getDappUrl()
+	return `https://metamask.app.link/dapp/${encodeURIComponent(dappUrl)}`
+}
+
+// Coinbase Wallet：官方 universal link
+// https://go.cb-w.com/dapp?cb_url=<encoded-dapp-url> :contentReference[oaicite:0]{index=0}
+const getCoinbaseDeeplink = () => {
+	const dappUrl = getDappUrl()
+	return `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(dappUrl)}`
+}
+
+// OKX Web3 Wallet：官方 universal link 写法
+// 深度链接示例：okx://wallet/dapp/url?dappUrl=<encoded-dapp-url>
+// 然后包一层 https://web3.okx.com/download?deeplink=<encoded-deeplink> :contentReference[oaicite:1]{index=1}
+const getOkxDeeplink = () => {
+	const dappUrl = getDappUrl()
+	const encodedDappUrl = encodeURIComponent(dappUrl)
+	const deeplink = `okx://wallet/dapp/url?dappUrl=${encodedDappUrl}`
+	return `https://web3.okx.com/download?deeplink=${encodeURIComponent(deeplink)}`
+}
 
 function emitWalletEvent(type: string, detail?: any) {
 	try {
@@ -80,6 +111,7 @@ function debugWalletDetection() {
 
 const eip6963ProvidersRef = { current: new Map<string, EIP1193Provider>() }
 
+
 if (typeof window !== "undefined") {
 	window.addEventListener("eip6963:announceProvider", (event: any) => {
 		const { info, provider } = event.detail
@@ -90,7 +122,34 @@ if (typeof window !== "undefined") {
 	window.dispatchEvent(new Event("eip6963:requestProvider"))
 }
 
+const openWalletApp = (wallet: string) => {
+	
+
+	switch (wallet) {
+		case "metamask":
+			window.location.href = metamaskDeeplinkForThisPage()
+		break
+
+		case "coinbase":
+			window.location.href = coinbaseDeeplinkForThisPage()
+		break
+
+		case "okx":
+			window.location.href = getOkxDeeplink()
+		break;
+
+		case "rainbow":
+			window.location.href = `rainbow://browser?url=${encodeURIComponent(getDappUrl())}`
+		break;
+
+		default:
+			window.location.href = getDappUrl(); // fallback
+	}
+}
+
 function getInjectedProvider(kind: WalletKind): EIP1193Provider | undefined {
+	if (typeof window === "undefined") return undefined
+
 	const { ethereum } = window as any
 
 	const eip6963Map = eip6963ProvidersRef.current
@@ -193,6 +252,44 @@ function getInjectedProvider(kind: WalletKind): EIP1193Provider | undefined {
 	return undefined
 }
 
+function metamaskDeeplinkForThisPage() {
+
+
+
+	 const fullUrl =
+    window.location.origin +
+    window.location.pathname +
+    window.location.search +
+    window.location.hash
+
+  // 按 MetaMask 官方格式，需要去掉协议头，只保留: 域名 + 路径...
+  const clean = fullUrl.replace(/^https?:\/\//, "")
+
+  // 例如: https://metamask.app.link/dapp/beamio.app/app?foo=bar
+  return `https://metamask.app.link/dapp/${clean}`
+  // 构建完整的目标 URL（包含所有查询参数）
+//   const targetUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
+  
+//   // 对完整 URL 进行 URI 编码
+//   const encodedUrl = encodeURIComponent(targetUrl);
+  
+//   // 返回深链接
+//   return `ethereum://dapp/${encodeURIComponent(targetUrl)}`
+//   //return `https://metamask.app.link/dapp/${encodedUrl}`;
+}
+
+
+function coinbaseDeeplinkForThisPage() {
+	const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`;
+	const encodedUrl = encodeURIComponent(baseUrl);
+	
+	if (isIOS) {
+		return `cbwallet://dapp?url=${encodedUrl}`;
+	}
+	return `cbwallet://dapp?url=${encodedUrl}`;
+}
+
+
 const BASE_CHAIN_ID = "0x2105"
 
 type Props = {
@@ -214,11 +311,40 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 	const providerRef = useRef<EIP1193Provider | null>(null)
 	const onAccountsChangedRef = useRef<((accs: string[]) => void) | null>(null)
 	const onChainChangedRef = useRef<((cid: string) => void) | null>(null)
+	const [walletCheckKey, setWalletCheckKey] = useState(0)
+	
+	 // ✅ 使用正确的依赖
+	const metaMaskInjected = useMemo(
+		() => Boolean(getInjectedProvider("metamask")),
+		[walletCheckKey]  // 只在 walletCheckKey 变化时重新检查
+	)
+
+	const coinbaseInjected = useMemo(
+		() => Boolean(getInjectedProvider("coinbase")),
+		[walletCheckKey]
+	)
+
+	const okxInjected = useMemo(
+		() => Boolean(getInjectedProvider("okx")),
+		[walletCheckKey]
+	)
+
+	  // ✅ 监听 EIP-6963 事件，重新检测钱包
+	useEffect(() => {
+		const handleProviderAnnounce = () => {
+			setWalletCheckKey(k => k + 1)
+		}
+		
+		window.addEventListener("eip6963:announceProvider", handleProviderAnnounce)
+		return () => window.removeEventListener("eip6963:announceProvider", handleProviderAnnounce)
+	}, [])
+	
 
 	useEffect(() => {
 		const onOpenModal = () => {
 		setOpen(true)
-
+		console.log("MetaMask deeplink:", metamaskDeeplinkForThisPage());
+  		 console.log("Coinbase deeplink:", coinbaseDeeplinkForThisPage());
 		const st = (window as any).walletState
 		if (st && st.account && st.chainId && st.provider) {
 			providerRef.current = st.provider as EIP1193Provider
@@ -252,51 +378,38 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 		}
 	}, [])
 
-	const metaMaskInjected = useMemo(
-		() => Boolean(getInjectedProvider("metamask")),
-		[open]
-	)
 
+// ✅ 初始化时有正确的依赖
 	useEffect(() => {
 		console.log("[ConnectWallet] _open prop changed:", { _open })
-		// 手机环境忽略 _open，总是打开
-		if (isMobile) {
-			//		已经在metaMask
-			if (metaMaskInjected) {
+		
+		if (isMobile && mounted) {
+			if (address) {
 				setOpen(false)
+				return
+			}
+
+			const timer = setTimeout(() => {
+				setOpen(false)  // 提前设置
+				
+				if (metaMaskInjected) {
 				connect('metamask')
-				return
-			}
-
-			if (coinbaseInjected) {
-				setOpen(false)
+				} else if (coinbaseInjected) {
 				connect('coinbase')
-				return
-			}
-
-			if (okxInjected) {
-				setOpen(false)
+				} else if (okxInjected) {
 				connect('okx')
-				return
-			}
-
-			setOpen(true)
+				} else {
+				setOpen(true)  // 只有这里才应该打开
+				}
+			}, 150)
+			
+			return () => clearTimeout(timer)
 		} else {
 			setOpen(_open)
 		}
-	}, [_open])
+	}, [_open, isMobile, metaMaskInjected, coinbaseInjected, okxInjected, address, mounted])
 
 
-
-	const coinbaseInjected = useMemo(
-		() => Boolean(getInjectedProvider("coinbase")),
-		[open]
-	)
-
-	const okxInjected = useMemo(
-		() => Boolean(getInjectedProvider("okx")),
-		[open]
-	)
 
 	const metamaskConnected = !!address && currentKind === "metamask"
 	const coinbaseConnected = !!address && currentKind === "coinbase"
@@ -415,33 +528,6 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 	}
 
 
-	const getDappUrl = () => {
-		return `${window.location.protocol}//${window.location.host}${window.location.pathname}${window.location.search}${window.location.hash}`
-	}
-
-	// MetaMask：官方 dapp deeplink
-	const getMetaMaskDeeplink = () => {
-		const dappUrl = getDappUrl()
-		return `https://metamask.app.link/dapp/${encodeURIComponent(dappUrl)}`
-	}
-
-	// Coinbase Wallet：官方 universal link
-	// https://go.cb-w.com/dapp?cb_url=<encoded-dapp-url> :contentReference[oaicite:0]{index=0}
-	const getCoinbaseDeeplink = () => {
-		const dappUrl = getDappUrl()
-		return `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(dappUrl)}`
-	}
-
-	// OKX Web3 Wallet：官方 universal link 写法
-	// 深度链接示例：okx://wallet/dapp/url?dappUrl=<encoded-dapp-url>
-	// 然后包一层 https://web3.okx.com/download?deeplink=<encoded-deeplink> :contentReference[oaicite:1]{index=1}
-	const getOkxDeeplink = () => {
-		const dappUrl = getDappUrl()
-		const encodedDappUrl = encodeURIComponent(dappUrl)
-		const deeplink = `okx://wallet/dapp/url?dappUrl=${encodedDappUrl}`
-		return `https://web3.okx.com/download?deeplink=${encodeURIComponent(deeplink)}`
-	}
-
 	async function connect(kind: WalletKind) {
 		setError(null)
 		if (address && currentKind && currentKind !== kind) {
@@ -451,43 +537,37 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 		setConnecting(kind)
 
 		try {
+
+			const provider = getInjectedProvider(kind)
 			// ⭐⭐ 1. 手机环境统一走 deeplink，一键打开 / 安装
-			if (isMobile && (!metaMaskInjected && !okxInjected && !coinbaseInjected) ) {
-				if (kind === "metamask") {
-					window.location.href = getMetaMaskDeeplink()
-					return
-				}
-				if (kind === "coinbase") {
-					window.location.href = getCoinbaseDeeplink()
-					return
-				}
-				if (kind === "okx") {
-					window.location.href = getOkxDeeplink()
-					return
-				}
-				// 其他钱包（如果以后扩展）再加分支
+			if (isMobile && !provider) {
+				// ===== 场景A：手机浏览器，未检测到钱包 APP =====
+				// 唤醒 deeplink，直接返回
+				openWalletApp(kind)
+				return
 			}
 
 			// ⭐⭐ 2. 非手机（桌面）环境：尝试注入式 provider
-			const provider = getInjectedProvider(kind)
+			
 
 			if (!provider) {
-			// 桌面没装扩展的兜底：跳下载页 / 官方站
-			if (kind === "metamask") {
-				window.open("https://metamask.io/download/", "_blank")
-			} else if (kind === "coinbase") {
-				window.open("https://www.coinbase.com/wallet", "_blank")
-			} else if (kind === "okx") {
-				window.open(
-				"https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge",
-				"_blank"
-				)
-			}
-			return
+				// 桌面环境，没装扩展 → 打开下载页
+				if (kind === "metamask") {
+					window.open("https://metamask.io/download/", "_blank")
+				} else if (kind === "coinbase") {
+					window.open("https://www.coinbase.com/wallet", "_blank")
+				} else if (kind === "okx") {
+					window.open(
+					"https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge",
+					"_blank"
+					)
+				}
+				return
 			}
 
-			// ===== 下面是你原来的连接逻辑，不变 =====
+			// ===== provider 存在，执行连接逻辑 =====
 			providerRef.current = provider
+
 
 			const accounts: string[] = await provider.request({
 					method: "eth_requestAccounts",
@@ -500,47 +580,47 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 			setCurrentKind(kind)
 
 			if (!isBase) {
+				// 需要切换网络
 				try {
 					await provider.request({
-						method: "wallet_switchEthereumChain",
-						params: [{ chainId: BASE_CHAIN_ID }],
+					method: "wallet_switchEthereumChain",
+					params: [{ chainId: BASE_CHAIN_ID }],
 					})
 					const cid2: string = await provider.request({ method: "eth_chainId" })
 					const accs2: string[] = await provider.request({
-						method: "eth_accounts",
+					method: "eth_accounts",
 					})
 					const account2 = accs2?.[0] ?? accounts?.[0] ?? ""
+					
 					if (cid2 === BASE_CHAIN_ID && account2) {
-						const walletClient = toWalletClient(provider, account2)
-						;(window as any).walletState = {
-							account: account2,
-							chainId: parseInt(cid2, 16),
-							kind,
-							provider,
-							walletClient,
-						}
-						setAddress(account2)
-						setChainId(cid2)
-						setCurrentKind(kind)
-						setOpen(false)
+					const walletClient = toWalletClient(provider, account2)
+					;(window as any).walletState = {
+						account: account2,
+						chainId: parseInt(cid2, 16),
+						kind,
+						provider,
+						walletClient,
+					}
+					setAddress(account2)
+					setChainId(cid2)
+					setCurrentKind(kind)
+					setOpen(false)
 
-						const walletType = getWalletTypeLabel(kind)
+					const walletType = getWalletTypeLabel(kind)
+					emitWalletEvent("wallet:connected", {
+						account: account2,
+						chainId: parseInt(cid2, 16),
+						kind,
+						walletType,
+						provider,
+						walletClient,
+					})
 
-						emitWalletEvent("wallet:connected", {
-							account: account2,
-							chainId: parseInt(cid2, 16),
-							kind,
-							walletType,
-							provider,
-							walletClient,
-						})
-
-						// ⭐ 新增：连接成功后挂上 accountsChanged / chainChanged 监听
-						setupProviderListeners(kind, provider, account2, cid2)
+					setupProviderListeners(kind, provider, account2, cid2)
 					} else {
-						setError(
-							"Tried switching to Base; no account returned. Please authorize in wallet and retry."
-						)
+					setError(
+						"Tried switching to Base; no account returned. Please authorize in wallet and retry."
+					)
 					}
 				} catch (err: any) {
 					if (err?.code === 4001) {
@@ -550,6 +630,7 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 					}
 				}
 			} else {
+				// 已经在 Base 网络
 				const account0 = accounts?.[0] ?? ""
 				const walletClient = toWalletClient(provider, account0)
 				;(window as any).walletState = {
@@ -565,7 +646,6 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 				setOpen(false)
 
 				const walletType = getWalletTypeLabel(kind)
-
 				emitWalletEvent("wallet:connected", {
 					account: account0,
 					chainId: parseInt(cidHex, 16),
@@ -575,7 +655,6 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 					walletClient,
 				})
 
-				// ⭐ 新增
 				setupProviderListeners(kind, provider, account0, cidHex)
 			}
 		} catch (e: any) {

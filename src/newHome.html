@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beamio | The Visa for the AI Economy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-body: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --accent-blue: #1562f0;
+            --accent-purple: #7c3aed;
+            --border-light: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 { letter-spacing: -0.02em; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Gradients */
+        .text-gradient {
+            background: linear-gradient(135deg, #1562f0 0%, #7c3aed 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #1562f0 0%, #4f46e5 100%);
+        }
+        
+        /* Navbar Blur */
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        /* --- BLUEPRINT INTERACTIVE STACK --- */
+        .layer-btn {
+            text-align: left;
+            padding: 24px;
+            border: 1px solid var(--border-light);
+            background: white;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .layer-btn:hover {
+            border-color: var(--accent-blue);
+            transform: translateX(5px);
+        }
+        .layer-btn.active {
+            background: #eff6ff;
+            border-color: var(--accent-blue);
+            box-shadow: 0 4px 12px rgba(21, 98, 240, 0.1);
+        }
+        .layer-btn.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: var(--accent-blue);
+        }
+        
+        .layer-content {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+        .layer-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 3D ASSET PACKS (Mini) --- */
+        .pack-mini {
+            width: 100%;
+            border-radius: 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            transition: transform 0.3s ease;
+        }
+        .pack-mini:hover { transform: translateY(-2px); border-color: var(--accent-blue); }
+
+        /* --- ATOMIC CONTAINER CUBE (CSS 3D) --- */
+        .cube-scene { width: 140px; height: 140px; perspective: 600px; margin: 0 auto; }
+        .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: rotateX(-20deg) rotateY(-30deg); animation: rotateCube 12s infinite linear; }
+        .cube-face { position: absolute; width: 140px; height: 140px; border: 2px solid #1562f0; background: rgba(21, 98, 240, 0.05); display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #1562f0; opacity: 0.9; }
+        .cube-face-front  { transform: rotateY(  0deg) translateZ(70px); }
+        .cube-face-right  { transform: rotateY( 90deg) translateZ(70px); }
+        .cube-face-back   { transform: rotateY(180deg) translateZ(70px); }
+        .cube-face-left   { transform: rotateY(-90deg) translateZ(70px); }
+        .cube-face-top    { transform: rotateX( 90deg) translateZ(70px); }
+        .cube-face-bottom { transform: rotateX(-90deg) translateZ(70px); }
+        @keyframes rotateCube { 0% { transform: rotateX(-20deg) rotateY(0deg); } 100% { transform: rotateX(-20deg) rotateY(360deg); } }
+
+        /* --- BENTO GRID --- */
+        .bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+        .bento-item { background: #ffffff; border: 1px solid var(--border-light); border-radius: 24px; overflow: hidden; position: relative; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .bento-item:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -5px rgba(0,0,0,0.05); border-color: var(--accent-blue); }
+
+        /* --- ANIMATIONS --- */
+        .blob { position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, rgba(21,98,240,0.06) 0%, rgba(255,255,255,0) 70%); border-radius: 50%; pointer-events: none; z-index: 0; }
+        
+        #workflow-canvas-container { width: 100%; height: 320px; background: #ffffff; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; position: relative; overflow: hidden; }
+
+        .code-window { background: #1e293b; border-radius: 8px; padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #cbd5e1; }
+        .token-key { color: #93c5fd; } .token-string { color: #86efac; } .token-number { color: #fca5a5; }
+        
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+
+        /* --- UI MOCKUPS --- */
+        .phone-mockup {
+            width: 300px;
+            height: 600px;
+            border: 8px solid #1e293b;
+            border-radius: 32px;
+            overflow: hidden;
+            position: relative;
+            background: #fff;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 24px;
+            background: #1e293b;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            z-index: 20;
+        }
+
+        /* --- UTILS --- */
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 flex flex-col min-h-screen">
+
+    <!-- Navbar -->
+    <header class="fixed w-full top-0 z-50 glass-nav">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="navigateTo('home')">
+                <div class="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/30">B</div>
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-900 leading-none">BEAMIO</span>
+                    <span class="text-[10px] text-slate-500 font-mono tracking-wider">PROTOCOL</span>
+                </div>
+            </div>
+            <nav class="hidden md:flex gap-8 text-sm font-medium text-slate-600">
+                <a href="#" onclick="navigateTo('consumer')" class="text-slate-900 font-bold hover:text-accent-blue transition-colors">Personal App</a>
+                <a href="#blueprint" onclick="navigateTo('home')" class="hover:text-accent-blue transition-colors">Architecture</a>
+                <a href="#issuance" onclick="navigateTo('home')" class="hover:text-accent-blue transition-colors">Issuance</a>
+                <a href="#growth" onclick="navigateTo('home')" class="hover:text-accent-blue transition-colors">Cashcode</a>
+            </nav>
+            <div class="flex items-center gap-3">
+                <a href="https://beamio.app/app" target="_blank" class="px-5 py-2 text-sm font-bold text-accent-blue bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition-colors shadow-sm flex items-center gap-2">
+                    Launch Wallet
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                </a>
+                <a href="#" class="px-5 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+                    Merchant Dashboard
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow">
+        <!-- ============================================== -->
+        <!-- PAGE: HOME (B2B / PROTOCOL) -->
+        <!-- ============================================== -->
+        <div id="page-home" class="page-section">
+            <!-- Hero Section -->
+            <section class="relative pt-40 pb-16 overflow-hidden bg-white">
+                <div class="blob top-0 left-0 transform -translate-x-1/2 -translate-y-1/2"></div>
+                <div class="blob bottom-0 right-0 transform translate-x-1/2 translate-y-1/2" style="background: radial-gradient(circle, rgba(124,58,237,0.06) 0%, rgba(255,255,255,0) 70%);"></div>
+
+                <div class="max-w-7xl mx-auto px-6 relative z-10 text-center">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wide mb-8">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        The Financial OS for AI
+                    </div>
+
+                    <h1 class="text-6xl md:text-8xl font-extrabold text-slate-900 tracking-tight mb-6 leading-[1.1]">
+                        The Visa for the<br>
+                        <span class="text-gradient">AI Economy.</span>
+                    </h1>
+                    
+                    <p class="text-xl md:text-2xl text-slate-500 max-w-2xl mx-auto mb-10 font-light leading-relaxed">
+                        Bridging Web2 Commerce, Web3 Liquidity, and Autonomous Agents. <br>
+                        <strong>Issuance as a Service</strong> for the next generation of business.
+                    </p>
+
+                    <div class="flex flex-col sm:flex-row justify-center gap-4 mb-4">
+                        <a href="https://beamio.app/app" target="_blank" class="px-8 py-4 bg-gradient-primary text-white font-semibold rounded-xl shadow-xl shadow-blue-500/20 hover:scale-105 transition-transform flex items-center justify-center gap-2">
+                            Create @BeamioTag
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        </a>
+                        <button onclick="document.getElementById('issuance').scrollIntoView({behavior: 'smooth'})" class="px-8 py-4 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-colors">
+                            For Merchants
+                        </button>
+                    </div>
+                    
+                    <div class="flex justify-center items-center gap-2 text-xs text-slate-400 font-medium mb-16">
+                        <svg class="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Runs in Browser. No Download Required.
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISUAL: THE SMART ROUTING WORKFLOW -->
+            <div id="workflow-canvas-container">
+                <canvas id="workflowCanvas"></canvas>
+                <div class="absolute bottom-6 left-0 right-0 text-center pointer-events-none">
+                    <div class="inline-flex items-center gap-4 bg-white/90 backdrop-blur px-4 py-2 rounded-full border border-slate-200 shadow-sm">
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
+                            <span class="text-[10px] font-bold text-slate-600 uppercase">Priority 1: Voucher</span>
+                        </div>
+                        <div class="text-slate-300">→</div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span class="text-[10px] font-bold text-slate-600 uppercase">Priority 2: USDC</span>
+                        </div>
+                        <div class="text-slate-300">→</div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span class="text-[10px] font-bold text-slate-600 uppercase">Settlement</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THE PROBLEM -->
+            <section class="py-24 bg-slate-50 border-b border-slate-200">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center mb-16">
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">The Problem</h2>
+                        <h3 class="text-4xl font-extrabold text-slate-900">Why the old rails are broken.</h3>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-3 gap-8">
+                        <div class="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-red-200 transition-colors group">
+                            <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">🔒</div>
+                            <h4 class="text-xl font-bold text-slate-900 mb-3">Siloed Assets</h4>
+                            <p class="text-slate-500 text-sm leading-relaxed">
+                                Points and vouchers are trapped in proprietary databases. Illiquid, non-transferable, and invisible to the AI economy.
+                            </p>
+                        </div>
+                        <div class="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-red-200 transition-colors group">
+                            <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">⛽</div>
+                            <h4 class="text-xl font-bold text-slate-900 mb-3">Crypto Friction</h4>
+                            <p class="text-slate-500 text-sm leading-relaxed">
+                                Gas fees, seed phrases, and volatility make standard Web3 protocols unusable for daily high-frequency commerce.
+                            </p>
+                        </div>
+                        <div class="p-8 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-red-200 transition-colors group">
+                            <div class="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform">🤖</div>
+                            <h4 class="text-xl font-bold text-slate-900 mb-3">AI Blindness</h4>
+                            <p class="text-slate-500 text-sm leading-relaxed">
+                                AI Agents cannot read PDF receipts or hold bank accounts. They need structured data and programmable wallets.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- THE ECOSYSTEM BLUEPRINT -->
+            <section id="blueprint" class="py-24 bg-white border-b border-slate-200">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center mb-16">
+                        <h2 class="text-sm font-bold text-accent-blue uppercase tracking-widest mb-2">System Architecture</h2>
+                        <h3 class="text-4xl font-extrabold text-slate-900">The Beamio Stack.</h3>
+                        <p class="text-slate-500 mt-4">A complete infrastructure from Layer 1 Consensus to Layer 5 AI Integration.</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-12 gap-12">
+                        <!-- Left: Layer Selector -->
+                        <div class="md:col-span-5 flex flex-col gap-4">
+                            <div class="layer-btn active" onclick="switchLayer(5, this)">
+                                <div class="text-xs font-bold text-accent-purple uppercase tracking-wider mb-1">Layer 5</div>
+                                <div class="font-bold text-lg text-slate-900">Agent-Ready AI Integration</div>
+                                <div class="text-sm text-slate-500 mt-1">Smart Receipts & JSON-RPC.</div>
+                            </div>
+                            <div class="layer-btn" onclick="switchLayer(4, this)">
+                                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Layer 4</div>
+                                <div class="font-bold text-lg text-slate-900">Dual-Core Interface</div>
+                                <div class="text-sm text-slate-500 mt-1">Main Wallet (Vault) + Express Pay (Terminal).</div>
+                            </div>
+                            <div class="layer-btn" onclick="switchLayer(3, this)">
+                                <div class="text-xs font-bold text-accent-blue uppercase tracking-wider mb-1">Layer 3</div>
+                                <div class="font-bold text-lg text-slate-900">The Voucher Economy</div>
+                                <div class="text-sm text-slate-500 mt-1">Class A/B/C Assets.</div>
+                            </div>
+                            <div class="layer-btn" onclick="switchLayer(2, this)">
+                                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Layer 2</div>
+                                <div class="font-bold text-lg text-slate-900">Atomic Asset Container</div>
+                                <div class="text-sm text-slate-500 mt-1">Reserve Mechanism & State Machine.</div>
+                            </div>
+                            <div class="layer-btn" onclick="switchLayer(1, this)">
+                                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Layer 1</div>
+                                <div class="font-bold text-lg text-slate-900">Dual-Chain Base</div>
+                                <div class="text-sm text-slate-500 mt-1">Base L2 (Value) + CoNET L1 (Data).</div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Content Display Area -->
+                        <div class="md:col-span-7 bg-slate-50 rounded-2xl border border-slate-200 p-8 shadow-sm flex items-center justify-center min-h-[400px]">
+                            <!-- Content Blocks (Same as previous) -->
+                            <div id="content-5" class="layer-content active w-full">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-accent-purple text-xl">🧠</div>
+                                    <h3 class="text-2xl font-bold text-slate-900">Smart Receipts for AI</h3>
+                                </div>
+                                <p class="text-slate-600 mb-8">
+                                    Beamio generates on-chain <strong>Smart Receipts</strong>—structured JSON data that AI Agents can verify, analyze, and use for automated expensing without OCR.
+                                </p>
+                                <div class="code-window">
+                                    <pre>
+<span class="token-key">"smart_receipt"</span>: {
+  <span class="token-key">"agent_id"</span>: <span class="token-string">"did:beamio:travel_bot"</span>,
+  <span class="token-key">"merchant"</span>: <span class="token-string">"did:beamio:starbucks"</span>,
+  <span class="token-key">"data"</span>: {
+    <span class="token-key">"sku"</span>: <span class="token-string">"latte_oat"</span>,
+    <span class="token-key">"amount"</span>: <span class="token-number">5.50</span>,
+    <span class="token-key">"currency"</span>: <span class="token-string">"USDC"</span>
+  },
+  <span class="token-key">"verified"</span>: <span class="token-string">true</span>
+}</pre>
+                                </div>
+                            </div>
+                            <!-- ... (Other layers 4,3,2,1 contents omitted for brevity but present in logic) ... -->
+                            <div id="content-4" class="layer-content w-full">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-accent-blue text-xl">📱</div>
+                                    <h3 class="text-2xl font-bold text-slate-900">Dual-Core Architecture</h3>
+                                </div>
+                                <p class="text-slate-600 mb-8">We separate cold storage from hot execution.</p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="p-6 bg-white rounded-xl border border-slate-200">
+                                        <div class="text-xs font-bold text-slate-400 uppercase mb-2">Main Wallet (EOA)</div>
+                                        <h4 class="font-bold text-slate-900 mb-2">Social Vault</h4>
+                                        <p class="text-xs text-slate-500">Secure storage & Social P2P. USDC Only. High Security.</p>
+                                    </div>
+                                    <div class="p-6 bg-white rounded-xl border border-slate-200">
+                                        <div class="text-xs font-bold text-accent-blue uppercase mb-2">Express Pay (AA)</div>
+                                        <h4 class="font-bold text-slate-900 mb-2">Commercial Terminal</h4>
+                                        <p class="text-xs text-slate-500">Scan-to-Pay, Smart Routing, Vouchers. Programmable.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="content-3" class="layer-content w-full">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl">🎫</div>
+                                    <h3 class="text-2xl font-bold text-slate-900">Asset Tiers</h3>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="pack-mini" style="border-left: 4px solid #1562f0;">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-bold text-slate-900 text-sm">Class A: Stored Value</span>
+                                            <span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded">Liquid</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500">Gift Cards backed 1:1 by USDC. Replaces Bank Accounts.</div>
+                                    </div>
+                                    <div class="pack-mini" style="border-left: 4px solid #7c3aed;">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-bold text-slate-900 text-sm">Class B: Access</span>
+                                            <span class="text-[10px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded">NFT</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500">Concert Tickets & Memberships. Tradable & Verifiable.</div>
+                                    </div>
+                                    <div class="pack-mini" style="border-left: 4px solid #f59e0b;">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="font-bold text-slate-900 text-sm">Class C: Incentives</span>
+                                            <span class="text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded">Growth</span>
+                                        </div>
+                                        <div class="text-xs text-slate-500">Cashcode Red Packets, Vouchers & Perks. Replaces Coupons.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="content-2" class="layer-content w-full text-center">
+                                <div class="cube-scene mb-6">
+                                    <div class="cube"><div class="cube-face cube-face-front">Reserve</div><div class="cube-face cube-face-back">Redeem</div><div class="cube-face cube-face-right">Logic</div><div class="cube-face cube-face-left">Auth</div><div class="cube-face cube-face-top">Lock</div><div class="cube-face cube-face-bottom">State</div></div>
+                                </div>
+                                <h3 class="text-2xl font-bold text-slate-900 mb-2">Atomic Asset Container</h3>
+                                <p class="text-slate-600 text-sm max-w-md mx-auto">The <strong>Reserve Mechanism</strong> logically locks assets to prevent double-spending during off-chain sharing (Links/QRs). Guarantees 100% solvency.</p>
+                            </div>
+                            <div id="content-1" class="layer-content w-full">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-900 text-xl">⛓️</div>
+                                    <h3 class="text-2xl font-bold text-slate-900">Dual-Chain Base</h3>
+                                </div>
+                                <div class="space-y-4">
+                                    <div class="p-4 border border-slate-200 rounded-lg flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">L2</div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-900 text-sm">Base Mainnet (Value Layer)</h4>
+                                            <p class="text-xs text-slate-500">Settlement of USDC & ERC-1155 Assets. Secured by Ethereum.</p>
+                                        </div>
+                                    </div>
+                                    <div class="p-4 border border-slate-200 rounded-lg flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-slate-900 rounded flex items-center justify-center text-white font-bold text-xs">L1</div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-900 text-sm">CoNET Blockchain (Data Layer)</h4>
+                                            <p class="text-xs text-slate-500">Sovereign Identity (@BeamioTag), Social Graph, and Zero-Gas messaging.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ISSUANCE AS A SERVICE -->
+            <section id="issuance" class="py-24 bg-white border-b border-slate-200">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="bento-grid">
+                        <div class="col-span-12 p-12 bg-slate-900 rounded-3xl text-white flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600 opacity-20 blur-[100px] rounded-full"></div>
+                            
+                            <div class="flex-1 relative z-10">
+                                <div class="text-accent-blue font-bold tracking-widest uppercase text-xs mb-4">For Merchants & Alliances</div>
+                                <h2 class="text-4xl font-extrabold mb-6">The Merchant OS.</h2>
+                                <p class="text-slate-400 text-lg mb-8 leading-relaxed">
+                                    Issuance as a Service. Stop building custom apps. Use our dashboard to mint <strong>Stored Value Cards, Tickets, and Coupons</strong> in one click.
+                                </p>
+                                <div class="flex gap-4">
+                                    <div class="flex items-center gap-2 text-sm text-slate-300">
+                                        <svg class="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        No Coding Required
+                                    </div>
+                                    <div class="flex items-center gap-2 text-sm text-slate-300">
+                                        <svg class="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        Real Revenue (USDC)
+                                    </div>
+                                </div>
+                                <button class="mt-8 px-8 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-blue-50 transition-colors">
+                                    Launch Dashboard
+                                </button>
+                            </div>
+
+                            <div class="flex-1 w-full relative z-10">
+                                <!-- Abstract Dashboard UI -->
+                                <div class="w-full bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-2xl">
+                                    <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                                        <div class="font-bold">Create Campaign</div>
+                                        <div class="text-xs bg-blue-600 px-2 py-1 rounded text-white">New Asset</div>
+                                    </div>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <div class="text-xs text-slate-500 mb-1">Asset Class</div>
+                                            <div class="w-full h-10 bg-slate-900 rounded border border-slate-600 flex items-center px-4 text-sm text-white">Class A: Stored Value</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs text-slate-500 mb-1">Backing Asset</div>
+                                            <div class="w-full h-10 bg-slate-900 rounded border border-slate-600 flex items-center px-4 text-sm text-white">USDC (Base Mainnet)</div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <div class="text-xs text-slate-500 mb-1">Quantity</div>
+                                                <div class="w-full h-10 bg-slate-900 rounded border border-slate-600 flex items-center px-4 text-sm text-white">1,000</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs text-slate-500 mb-1">Face Value</div>
+                                                <div class="w-full h-10 bg-slate-900 rounded border border-slate-600 flex items-center px-4 text-sm text-white">$50.00</div>
+                                            </div>
+                                        </div>
+                                        <button class="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg font-bold mt-2 text-white hover:opacity-90">Mint Assets</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROWTH ENGINE (Cashcode) -->
+            <section id="growth" class="py-24 bg-slate-50">
+                <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Growth Engine</h2>
+                        <h3 class="text-4xl font-extrabold text-slate-900 mb-6">Zero-CAC Acquisition via <span class="text-accent-blue">Cashcode.</span></h3>
+                        <p class="text-slate-600 text-lg mb-8 leading-relaxed">
+                            Turn every customer into a distributor. Send Assets (Vouchers, USDC) via WhatsApp, Telegram, or Email using our Atomic Container protocol.
+                        </p>
+                        <ul class="space-y-4">
+                            <li class="flex items-center gap-3 text-slate-600">
+                                <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">✓</span>
+                                Zero Gas for Sender & Receiver
+                            </li>
+                            <li class="flex items-center gap-3 text-slate-600">
+                                <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">✓</span>
+                                No App Required to Claim
+                            </li>
+                            <li class="flex items-center gap-3 text-slate-600">
+                                <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">✓</span>
+                                Viral Social Distribution
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="relative flex justify-center animate-float">
+                        <div class="w-72 h-40 bg-white rounded-2xl shadow-xl border border-slate-200 p-6 flex flex-col justify-between transform rotate-2">
+                            <div class="flex justify-between items-start">
+                                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-xl">🧧</div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400 uppercase">Value</div>
+                                    <div class="text-xl font-bold text-slate-900">$50.00</div>
+                                </div>
+                            </div>
+                            <div class="w-full h-10 bg-slate-50 rounded border border-slate-100 flex items-center px-3 text-xs text-blue-500 font-mono">
+                                beamio.app/claim/xc92...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- PAGE: CONSUMER (B2C) -->
+        <!-- ============================================== -->
+        <div id="page-consumer" class="page-section hidden">
+            <!-- Consumer Hero -->
+            <section class="relative pt-32 pb-24 bg-white overflow-hidden">
+                <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-100 text-purple-600 text-xs font-bold uppercase tracking-wide mb-6">
+                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            Unified Consumer Gateway
+                        </div>
+                        <h1 class="text-5xl md:text-7xl font-extrabold text-slate-900 mb-6 leading-tight">
+                            One App.<br>
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">All Your Brands.</span>
+                        </h1>
+                        <p class="text-lg text-slate-600 mb-8 max-w-lg leading-relaxed">
+                            Stop downloading a new app for every store. Beamio is the <strong>Unified Entry Point</strong> for the Alliance Economy. 
+                            <br>Access Stored Value, Memberships, and Cash from thousands of merchants in one sovereign interface.
+                        </p>
+                        <div class="flex gap-4">
+                            <a href="https://beamio.app/app" target="_blank" class="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-transform hover:scale-105 shadow-lg flex items-center gap-2">
+                                Launch Unified App
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            </a>
+                        </div>
+                        <div class="mt-8 flex items-center gap-4 text-xs text-slate-500 font-medium">
+                            <div class="flex -space-x-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-blue-600">CCSA</div>
+                                <div class="w-8 h-8 rounded-full bg-purple-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-purple-600">GOLF</div>
+                                <div class="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-orange-600">CAFE</div>
+                            </div>
+                            <span>Trusted by leading Alliances</span>
+                        </div>
+                    </div>
+                    <!-- Phone Mockup -->
+                    <div class="flex justify-center relative">
+                        <div class="absolute inset-0 bg-gradient-to-tr from-blue-100 to-purple-100 rounded-full blur-3xl opacity-50 transform scale-75"></div>
+                        <div class="phone-mockup z-10 bg-slate-50 flex flex-col">
+                            <div class="phone-notch"></div>
+                            <div class="pt-12 px-6 flex-1 flex flex-col">
+                                <!-- Header -->
+                                <div class="flex justify-between items-center mb-8">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300"></div>
+                                        <div>
+                                            <div class="text-xs text-slate-500">Global ID</div>
+                                            <div class="text-sm font-bold text-slate-900">@alice_c</div>
+                                        </div>
+                                    </div>
+                                    <div class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/></svg>
+                                    </div>
+                                </div>
+                                <!-- Unified Balance -->
+                                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
+                                    <div class="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -mr-4 -mt-4"></div>
+                                    <div class="relative z-10">
+                                        <div class="text-xs text-slate-400 uppercase font-bold mb-1">Unified Balance</div>
+                                        <div class="text-3xl font-extrabold text-slate-900">$1,240.50</div>
+                                        <div class="flex items-center gap-2 mt-2 text-xs text-green-600 font-medium">
+                                            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                            Synced across 3 Alliances
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Brand Assets (The Aggregator) -->
+                                <div class="flex justify-between items-end mb-3">
+                                    <div class="text-xs font-bold text-slate-400 uppercase">My Brands</div>
+                                    <div class="text-[10px] text-accent-blue font-bold cursor-pointer">+ Add</div>
+                                </div>
+                                <div class="space-y-3 overflow-y-auto no-scrollbar" style="max-height: 240px;">
+                                    <!-- Asset 1 -->
+                                    <div class="bg-slate-900 p-4 rounded-xl text-white shadow-lg relative overflow-hidden group">
+                                        <div class="absolute right-0 top-0 p-3 opacity-20">
+                                            <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/></svg>
+                                        </div>
+                                        <div class="flex justify-between items-start relative z-10">
+                                            <div>
+                                                <div class="text-xs opacity-70 mb-1">CCSA Alliance</div>
+                                                <div class="text-sm font-bold">Platinum Member</div>
+                                            </div>
+                                            <div class="text-lg font-mono font-bold">$500</div>
+                                        </div>
+                                    </div>
+                                    <!-- Asset 2 -->
+                                    <div class="bg-white border border-slate-200 p-4 rounded-xl text-slate-900 shadow-sm relative overflow-hidden group">
+                                        <div class="flex justify-between items-start relative z-10">
+                                            <div>
+                                                <div class="text-xs text-slate-500 mb-1">Cafe Network</div>
+                                                <div class="text-sm font-bold">Coffee Pass</div>
+                                            </div>
+                                            <div class="text-lg font-mono font-bold text-slate-900">12 Cups</div>
+                                        </div>
+                                    </div>
+                                    <!-- Asset 3 -->
+                                    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 rounded-xl text-white shadow-md relative overflow-hidden group">
+                                        <div class="flex justify-between items-start relative z-10">
+                                            <div>
+                                                <div class="text-xs opacity-70 mb-1">Event Ticketing</div>
+                                                <div class="text-sm font-bold">World Tour 2026</div>
+                                            </div>
+                                            <div class="text-xs bg-white/20 px-2 py-1 rounded">VIP</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tab Bar -->
+                            <div class="h-16 bg-white border-t border-slate-100 flex justify-around items-center px-4">
+                                <div class="flex flex-col items-center gap-1 text-accent-blue">
+                                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                </div>
+                                <div class="w-6 h-6 rounded bg-slate-200"></div>
+                                <div class="w-12 h-12 rounded-full bg-slate-900 shadow-lg -mt-8 border-4 border-slate-50 flex items-center justify-center text-white">
+                                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                </div>
+                                <div class="w-6 h-6 rounded bg-slate-200"></div>
+                                <div class="w-6 h-6 rounded bg-slate-200"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Grid -->
+            <section class="py-24 bg-slate-50 border-t border-slate-200">
+                <div class="max-w-7xl mx-auto px-6">
+                    <div class="text-center mb-16">
+                        <h2 class="text-3xl font-extrabold text-slate-900">Why Consumers Love Beamio</h2>
+                    </div>
+                    <div class="grid md:grid-cols-3 gap-8">
+                        <div class="p-8 bg-white rounded-2xl shadow-sm border border-slate-100">
+                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-2xl mb-4 text-blue-600">🔗</div>
+                            <h3 class="text-xl font-bold text-slate-900 mb-2">Unified Access</h3>
+                            <p class="text-slate-500 text-sm">One identity (`@BeamioTag`) connects you to every merchant in the alliance. No more sign-up forms.</p>
+                        </div>
+                        <div class="p-8 bg-white rounded-2xl shadow-sm border border-slate-100">
+                            <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-2xl mb-4 text-purple-600">🎁</div>
+                            <h3 class="text-xl font-bold text-slate-900 mb-2">Auto-Rewards</h3>
+                            <p class="text-slate-500 text-sm">Vouchers and points are automatically detected and applied at checkout. Never miss a deal.</p>
+                        </div>
+                        <div class="p-8 bg-white rounded-2xl shadow-sm border border-slate-100">
+                            <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-2xl mb-4 text-green-600">⚡</div>
+                            <h3 class="text-xl font-bold text-slate-900 mb-2">Gas-Free</h3>
+                            <p class="text-slate-500 text-sm">We handle the blockchain complexity. You just scan and pay instantly.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- PAGE: ABOUT BEAMIO -->
+        <!-- ============================================== -->
+        <div id="page-about" class="page-section hidden pt-32 pb-24">
+            <div class="max-w-4xl mx-auto px-6">
+                <h2 class="text-4xl font-extrabold text-slate-900 mb-8">About Beamio</h2>
+                <div class="prose prose-lg text-slate-600 leading-relaxed">
+                    <p class="mb-6">
+                        <strong>Beamio is the financial operating system for the next generation of commerce.</strong>
+                    </p>
+                    <p class="mb-6">
+                        We started with a simple observation: The gap between Web2 commerce (loyalty, vouchers, points) and Web3 liquidity (USDC, stablecoins) is artificially widened by complexity. Gas fees, seed phrases, and fragmented networks have kept billions of dollars in value trapped in silos.
+                    </p>
+                    <p class="mb-6">
+                        Simultaneously, the rise of Artificial Intelligence created a new urgency. AI Agents are smart enough to work, but too "unbanked" to pay. They cannot read paper receipts, hold bank accounts, or execute transactions.
+                    </p>
+                    <p class="mb-6">
+                        Beamio bridges these worlds. We built a dual-chain protocol that combines the settlement security of Ethereum (Base L2) with the data sovereignty of our own high-performance chain (CoNET L1). This allows us to offer <strong>Issuance as a Service</strong> to merchants today, while building the <strong>Payment Rails for AI Agents</strong> tomorrow.
+                    </p>
+                    <h3 class="text-2xl font-bold text-slate-900 mt-12 mb-4">Our Core Philosophy</h3>
+                    <ul class="list-disc pl-6 space-y-2">
+                        <li><strong>No Central Database:</strong> Your identity and social graph belong to you, on-chain.</li>
+                        <li><strong>USDC First:</strong> We prioritize stable value over volatile speculation.</li>
+                        <li><strong>Invisible Tech:</strong> Users shouldn't know they are using blockchain.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- PAGE: CAREERS -->
+        <!-- ============================================== -->
+        <div id="page-careers" class="page-section hidden pt-32 pb-24">
+            <div class="max-w-4xl mx-auto px-6">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-extrabold text-slate-900 mb-4">Join the Core Team</h2>
+                    <p class="text-xl text-slate-500">Help us build the Visa for the AI Economy. <br>Remote-First. Meritocratic. High Impact.</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Role 1 -->
+                    <div class="p-6 bg-white border border-slate-200 rounded-xl hover:border-accent-blue transition-colors cursor-pointer group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-900 group-hover:text-accent-blue transition-colors">Senior Protocol Engineer</h3>
+                                <p class="text-sm text-slate-500 mt-1">Remote (Global) • Engineering</p>
+                            </div>
+                            <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Open</span>
+                        </div>
+                        <p class="mt-4 text-slate-600">Architecting the Atomic Asset Container standard and optimizing the Dual-Chain synchronization layer. Requires deep Solidity/EVM experience.</p>
+                    </div>
+
+                    <!-- Role 2 -->
+                    <div class="p-6 bg-white border border-slate-200 rounded-xl hover:border-accent-blue transition-colors cursor-pointer group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-900 group-hover:text-accent-blue transition-colors">Head of Developer Relations</h3>
+                                <p class="text-sm text-slate-500 mt-1">Remote (US/EU) • Growth</p>
+                            </div>
+                            <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Open</span>
+                        </div>
+                        <p class="mt-4 text-slate-600">Building the ecosystem for AI Agent developers. You will drive adoption of our SDK and JSON-RPC standards.</p>
+                    </div>
+
+                    <!-- Role 3 -->
+                    <div class="p-6 bg-white border border-slate-200 rounded-xl hover:border-accent-blue transition-colors cursor-pointer group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-900 group-hover:text-accent-blue transition-colors">Product Designer (Systems)</h3>
+                                <p class="text-sm text-slate-500 mt-1">Remote • Design</p>
+                            </div>
+                            <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Open</span>
+                        </div>
+                        <p class="mt-4 text-slate-600">Visualizing complex protocol states into simple, beautiful interfaces for our Consumer Wallet and Merchant Dashboard.</p>
+                    </div>
+                </div>
+                
+                <div class="mt-12 text-center">
+                    <p class="text-slate-600">Don't see a role? Send your portfolio to <a href="mailto:careers@beamio.io" class="text-accent-blue hover:underline">careers@beamio.io</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- PAGE: CONTACT -->
+        <!-- ============================================== -->
+        <div id="page-contact" class="page-section hidden pt-32 pb-24">
+            <div class="max-w-2xl mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-extrabold text-slate-900 mb-4">Contact Us</h2>
+                    <p class="text-slate-500">Partnerships, Integrations, or just to say hello.</p>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
+                    <form class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Name</label>
+                            <input type="text" class="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-accent-blue focus:ring-1 focus:ring-accent-blue outline-none transition-colors" placeholder="Jane Doe">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Email</label>
+                            <input type="email" class="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-accent-blue focus:ring-1 focus:ring-accent-blue outline-none transition-colors" placeholder="jane@company.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Subject</label>
+                            <select class="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-accent-blue focus:ring-1 focus:ring-accent-blue outline-none transition-colors">
+                                <option>Business Partnership / Merchant</option>
+                                <option>Developer Integration</option>
+                                <option>Press Inquiry</option>
+                                <option>General Question</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                            <textarea rows="4" class="w-full px-4 py-3 rounded-lg bg-slate-50 border border-slate-200 focus:border-accent-blue focus:ring-1 focus:ring-accent-blue outline-none transition-colors" placeholder="How can we help you?"></textarea>
+                        </div>
+                        <button class="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">Send Message</button>
+                    </form>
+                </div>
+
+                <div class="mt-12 text-center text-sm text-slate-500">
+                    <p>Direct Email: <a href="mailto:hello@beamio.io" class="text-accent-blue">hello@beamio.io</a></p>
+                    <p class="mt-2">San Francisco • Palo Alto • Remote</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 pt-16 pb-8">
+        <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-12 mb-12">
+            <div class="col-span-1">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-6 h-6 rounded bg-gradient-primary flex items-center justify-center text-white font-bold text-xs">B</div>
+                    <span class="font-bold text-slate-900">BEAMIO</span>
+                </div>
+                <p class="text-xs text-slate-500 leading-relaxed mb-6">
+                    The Visa for the AI Economy.<br>
+                    Built on Base L2 & CoNET L1.<br>
+                    No Central Database.
+                </p>
+                <!-- Socials -->
+                <div class="flex gap-4">
+                    <a href="https://x.com/beamioapp" target="_blank" class="text-slate-400 hover:text-slate-900 transition-colors">
+                        <span class="sr-only">X (Twitter)</span>
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    </a>
+                    <a href="https://github.com/beamio-APP/" target="_blank" class="text-slate-400 hover:text-slate-900 transition-colors">
+                        <span class="sr-only">GitHub</span>
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+                    </a>
+                </div>
+            </div>
+            
+            <div>
+                <h4 class="font-bold text-slate-900 text-sm mb-4">Protocol</h4>
+                <ul class="space-y-2 text-sm text-slate-500">
+                    <li><a href="#blueprint" onclick="navigateTo('home')" class="hover:text-accent-blue">The Blueprint</a></li>
+                    <li><a href="#blueprint" onclick="navigateTo('home')" class="hover:text-accent-blue">Atomic Container</a></li>
+                    <li><a href="#blueprint" onclick="navigateTo('home')" class="hover:text-accent-blue">Smart Receipts</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="font-bold text-slate-900 text-sm mb-4">Developers</h4>
+                <ul class="space-y-2 text-sm text-slate-500">
+                    <li><a href="#" class="hover:text-accent-blue">Documentation</a></li>
+                    <li><a href="#" class="hover:text-accent-blue">JSON-RPC</a></li>
+                    <li><a href="#" class="hover:text-accent-blue">CoNET Explorer</a></li>
+                    <li><a href="#" class="hover:text-accent-blue">Bug Bounty</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="font-bold text-slate-900 text-sm mb-4">Company</h4>
+                <ul class="space-y-2 text-sm text-slate-500">
+                    <li><a href="#" onclick="navigateTo('about')" class="hover:text-accent-blue">About Beamio</a></li>
+                    <li><a href="#" onclick="navigateTo('careers')" class="hover:text-accent-blue">Careers</a></li>
+                    <li><a href="#" onclick="navigateTo('contact')" class="hover:text-accent-blue">Contact Us</a></li>
+                    <li><a href="#" class="hover:text-accent-blue">Privacy & Terms</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto px-6 border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-slate-400">
+            <div>&copy; 2026 Beamio Inc. All rights reserved.</div>
+            <div class="mt-2 md:mt-0 font-mono">Ver 7.1 (Stable)</div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Layer Switcher Logic (Interactive Blueprint)
+        function switchLayer(layerId, btn) {
+            document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.layer-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('content-' + layerId).classList.add('active');
+        }
+
+        // Router Logic (Virtual Pages)
+        function navigateTo(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
+            // Show target page
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Canvas Animation (Smart Routing)
+        const canvas = document.getElementById('workflowCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resize() {
+            if (!canvas) return;
+            width = canvas.parentElement.offsetWidth;
+            height = canvas.parentElement.offsetHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        // Call resize initially if elements are visible, otherwise on page load
+        resize();
+
+        class Packet {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = 0; this.y = height / 2;
+                this.progress = 0;
+                this.speed = 0.006 + Math.random() * 0.002;
+                this.type = Math.random() > 0.5 ? 'voucher' : 'usdc'; // Input type
+            }
+            update() {
+                this.progress += this.speed;
+                if (this.progress >= 1) this.reset();
+            }
+            draw() {
+                const p1 = { x: width * 0.15, y: height/2 }; // User
+                const p2 = { x: width * 0.5, y: height/2 };  // Protocol
+                const p3 = { x: width * 0.85, y: height/2 }; // Merchant
+
+                let curX, curY;
+
+                if (this.progress < 0.5) { 
+                    // Phase 1: Input -> Protocol (Mixed Assets)
+                    const t = this.progress * 2;
+                    curX = p1.x + (p2.x - p1.x) * t;
+                    curY = p1.y - Math.sin(t * Math.PI) * 30; // Arc movement
+                    
+                    if (this.type === 'voucher') {
+                        ctx.fillStyle = '#7c3aed'; ctx.beginPath(); ctx.arc(curX, curY, 4, 0, Math.PI*2); ctx.fill();
+                    } else {
+                        ctx.fillStyle = '#1562f0'; ctx.beginPath(); ctx.arc(curX, curY, 4, 0, Math.PI*2); ctx.fill();
+                    }
+                } else { 
+                    // Phase 2: Protocol -> Settlement (Unified)
+                    const t = (this.progress - 0.5) * 2;
+                    curX = p2.x + (p3.x - p2.x) * t;
+                    curY = p2.y; // Straight line
+                    
+                    // Green Settlement Particle
+                    ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.arc(curX, curY, 5, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(curX-10, curY); ctx.lineTo(curX, curY); ctx.stroke();
+                }
+            }
+        }
+
+        const packets = [];
+        for(let i=0; i<8; i++) setTimeout(() => packets.push(new Packet()), i*500);
+
+        function drawNodes() {
+            const y = height / 2;
+            const x1 = width * 0.15; const x2 = width * 0.5; const x3 = width * 0.85;
+            
+            // Connecting Lines
+            ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth=1; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x2, y); ctx.lineTo(x3, y); ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth=1; ctx.stroke();
+
+            // 1. User Node (Express Pay)
+            ctx.fillStyle = 'white'; ctx.shadowBlur=10; ctx.shadowColor='rgba(0,0,0,0.05)';
+            ctx.beginPath(); ctx.arc(x1, y, 30, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+            ctx.strokeStyle='#94a3b8'; ctx.lineWidth=2; ctx.stroke();
+            ctx.fillStyle='#64748b'; ctx.font='10px Inter'; ctx.textAlign='center'; ctx.fillText('EXPRESS PAY', x1, y+45);
+            // Icon
+            ctx.fillStyle='#1e293b'; ctx.fillRect(x1-8, y-6, 16, 12);
+
+            // 2. Protocol Node (Core Logic)
+            const pulse = 40 + Math.sin(Date.now()*0.003)*5;
+            ctx.fillStyle='rgba(124, 58, 237, 0.05)'; ctx.beginPath(); ctx.arc(x2, y, pulse, 0, Math.PI*2); ctx.fill(); // Pulse
+            ctx.fillStyle='#ffffff'; ctx.beginPath(); ctx.arc(x2, y, 12, 0, Math.PI*2); ctx.fill(); // Center White
+            ctx.strokeStyle='#7c3aed'; ctx.lineWidth=2; ctx.stroke(); // Purple Border
+            
+            ctx.fillStyle='#7c3aed'; ctx.font='bold 11px Inter'; ctx.fillText('SMART ROUTING', x2, y+45);
+            ctx.fillStyle='#94a3b8'; ctx.font='10px Inter'; ctx.fillText('Priority 1 -> 2', x2, y+60);
+
+            // 3. Merchant Node (Settlement)
+            ctx.fillStyle='white'; ctx.shadowBlur=10; ctx.shadowColor='rgba(0,0,0,0.05)';
+            ctx.beginPath(); ctx.arc(x3, y, 30, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+            ctx.strokeStyle='#10b981'; ctx.lineWidth=2; ctx.stroke();
+            ctx.fillStyle='#64748b'; ctx.font='10px Inter'; ctx.fillText('MERCHANT', x3, y+45);
+            // Checkmark
+            ctx.beginPath(); ctx.moveTo(x3-6, y); ctx.lineTo(x3-2, y+4); ctx.lineTo(x3+6, y-4); 
+            ctx.strokeStyle='#10b981'; ctx.lineWidth=2; ctx.stroke();
+        }
+
+        function animate() {
+            if (!canvas) return;
+            ctx.clearRect(0, 0, width, height);
+            drawNodes();
+            packets.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+        
+        // Init
+        resize();
+        animate();
+    </script>
+</body>
+</html>
+
