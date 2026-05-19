@@ -824,10 +824,10 @@ export default function BeamioProtocolPage() {
                  </div>
                  <div className="p-6 md:p-8 text-sm md:text-base font-mono text-slate-300 overflow-x-auto">
                     <pre className="leading-relaxed">
-<span className="text-slate-500">// BCP v3.2: AI Agent Autonomous Execution</span>{'\n'}
+<span className="text-slate-500">{'// BCP v3.2: AI Agent Autonomous Execution'}</span>{'\n'}
 <span className="text-purple-400">const</span> intent = <span className="text-purple-400">await</span> aiAgent.<span className="text-blue-400">parse</span>(request);{'\n'}
 {'\n'}
-<span className="text-slate-500">// 1. Lock funds via Atomic Asset Container</span>{'\n'}
+<span className="text-slate-500">{'// 1. Lock funds via Atomic Asset Container'}</span>{'\n'}
 <span className="text-purple-400">const</span> tx = <span className="text-purple-400">await</span> beamio.<span className="text-blue-400">reserve</span>({'{'}{'\n'}
 {'  '}asset: <span className="text-green-400">{'"USDC"'}</span>,{'\n'}
 {'  '}amount: <span className="text-orange-400">100.00</span>,{'\n'}
@@ -835,10 +835,10 @@ export default function BeamioProtocolPage() {
 {'  '}ttl: <span className="text-green-400">{'"24h"'}</span>{'\n'}
 {'}'});{'\n'}
 {'\n'}
-<span className="text-slate-500">// 2. Deterministic Solvency Guaranteed</span>{'\n'}
+<span className="text-slate-500">{'// 2. Deterministic Solvency Guaranteed'}</span>{'\n'}
 console.<span className="text-blue-400">log</span>(<span className="text-green-400">{'"Solvency locked:"'}</span>, tx.isReserved);{'\n'}
 {'\n'}
-<span className="text-slate-500">// 3. Execute zero-gas state sync on CoNET L1</span>{'\n'}
+<span className="text-slate-500">{'// 3. Execute zero-gas state sync on CoNET L1'}</span>{'\n'}
 <span className="text-purple-400">await</span> beamio.social.<span className="text-blue-400">syncReceipt</span>(tx.hash);
                     </pre>
                  </div>
@@ -1020,9 +1020,9 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
          </h2>
 
          <div className="flex flex-col sm:flex-row gap-4 mb-24 w-full justify-center">
-            <button className="px-8 py-4 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">
+            <a href="mailto:support@beamio.app?subject=Beamio%20strategy%20team" className="px-8 py-4 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">
                Contact Strategy Team
-            </button>
+            </a>
             <button onClick={() => setCurrentPage('whitepaper')} className="px-8 py-4 bg-white border border-slate-300 text-slate-700 rounded font-medium hover:bg-slate-50 transition-colors shadow-sm">
                Developer Docs
             </button>
@@ -1032,9 +1032,9 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
          <div className="w-full flex flex-col md:flex-row justify-between items-center pt-8 border-t border-slate-200 text-xs font-mono text-slate-500">
            <p>© 2026 Beamio Core. All rights reserved.</p>
            <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="#" className="hover:text-slate-900 transition-colors">Twitter (X)</a>
-              <a href="#" className="hover:text-slate-900 transition-colors">GitHub</a>
-              <a href="#" className="hover:text-slate-900 transition-colors">Privacy</a>
+              <a href="mailto:support@beamio.app" className="hover:text-slate-900 transition-colors">Contact</a>
+              <a href="/terms" className="hover:text-slate-900 transition-colors">Terms</a>
+              <a href="/privacy" className="hover:text-slate-900 transition-colors">Privacy</a>
            </div>
          </div>
        </div>
