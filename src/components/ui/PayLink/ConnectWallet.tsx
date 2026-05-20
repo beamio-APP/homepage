@@ -4,7 +4,7 @@ import metamask_icon from "../assets/metamask-icon.svg"
 import coinbase_icon from "../assets/coinbase-icon.svg"
 import okx_icon from "../assets/okx-icon.png"
 import { toWalletClient } from "../../../util/toWalletClient"
-import cash_icon from "../assets/BeamioStatic.svg"
+import { BEAMIO_BRAND_LOGO_SRC } from "../../../components/BeamioBrandLogo"
 
 const ua = typeof navigator !== "undefined" ? navigator.userAgent : ""
 let isMobile = /Android|iPhone|iPad|iPod/i.test(ua)
@@ -673,7 +673,7 @@ export default function ConnectWallet({ t, _open = false }: Props) {
 			<div className="w-full mt-4 rounded-2xl border border-black/20 bg-[#f8f8f8] text-black shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
 				<div className="flex items-center justify-between px-5 py-4 border-b border-black/10">
 				<div className="flex items-center gap-3">
-					<img src={cash_icon} alt="CC Wallet" className="w-5 h-5" />
+					<img src={BEAMIO_BRAND_LOGO_SRC} alt="Beamio" className="w-5 h-5 rounded object-cover" />
 					<h3 className="text-base font-semibold">
 					{t("请选择钱包", "Select Wallet", "ウォレットを選択")}
 					</h3>

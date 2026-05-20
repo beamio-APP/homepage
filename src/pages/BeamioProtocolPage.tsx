@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import BeamioBrandLogo from '../components/BeamioBrandLogo';
 import {
  Lock,
  ShieldCheck,
  Zap,
- Server,
  Cpu,
- Globe,
  ArrowRight,
  Menu,
  X,
@@ -15,6 +15,10 @@ import {
  Layers,
  Smartphone,
  Terminal,
+ Store,
+ CreditCard,
+ Gift,
+ Share2,
  Download,
  CheckCircle2,
  BookOpen,
@@ -26,7 +30,7 @@ import {
 } from 'lucide-react';
 
 
-function Ecosystem({ onBack, lang, setLang }: { onBack: () => void; lang: 'EN' | 'CN'; setLang: (l: 'EN' | 'CN') => void }) {
+function Ecosystem({ onBack }: { onBack: () => void }) {
  const content = {
    EN: {
      title: 'The Operating Surfaces.',
@@ -81,7 +85,7 @@ function Ecosystem({ onBack, lang, setLang }: { onBack: () => void; lang: 'EN' |
  };
 
 
- const t = content[lang];
+ const t = content.EN;
 
 
  return (
@@ -91,13 +95,11 @@ function Ecosystem({ onBack, lang, setLang }: { onBack: () => void; lang: 'EN' |
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
          <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
            <ArrowRight className="rotate-180 text-slate-400 hover:text-[#1562F0] transition-colors" size={24} />
-           <div className="w-8 h-8 bg-gradient-to-br from-[#1562F0] to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-             <span className="text-white font-bold text-xl leading-none italic pr-1">B</span>
-           </div>
+           <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
            <span className="text-slate-900 font-semibold text-xl tracking-wide hidden sm:block">Beamio</span>
          </div>
-         <button onClick={() => setLang(lang === 'EN' ? 'CN' : 'EN')} className="text-xs font-mono border border-slate-300 text-slate-600 px-3 py-1.5 rounded hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
-           {lang === 'EN' ? '切换至中文' : 'Switch to English'}
+         <button onClick={onBack} className="text-xs font-mono border border-slate-300 text-slate-600 px-3 py-1.5 rounded hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
+           Back
          </button>
        </div>
      </nav>
@@ -117,7 +119,7 @@ function Ecosystem({ onBack, lang, setLang }: { onBack: () => void; lang: 'EN' |
          <div className="h-64 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center relative overflow-hidden border-b border-slate-100">
             {/* Abstract UI */}
             <div className="w-48 h-80 bg-white border border-slate-200 rounded-t-3xl absolute bottom-0 shadow-2xl flex flex-col items-center pt-8 px-4">
-               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1562F0] to-purple-500 mb-6 shadow-lg shadow-blue-500/30"></div>
+               <BeamioBrandLogo className="w-16 h-16 rounded-full object-cover mb-6 shadow-lg shadow-blue-500/30" />
                <div className="w-3/4 h-2 bg-slate-200 rounded-full mb-3"></div>
                <div className="w-1/2 h-2 bg-slate-200 rounded-full mb-8"></div>
                <div className="w-full flex flex-col gap-3">
@@ -237,7 +239,7 @@ function Ecosystem({ onBack, lang, setLang }: { onBack: () => void; lang: 'EN' |
 }
 
 
-function Whitepaper({ onBack, lang, setLang, initialScrollToSection }: { onBack: () => void; lang: 'EN' | 'CN'; setLang: (l: 'EN' | 'CN') => void; initialScrollToSection?: string }) {
+function Whitepaper({ onBack, initialScrollToSection }: { onBack: () => void; initialScrollToSection?: string }) {
  const content = {
    EN: {
      badge: 'TECHNICAL SPECIFICATION',
@@ -396,7 +398,7 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
  };
 
 
- const t = content[lang];
+ const t = content.EN;
 
 
  const scrollToSection = (id: number) => {
@@ -423,13 +425,11 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
          <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
            <ArrowRight className="rotate-180 text-slate-400 hover:text-[#1562F0] transition-colors" size={24} />
-           <div className="w-8 h-8 bg-gradient-to-br from-[#1562F0] to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-             <span className="text-white font-bold text-xl leading-none italic pr-1">B</span>
-           </div>
+           <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
            <span className="text-slate-900 font-semibold text-xl tracking-wide hidden sm:block">Beamio</span>
          </div>
-         <button onClick={() => setLang(lang === 'EN' ? 'CN' : 'EN')} className="text-xs font-mono border border-slate-300 text-slate-600 px-3 py-1.5 rounded hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
-           {lang === 'EN' ? '切换至中文' : 'Switch to English'}
+         <button onClick={onBack} className="text-xs font-mono border border-slate-300 text-slate-600 px-3 py-1.5 rounded hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
+           Back
          </button>
        </div>
      </nav>
@@ -443,7 +443,7 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-[#1562F0] mb-4 border border-blue-100">
               <FileText size={20} />
            </div>
-           <h3 className="text-slate-900 font-bold text-lg mb-1">{lang === 'EN' ? 'Contents' : '目录'}</h3>
+           <h3 className="text-slate-900 font-bold text-lg mb-1">Contents</h3>
            <p className="text-xs font-mono text-slate-400">{t.version}</p>
          </div>
          <ul className="flex flex-col gap-2 border-l-2 border-slate-200">
@@ -469,11 +469,9 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
              <BookOpen size={14} /> {t.badge}
            </div>
            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">{t.title}</h1>
-           <p className="text-slate-500 text-lg leading-relaxed">{
-             lang === 'EN'
-             ? 'A decentralized, full-stack interaction standard engineered for the Agentic Economy and Real-World Commerce.'
-             : '一个去中心化的全栈交互标准，专为 AI 代理经济与真实物理世界商业而设计。'
-           }</p>
+           <p className="text-slate-500 text-lg leading-relaxed">
+             A decentralized, full-stack interaction standard engineered for the Agentic Economy and Real-World Commerce.
+           </p>
          </div>
 
 
@@ -534,7 +532,7 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
 
          <div className="mt-20 pt-10 border-t border-slate-200 flex justify-center">
            <button onClick={onBack} className="px-8 py-3 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition-colors shadow-md">
-             {lang === 'EN' ? 'Back to Home' : '返回首页'}
+             Back to Home
            </button>
          </div>
        </div>
@@ -548,7 +546,6 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
 
 export default function BeamioProtocolPage() {
  const [isScrolled, setIsScrolled] = useState(false);
- const [lang, setLang] = useState<'EN' | 'CN'>('EN');
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
  const [currentPage, setCurrentPage] = useState<'home' | 'ecosystem' | 'whitepaper'>('home');
  const [whitepaperScrollTo, setWhitepaperScrollTo] = useState<string | null>(null);
@@ -556,51 +553,98 @@ export default function BeamioProtocolPage() {
 
  const content = {
    EN: {
-     nav: ['The Protocol', 'Infrastructure', 'Expansion', 'Developers'],
-     heroSub: 'Live today in closed-loop commerce. Extending next to apps and AI agents.',
+     nav: [
+       { label: 'Architecture', href: 'section-architecture' },
+       { label: 'Economics', href: 'section-economy' },
+       { label: 'Sandbox', to: '/homeExample' },
+     ],
+     heroSub: 'Connecting physical storefronts to the AI future. A dual-chain protocol delivering sub-second, zero-hardware USDC settlement with absolute cryptographic solvency.',
      ctaPrimary: 'Explore the Protocol',
      ctaSecondary: 'Read Whitepaper v3.2',
      problemTitle: 'The Trust Gap',
      problemHeadline: 'Commerce breaks when authorization, funds, and fulfillment fall out of sync.',
-     problemSub: 'Without reservation, merchants cannot verify solvency before fulfillment.',
+     problemSub: 'Without reservation, merchants cannot verify solvency before fulfillment. This asynchronous gap is the root cause of chargebacks and double-spending.',
      wedgeTitle: 'Deterministic Solvency',
      wedgeHeadline: 'Others verify agents. Beamio verifies solvency before fulfillment.',
      wedgeDesc: 'Beamio is not built for manual one-off payments. It is engineered for delegated execution. We introduce the missing clearing layer: mathematically reserved funds that merchants can cryptographically verify before they fulfill an order.',
      archTitle: 'Protocol Architecture',
      archHeadline: 'Engineered for the Agentic Economy.',
+     archSub: 'We rebuilt the commercial stack from the ground up. Zero centralized databases, fully programmable, and native to both humans and autonomous agents.',
      archCards: [
        { title: 'Dual-Chain Architecture', desc: 'Base L2 for settlement finality and security. CoNET L1 for data sovereignty. Zero centralized databases.' },
        { title: 'Atomic Asset Containers', desc: 'Programmable wrappers with the isReserved state, ensuring deterministic solvency before fulfillment.' },
        { title: 'ERC-4337 Smart Accounts', desc: 'Programmable commercial wallets enabling humans to set hyper-granular spending boundaries for autonomous agents.' },
        { title: 'AI-Native RPC & Schema', desc: 'No centralized API keys. LLM-standard schema allows agents to read chain data and construct transactions directly.' }
      ],
-     flowTitle: 'The Verifiable Lifecycle',
-     flowSteps: ['Authorize', 'Reserve', 'Accept', 'Fulfill', 'Settle / Roll Back'],
-     liveTitle: 'Already Live.',
-     liveHeadline: 'Proved in physical retail & F&B networks today.',
-     liveItems: [
-       { title: 'Consumer', desc: 'Personal App & Smart Wallets' },
-       { title: 'Merchant', desc: 'Business OS & SoftPOS' },
-       { title: 'Issuer', desc: 'Alliance OS for Branded Networks' },
-       { title: 'Physical Edge', desc: 'Genesis G1 & NFC Endpoints' }
+     flowKicker: 'State Machine',
+     flowTitle: 'The Verifiable Lifecycle.',
+     flowSteps: [
+       { title: 'Authorize', desc: 'User signs intent' },
+       { title: 'Reserve', desc: 'Soft Lock' },
+       { title: 'Accept', desc: 'Merchant verifies' },
+       { title: 'Fulfill', desc: 'Goods delivered' },
+       { title: 'Settle / Roll Back', desc: 'Atomic finality' }
      ],
+     liveTitle: 'Richmond Sandbox Live',
+     liveHeadline: 'Proven in the physical world.',
+     liveSub: 'We didn\'t just bypass the 2.4% legacy surcharge. We provided merchants with a full-suite blockchain marketing OS and a decentralized traffic-sharing network.',
+     liveMetrics: [
+       { value: '100', suffix: '%', label: 'On-Chain Finality' },
+       { value: '0', suffix: '%', label: 'Interaction Failure Rate', accent: true }
+     ],
+     liveItems: [
+       { title: 'Zero-Hardware SoftPOS', desc: 'Accept sub-second offline USDC payments using existing smart devices. Instantly reclaim the 2.4% lost to legacy credit card processing networks.' },
+       { title: 'NTAG 424 Physical Edge', desc: 'Bank-grade dynamic cryptography (SUN). Hardware-level endpoints that bridge offline physical intent seamlessly to on-chain isReserved states.' },
+       { title: 'Blockchain Marketing OS', desc: 'Mint unforgeable digital memberships, stored-value cards, and smart coupons directly to consumers\' wallets using the ERC-1155 standard.' },
+       { title: 'Cross-Border Traffic Routing', desc: 'Break physical silos. Distribute partner vouchers at checkout and earn automated USDC commissions via smart contracts when redeemed elsewhere.' }
+     ],
+     liveMoatTitle: 'Regulatory Moat: Canada RPAA Section 6 Compliant',
+     liveMoatDesc: 'Physical fund isolation and non-custodial routing qualify Beamio for the Closed-Loop Exemption. Zero Money Services Business (MSB) licensing friction for rapid hyper-scaling.',
      genesisTitle: 'CashTrees & Genesis',
      genesisDesc: 'CashTrees is our first branded deployment template. From NFC tap-to-acquire to real-world checkout settlement, proving trusted clearing in offline F&B networks.',
-     expansionTitle: 'The Expansion Path',
-     expansionHeadline: 'One rail. Multiple operating surfaces.',
+     expansionKicker: 'Master Plan',
+     expansionTitle: 'The Expansion Path.',
+     expansionHeadline: 'One deterministic rail. Multiple operating surfaces.',
      expansionSteps: [
-       { phase: 'Phase 1', title: 'Branded Networks', desc: 'Proving trusted clearing in live commerce.' },
-       { phase: 'Phase 2', title: 'Online Apps', desc: 'Extending the rail to consumer applications.' },
-       { phase: 'Phase 3', title: 'AI Agents', desc: 'Programmable commerce executed by autonomous agents.' }
+       { phase: 'Phase 1 — Live', title: 'Branded Networks', desc: 'Proving trusted clearing in live commerce. Zero-hardware deployment across retail and F&B physical endpoints.', color: 'emerald' },
+       { phase: 'Phase 2 — Scaling', title: 'Online Apps', desc: 'Extending the deterministic rail to consumer applications, digital marketplaces, and e-commerce checkouts.', color: 'blue' },
+       { phase: 'Phase 3 — The Vision', title: 'AI Agents', desc: 'Programmable commerce executed seamlessly by autonomous agents without human intervention or chargeback risks.', color: 'purple' }
      ],
      economyTitle: 'The Clearing Fuel',
      economyHeadline: 'Zero-Gas Experience via B-Units.',
-     economyDesc: 'To abstract away the complexities of Web3 gas fees for everyday consumers and merchants, Beamio introduces B-Units—a shadow accounting system. This enables seamless delegated transactions while driving real revenue through merchant clearing.',
-     economyList: ['1 B-Unit = $0.01 USDC Value Anchor', 'Completely transparent, gasless UX for end-users', 'Merchant-paid clearing tax (e.g., 0.8%) for real-world settlement', 'Enterprise Fuel Packs for autonomous AI agents'],
-     footerText: 'Beamio makes delegated commerce settle with confidence.'
+     economyDesc: 'To abstract away the complexities of Web3 gas fees for everyday consumers and merchants, Beamio introduces B-Units—a shadow accounting system. It enables seamless delegated transactions while driving real revenue through merchant clearing.',
+     economyItems: [
+       {
+         title: '1.00 B-Unit = $0.01 USDC Value Anchor',
+         desc: 'Completely transparent, gasless UX for end-users. 100% stablecoin backed.'
+       },
+       {
+         title: '2.00% Logic Tax',
+         desc: 'Merchant-paid clearing tax for heavy real-world settlement. Prevents margin squeeze on high-ticket items.',
+         badge: 'Capped @ 10 USDC',
+         featured: true
+       },
+       {
+         title: '0.02 USDC Interaction Fee',
+         desc: 'Counter-cyclical, high-frequency cash flow for physical point-of-sale verification.',
+         badge: 'Per Tap'
+       },
+       {
+         title: '1.00 USDC Batch Minting',
+         desc: 'Enterprise fuel packs for mass AI agent issuance and O(1) red-packet drops.',
+         badge: 'Flat Fee'
+       }
+     ],
+     footerTitle: 'Ready to upgrade your physical storefront?',
+     footerSub: 'Step into our Digital Store OS. Discover how local businesses bypass legacy credit card fees and tap into the decentralized traffic network.',
+     footerCta: 'Explore Merchant Solutions'
    },
    CN: {
-     nav: ['底层协议', '基础设施', '扩展路径', '开发者'],
+     nav: [
+       { label: '协议架构', href: 'section-architecture' },
+       { label: '清算燃料', href: 'section-economy' },
+       { label: '实体沙盘', to: '/homeExample' },
+     ],
      heroSub: '从真实商业闭环开始，延展到应用与 AI Agents。',
      ctaPrimary: '探索协议',
      ctaSecondary: '阅读白皮书 v3.2',
@@ -612,36 +656,75 @@ export default function BeamioProtocolPage() {
      wedgeDesc: 'Beamio 的核心原语不是为"单次人工支付"设计，而是为"委托执行"打造。我们补齐了缺失的清算层：在履约前可验证的保留资金。彻底消除双花攻击风险与退单不确定性。',
      archTitle: '底层技术原语',
      archHeadline: '专为 AI 代理经济打造的协议架构。',
+     archSub: 'We rebuilt the commercial stack from the ground up. Zero centralized databases, fully programmable, and native to both humans and autonomous agents.',
      archCards: [
        { title: '双链混合架构 (Dual-Chain)', desc: 'Base L2 负责高价值资金的安全结算，CoNET L1 承载数据与身份主权。彻底摒弃中心化数据库。' },
        { title: '原子资产容器 (AAC)', desc: '带有完整生命周期的资产包装器。通过 isReserved 智能合约级锁定，在履约前提供 100% 确定性偿付证明。' },
        { title: '智能消费账户 (ERC-4337)', desc: '可编程的商业钱包引擎。允许人类主理人为下游独立运行的 AI 代理设定精确到微交易的高颗粒度消费边界。' },
        { title: 'AI 原生 RPC 接口', desc: '摒弃传统 API Key。原生提供 LLM 标准 Schema，让大语言模型能够直接读取链上状态并构建复杂的清算交易。' }
      ],
-     flowTitle: '可验证生命周期',
-     flowSteps: ['授权 (Authorize)', '锁定资金 (Reserve)', '接受订单 (Accept)', '履约 (Fulfill)', '结算或回滚 (Settle)'],
-     liveTitle: '系统已上线',
-     liveHeadline: '已在实体餐饮与线下商圈闭环中跑通。',
-     liveItems: [
-       { title: '消费者端', desc: '个人 App 与智能合约账户' },
-       { title: '商户端', desc: '商业 OS 与 SoftPOS 终端' },
-       { title: '发行端', desc: '服务于品牌网络的 Alliance OS' },
-       { title: '物理边缘', desc: 'Genesis G1 与 NFC 物理接点' }
+     flowKicker: 'State Machine',
+     flowTitle: 'The Verifiable Lifecycle.',
+     flowSteps: [
+       { title: 'Authorize', desc: 'User signs intent' },
+       { title: 'Reserve', desc: 'Soft Lock' },
+       { title: 'Accept', desc: 'Merchant verifies' },
+       { title: 'Fulfill', desc: 'Goods delivered' },
+       { title: 'Settle / Roll Back', desc: 'Atomic finality' }
      ],
+     liveTitle: 'Richmond Sandbox Live',
+     liveHeadline: 'Proven in the physical world.',
+     liveSub: 'We didn\'t just bypass the 2.4% legacy surcharge. We provided merchants with a full-suite blockchain marketing OS and a decentralized traffic-sharing network.',
+     liveMetrics: [
+       { value: '100', suffix: '%', label: 'On-Chain Finality' },
+       { value: '0', suffix: '%', label: 'Interaction Failure Rate', accent: true }
+     ],
+     liveItems: [
+       { title: 'Zero-Hardware SoftPOS', desc: 'Accept sub-second offline USDC payments using existing smart devices. Instantly reclaim the 2.4% lost to legacy credit card processing networks.' },
+       { title: 'NTAG 424 Physical Edge', desc: 'Bank-grade dynamic cryptography (SUN). Hardware-level endpoints that bridge offline physical intent seamlessly to on-chain isReserved states.' },
+       { title: 'Blockchain Marketing OS', desc: 'Mint unforgeable digital memberships, stored-value cards, and smart coupons directly to consumers\' wallets using the ERC-1155 standard.' },
+       { title: 'Cross-Border Traffic Routing', desc: 'Break physical silos. Distribute partner vouchers at checkout and earn automated USDC commissions via smart contracts when redeemed elsewhere.' }
+     ],
+     liveMoatTitle: 'Regulatory Moat: Canada RPAA Section 6 Compliant',
+     liveMoatDesc: 'Physical fund isolation and non-custodial routing qualify Beamio for the Closed-Loop Exemption. Zero Money Services Business (MSB) licensing friction for rapid hyper-scaling.',
      genesisTitle: 'CashTrees 样板与硬件',
      genesisDesc: 'CashTrees 是首个跑在 Beamio 轨道上的品牌部署样板。从 NFC 挥卡获客到实体商业的真实结算，我们在最复杂的线下餐饮场景中验证了可信清算。',
-     expansionTitle: '三阶段扩张路径',
-     expansionHeadline: '同一条轨道，多种运行表面。',
+     expansionKicker: 'Master Plan',
+     expansionTitle: 'The Expansion Path.',
+     expansionHeadline: 'One deterministic rail. Multiple operating surfaces.',
      expansionSteps: [
-       { phase: '第一阶段', title: '自有品牌网络', desc: '在真实商业闭环中证明可信清算。' },
-       { phase: '第二阶段', title: '在线应用', desc: '将同一条轨道延展到消费者与商业应用。' },
-       { phase: '第三阶段', title: 'AI Agents', desc: '让委托式商业与程序化交易在同一轨道上运行。' }
+       { phase: 'Phase 1 — Live', title: 'Branded Networks', desc: 'Proving trusted clearing in live commerce. Zero-hardware deployment across retail and F&B physical endpoints.', color: 'emerald' },
+       { phase: 'Phase 2 — Scaling', title: 'Online Apps', desc: 'Extending the deterministic rail to consumer applications, digital marketplaces, and e-commerce checkouts.', color: 'blue' },
+       { phase: 'Phase 3 — The Vision', title: 'AI Agents', desc: 'Programmable commerce executed seamlessly by autonomous agents without human intervention or chargeback risks.', color: 'purple' }
      ],
      economyTitle: '清算燃料体系',
      economyHeadline: '通过 B-Units 实现零 Gas 摩擦体验。',
      economyDesc: '为了向普通消费者和商户抽象掉 Web3 昂贵的 Gas 费用，Beamio 引入了 B-Units 影子计账系统。这使得高频的委托交易得以无缝进行，同时通过商户清算实现真实的商业变现。',
-     economyList: ['1 B-Unit = 0.01 USDC 的价值锚定', '对前端用户完全透明的零 Gas 体验', '向商户收取真实商业结算的清算税 (如 0.8% Clearing Tax)', '为自治 AI 代理提供企业级燃料包 (Fuel Packs)'],
-     footerText: 'Beamio 让委托式商业的结算充满信心。'
+     economyItems: [
+       {
+         title: '1.00 B-Unit = $0.01 USDC Value Anchor',
+         desc: 'Completely transparent, gasless UX for end-users. 100% stablecoin backed.'
+       },
+       {
+         title: '2.00% Logic Tax',
+         desc: 'Merchant-paid clearing tax for heavy real-world settlement. Prevents margin squeeze on high-ticket items.',
+         badge: 'Capped @ 10 USDC',
+         featured: true
+       },
+       {
+         title: '0.02 USDC Interaction Fee',
+         desc: 'Counter-cyclical, high-frequency cash flow for physical point-of-sale verification.',
+         badge: 'Per Tap'
+       },
+       {
+         title: '1.00 USDC Batch Minting',
+         desc: 'Enterprise fuel packs for mass AI agent issuance and O(1) red-packet drops.',
+         badge: 'Flat Fee'
+       }
+     ],
+     footerTitle: 'Ready to upgrade your physical storefront?',
+     footerSub: 'Step into our Digital Store OS. Discover how local businesses bypass legacy credit card fees and tap into the decentralized traffic network.',
+     footerCta: 'Explore Merchant Solutions'
    }
  };
 
@@ -655,19 +738,19 @@ export default function BeamioProtocolPage() {
  }, []);
 
 
- const toggleLang = () => {
-   setLang(lang === 'EN' ? 'CN' : 'EN');
+ const t = content.EN;
+
+ const scrollToHomeSection = (sectionId: string) => {
+   document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+   setMobileMenuOpen(false);
  };
 
 
- const t = content[lang];
-
-
  if (currentPage === 'ecosystem') {
-   return <Ecosystem onBack={() => setCurrentPage('home')} lang={lang} setLang={setLang} />;
+   return <Ecosystem onBack={() => setCurrentPage('home')} />;
  }
   if (currentPage === 'whitepaper') {
-   return <Whitepaper onBack={() => { setCurrentPage('home'); setWhitepaperScrollTo(null); }} lang={lang} setLang={setLang} initialScrollToSection={whitepaperScrollTo ?? undefined} />;
+   return <Whitepaper onBack={() => { setCurrentPage('home'); setWhitepaperScrollTo(null); }} initialScrollToSection={whitepaperScrollTo ?? undefined} />;
  }
 
 
@@ -678,29 +761,89 @@ export default function BeamioProtocolPage() {
      <nav className={`fixed w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm py-4' : 'bg-transparent py-6'}`}>
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-           <div className="w-8 h-8 bg-gradient-to-br from-[#1562F0] to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-             <span className="text-white font-bold text-xl leading-none italic pr-1">B</span>
-           </div>
+           <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
            <span className="text-slate-900 font-bold text-xl tracking-wide">Beamio</span>
          </div>
 
          <div className="hidden md:flex items-center gap-8">
-           {t.nav.map((item, idx) => (
-             <a key={idx} href={`#section-${idx}`} className="text-sm font-medium text-slate-500 hover:text-[#1562F0] transition-colors">{item}</a>
+           {t.nav.map((item) => (
+             item.to ? (
+               <Link
+                 key={item.to}
+                 to={item.to}
+                 className="text-sm font-medium text-slate-500 hover:text-[#1562F0] transition-colors"
+               >
+                 {item.label}
+               </Link>
+             ) : (
+               <a
+                 key={item.href}
+                 href={`#${item.href}`}
+                 onClick={(e) => {
+                   e.preventDefault();
+                   scrollToHomeSection(item.href!);
+                 }}
+                 className="text-sm font-medium text-slate-500 hover:text-[#1562F0] transition-colors"
+               >
+                 {item.label}
+               </a>
+             )
            ))}
-           <button onClick={toggleLang} className="text-xs font-mono border border-slate-300 px-2 py-1 rounded text-slate-500 hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
-             {lang === 'EN' ? '中文' : 'EN'}
-           </button>
-           <button onClick={() => setCurrentPage('ecosystem')} className="bg-slate-900 text-white px-5 py-2 text-sm font-medium rounded hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">
-             {lang === 'EN' ? 'Ecosystem' : '生态入口'}
-           </button>
+           <a href="https://biz.beamio.app/biz/" target="_blank" rel="noreferrer" className="bg-slate-900 text-white px-5 py-2 text-sm font-medium rounded hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">
+             Beamio OS
+           </a>
          </div>
 
 
-         <button className="md:hidden text-slate-500" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+         <button
+           type="button"
+           className="md:hidden text-slate-500"
+           aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+         >
            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
          </button>
        </div>
+
+       {mobileMenuOpen && (
+         <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-md">
+           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3">
+             {t.nav.map((item) => (
+               item.to ? (
+                 <Link
+                   key={item.to}
+                   to={item.to}
+                   onClick={() => setMobileMenuOpen(false)}
+                   className="text-sm font-medium text-slate-600 hover:text-[#1562F0] transition-colors py-2"
+                 >
+                   {item.label}
+                 </Link>
+               ) : (
+                 <a
+                   key={item.href}
+                   href={`#${item.href}`}
+                   onClick={(e) => {
+                     e.preventDefault();
+                     scrollToHomeSection(item.href!);
+                   }}
+                   className="text-sm font-medium text-slate-600 hover:text-[#1562F0] transition-colors py-2"
+                 >
+                   {item.label}
+                 </a>
+               )
+             ))}
+             <a
+               href="https://biz.beamio.app/biz/"
+               target="_blank"
+               rel="noreferrer"
+               onClick={() => setMobileMenuOpen(false)}
+               className="self-start bg-slate-900 text-white px-5 py-2.5 text-sm font-medium rounded hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
+             >
+               Beamio OS
+             </a>
+           </div>
+         </div>
+       )}
      </nav>
 
 
@@ -712,16 +855,8 @@ export default function BeamioProtocolPage() {
        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-orange-400/10 blur-[100px] rounded-full pointer-events-none"></div>
 
        <div className="max-w-5xl mx-auto text-center relative z-10">
-         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-orange-200 bg-orange-50 text-orange-600 text-xs font-mono tracking-wider mb-8 shadow-sm">
-           <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shadow-[0_0_8px_#F97316]"></span>
-           PROTOCOL v3.2 LIVE
-         </div>
          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold text-slate-900 tracking-tight leading-[1.05] mb-8">
-           {lang === 'EN' ? (
-             <>The Trusted <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1562F0] via-purple-500 to-orange-500">Clearing Rail</span><br />for Delegated Commerce.</>
-           ) : (
-             <>委托式商业的<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1562F0] via-purple-500 to-orange-500">可信清算</span>基础设施</>
-           )}
+           <>The deterministic rail for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1562F0] via-purple-500 to-orange-500">delegated commerce.</span></>
          </h1>
          <p className="text-lg md:text-2xl text-slate-500 max-w-2xl mx-auto mb-12 font-light">
            {t.heroSub}
@@ -789,11 +924,14 @@ export default function BeamioProtocolPage() {
 
 
      {/* Protocol Architecture (Whitepaper Deep Dive) */}
-     <section id="section-architecture" className="py-24 md:py-32 bg-slate-50 relative overflow-hidden">
+     <section id="section-architecture" className="py-24 md:py-32 bg-slate-50 relative overflow-hidden scroll-mt-24">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
            <div className="mb-16">
              <h3 className="text-orange-500 font-mono text-sm tracking-widest uppercase mb-4">{t.archTitle}</h3>
              <h2 className="text-3xl md:text-5xl font-bold text-slate-900">{t.archHeadline}</h2>
+             <p className="mt-6 max-w-4xl text-lg md:text-xl text-slate-500 leading-relaxed">
+               {t.archSub}
+             </p>
            </div>
 
 
@@ -849,7 +987,7 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
 
 
      {/* B-Units Economy Section */}
-     <section id="section-economy" className="py-24 bg-gradient-to-br from-orange-50 to-white border-y border-orange-100 overflow-hidden relative">
+     <section id="section-economy" className="py-24 bg-gradient-to-br from-orange-50 to-white border-y border-orange-100 overflow-hidden relative scroll-mt-24">
        <div className="absolute -left-40 -top-40 w-[500px] h-[500px] bg-orange-400/10 blur-[100px] rounded-full pointer-events-none"></div>
        <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
          <div className="order-2 lg:order-1 relative flex justify-center lg:justify-start">
@@ -880,13 +1018,42 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
            <p className="text-slate-600 text-lg mb-8 leading-relaxed">
              {t.economyDesc}
            </p>
-           <ul className="flex flex-col gap-4">
-             {t.economyList.map((item, i) => (
-               <li key={i} className="flex items-center gap-3 text-slate-700 font-medium bg-white p-4 rounded-lg border border-orange-100 shadow-sm">
-                 <div className="w-8 h-8 rounded bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
-                   <CheckCircle2 size={16} />
+           <ul className="flex flex-col gap-5">
+             {t.economyItems.map((item, i) => (
+               <li
+                 key={i}
+                 className={`relative flex items-start gap-5 rounded-2xl bg-white p-6 border shadow-sm overflow-hidden ${
+                   item.featured
+                     ? 'border-orange-200 shadow-orange-500/10'
+                     : 'border-slate-200'
+                 }`}
+               >
+                 {item.featured && <div className="absolute left-0 top-0 h-full w-1.5 bg-orange-500" />}
+                 <div className="mt-1 w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0">
+                   {i === 0 && <CheckCircle2 size={18} />}
+                   {i === 1 && <Terminal size={18} />}
+                   {i === 2 && <Zap size={18} />}
+                   {i === 3 && <Box size={18} />}
                  </div>
-                 {item}
+                 <div className="min-w-0 flex-1">
+                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                     <h4 className="text-xl font-extrabold tracking-tight text-slate-900">
+                       {item.title}
+                     </h4>
+                     {item.badge && (
+                       <span className={`self-start rounded-full px-4 py-1 text-xs font-extrabold uppercase tracking-[0.18em] ${
+                         item.featured
+                           ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                           : 'text-slate-400'
+                       }`}>
+                         {item.badge}
+                       </span>
+                     )}
+                   </div>
+                   <p className="mt-3 text-base md:text-lg leading-relaxed text-slate-500">
+                     {item.desc}
+                   </p>
+                 </div>
                </li>
              ))}
            </ul>
@@ -898,112 +1065,183 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
      {/* Flow Section (Verifiable Lifecycle) */}
      <section id="section-flow" className="py-24 md:py-32 bg-white border-b border-slate-200 scroll-mt-24">
        <div className="max-w-7xl mx-auto px-6 md:px-12 text-center">
-         <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-20">{t.flowTitle}</h2>
+         <p className="text-[#1562F0] font-mono text-xs tracking-[0.35em] uppercase mb-4">
+           {t.flowKicker}
+         </p>
+         <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-20">
+           {t.flowTitle}
+         </h2>
 
-         <div className="flex flex-col md:flex-row items-center justify-between relative">
-           <div className="hidden md:block absolute top-1/2 left-0 w-full h-[2px] bg-slate-200 -z-10 -translate-y-1/2"></div>
+         <div className="relative max-w-6xl mx-auto">
+           <div className="hidden md:block absolute top-7 left-8 right-8 h-1 bg-gradient-to-r from-slate-200 via-blue-300 to-slate-200 rounded-full"></div>
 
-           {t.flowSteps.map((step, idx) => (
-             <button
-               key={idx}
-               type="button"
-               onClick={() => { setCurrentPage('whitepaper'); setWhitepaperScrollTo('3'); }}
-               className="flex flex-col items-center mb-8 md:mb-0 relative group cursor-pointer bg-transparent border-0 p-0 text-left"
-             >
-               {idx !== t.flowSteps.length - 1 && <div className="md:hidden w-1 h-12 bg-slate-200 my-2"></div>}
+           <div className="relative grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-6">
+             {t.flowSteps.map((step, idx) => {
+               const isActive = idx === 1;
 
-               <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border-2 bg-white transition-all duration-300 ${idx === 1 ? 'border-purple-500 shadow-lg shadow-purple-500/20 ring-4 ring-purple-50' : 'border-slate-200 group-hover:border-slate-400'}`}>
-                 <span className={`text-xl font-bold ${idx === 1 ? 'text-transparent bg-clip-text bg-gradient-to-br from-[#1562F0] to-purple-600' : 'text-slate-400'}`}>{idx + 1}</span>
-               </div>
-               <span className={`mt-6 font-bold text-sm md:text-base ${idx === 1 ? 'text-purple-600' : 'text-slate-600'}`}>{step}</span>
-             </button>
-           ))}
+               return (
+                 <div
+                   key={idx}
+                   className="group relative flex flex-col items-center bg-transparent border-0 p-0 text-center"
+                 >
+                   {idx !== t.flowSteps.length - 1 && <div className="md:hidden w-1 h-10 bg-slate-200 rounded-full order-2 my-3"></div>}
+
+                   <div className={`relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center border transition-all duration-300 ${
+                     isActive
+                       ? 'bg-[#1562F0] border-[#1562F0] text-white shadow-[0_0_38px_rgba(21,98,240,0.45)] ring-8 ring-blue-100/80'
+                       : 'bg-white border-slate-200 text-slate-400 shadow-sm group-hover:border-[#1562F0]/40 group-hover:text-[#1562F0]'
+                   }`}>
+                     <span className="text-base font-extrabold">{idx + 1}</span>
+                   </div>
+
+                   <h3 className={`mt-6 text-base font-extrabold tracking-tight ${
+                     isActive ? 'text-[#1562F0]' : 'text-slate-900'
+                   }`}>
+                     {step.title}
+                   </h3>
+                   {isActive ? (
+                     <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1562F0]">
+                       <ShieldCheck size={11} />
+                       {step.desc}
+                     </span>
+                   ) : (
+                     <p className="mt-3 text-sm text-slate-500">
+                       {step.desc}
+                     </p>
+                   )}
+                 </div>
+               );
+             })}
+           </div>
          </div>
        </div>
      </section>
 
 
-     {/* Already Live / Hardware Section */}
-     <section id="section-1" className="py-24 md:py-32 bg-slate-50">
-       <div className="max-w-7xl mx-auto px-6 md:px-12">
-          <div className="mb-16">
-             <h3 className="text-[#1562F0] font-mono text-sm tracking-widest uppercase mb-4">{t.liveTitle}</h3>
-             <h2 className="text-3xl md:text-5xl font-bold text-slate-900">{t.liveHeadline}</h2>
+     {/* Already Live / Sandbox Section */}
+     <section id="section-1" className="py-24 md:py-32 bg-white border-b border-slate-200">
+       <div className="max-w-6xl mx-auto px-6 md:px-12">
+          <div className="text-center mb-16">
+             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-emerald-700 mb-6">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"></span>
+                {t.liveTitle}
+             </div>
+             <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-6">
+                {t.liveHeadline}
+             </h2>
+             <p className="max-w-3xl mx-auto text-base md:text-lg text-slate-500 leading-relaxed">
+                {t.liveSub}
+             </p>
           </div>
 
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-             <div className="lg:col-span-7 flex flex-col gap-4">
-               {t.liveItems.map((item, idx) => (
-                 <div key={idx} className="p-6 md:p-8 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center gap-6 group hover:border-blue-300 hover:shadow-md transition-all">
-                   <div className="w-14 h-14 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-[#1562F0] group-hover:bg-blue-50 transition-colors">
-                      {idx === 0 && <Globe size={24} />}
-                      {idx === 1 && <Server size={24} />}
-                      {idx === 2 && <ShieldCheck size={24} />}
-                      {idx === 3 && <Cpu size={24} />}
-                   </div>
-                   <div>
-                     <h4 className="text-slate-900 font-bold text-lg">{item.title}</h4>
-                     <p className="text-slate-500 text-sm mt-1">{item.desc}</p>
-                   </div>
-                 </div>
-               ))}
-             </div>
-
-
-             <div className="lg:col-span-5 rounded-xl border border-slate-200 bg-white shadow-xl p-8 relative overflow-hidden flex flex-col justify-end min-h-[400px]">
-                <div className="absolute top-10 left-10 right-10 bottom-40 border border-slate-100 rounded-lg bg-slate-50/50 flex items-center justify-center overflow-hidden">
-                   <div className="w-32 h-32 bg-white rounded-md shadow-lg border border-slate-200 flex items-center justify-center relative">
-                      <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_10px_#F97316]"></div>
-                      <div className="w-16 h-[2px] bg-slate-200 absolute bottom-4 left-4"></div>
-                      <Cpu size={32} className="text-slate-300" />
-                   </div>
-                </div>
-
-                <div className="relative z-10">
-                   <div className="inline-block px-2 py-1 bg-orange-50 border border-orange-100 text-xs font-mono text-orange-600 rounded mb-4">EDGE COMPUTE</div>
-                   <h3 className="text-2xl font-bold text-slate-900 mb-2">{t.genesisTitle}</h3>
-                   <p className="text-slate-500 text-sm leading-relaxed">
-                     {t.genesisDesc}
-                   </p>
-                </div>
-             </div>
+          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-16">
+             {t.liveMetrics.map((metric, idx) => (
+               <div key={idx} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-50/60 px-8 py-10 text-center shadow-sm">
+                  <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-transparent via-[#1562F0] to-transparent"></div>
+                  <div className={`text-6xl md:text-7xl font-black tracking-tighter leading-none ${metric.accent ? 'text-[#1562F0]' : 'text-slate-900'}`}>
+                     {metric.value}<span className="text-3xl md:text-4xl">{metric.suffix}</span>
+                  </div>
+                  <div className="mt-4 text-[10px] md:text-xs font-extrabold uppercase tracking-[0.28em] text-slate-500">
+                     {metric.label}
+                  </div>
+               </div>
+             ))}
           </div>
 
+          <div className="grid md:grid-cols-2 gap-8 mb-20">
+             {t.liveItems.map((item, idx) => (
+               <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-8 md:p-10 shadow-sm hover:shadow-lg transition-shadow">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 mb-10">
+                     {idx === 0 && <Store size={20} />}
+                     {idx === 1 && <CreditCard size={20} />}
+                     {idx === 2 && <Gift size={20} />}
+                     {idx === 3 && <Share2 size={20} />}
+                  </div>
+                  <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-900 mb-4">
+                     {item.title}
+                  </h3>
+                  <p className="text-sm md:text-base leading-relaxed text-slate-500">
+                     {item.desc}
+                  </p>
+               </div>
+             ))}
+          </div>
 
-          {/* CTA to Ecosystem Page */}
-          <div className="mt-16 flex justify-center">
-             <button
-               type="button"
-               onClick={() => setCurrentPage('ecosystem')}
-               className="px-8 py-4 bg-white border border-slate-300 shadow-sm text-slate-900 rounded font-bold hover:bg-slate-50 hover:border-[#1562F0] hover:text-[#1562F0] transition-all flex items-center justify-center gap-2 group cursor-pointer"
-             >
-                {lang === 'EN' ? 'Explore Operating Surfaces & Downloads' : '探索所有运行表面与下载'}
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-             </button>
+          <div className="max-w-4xl mx-auto rounded-3xl bg-slate-950 px-8 py-8 md:px-12 md:py-10 shadow-2xl shadow-slate-900/20 flex flex-col md:flex-row items-start gap-7">
+             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-[#1562F0] flex-shrink-0">
+                <ShieldCheck size={32} />
+             </div>
+             <div>
+                <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-white mb-3">
+                   {t.liveMoatTitle}
+                </h3>
+                <p className="text-sm md:text-base leading-relaxed text-slate-400">
+                   {t.liveMoatDesc}
+                </p>
+             </div>
           </div>
        </div>
      </section>
 
 
      {/* Expansion Path */}
-     <section id="section-2" className="py-24 md:py-40 bg-white border-y border-slate-200">
-       <div className="max-w-5xl mx-auto px-6 md:px-12 text-center">
-         <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">{t.expansionTitle}</h2>
-         <p className="text-xl text-slate-500 mb-20">{t.expansionHeadline}</p>
+     <section id="section-2" className="py-24 md:py-40 bg-white border-y border-slate-200 overflow-hidden">
+       <div className="max-w-7xl mx-auto px-6 md:px-12 text-center">
+         <p className="text-[#1562F0] font-mono text-xs tracking-[0.35em] uppercase mb-4">
+           {t.expansionKicker}
+         </p>
+         <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-6">
+           {t.expansionTitle}
+         </h2>
+         <p className="text-xl text-slate-500 mb-24">
+           {t.expansionHeadline}
+         </p>
 
+         <div className="relative">
+           <div className="hidden md:block absolute top-12 left-[12%] right-[12%] h-1 bg-gradient-to-r from-emerald-200 via-blue-200 to-purple-200 rounded-full"></div>
 
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           {t.expansionSteps.map((step, idx) => (
-             <div key={idx} className="flex flex-col items-center text-center group">
-               <div className="w-full h-1.5 bg-slate-100 relative mb-8 rounded-full overflow-hidden">
-                  <div className={`absolute top-0 left-0 h-full w-full bg-gradient-to-r from-[#1562F0] to-purple-500 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-700 ease-out`} style={{ transitionDelay: `${idx * 100}ms` }}></div>
-               </div>
-               <span className="text-purple-600 font-mono text-xs uppercase tracking-widest mb-4">{step.phase}</span>
-               <h4 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h4>
-               <p className="text-sm text-slate-500 leading-relaxed">{step.desc}</p>
-             </div>
-           ))}
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-14 md:gap-10">
+             {t.expansionSteps.map((step, idx) => {
+               const expansionStepStyles = {
+                 emerald: {
+                   icon: 'text-emerald-600 shadow-emerald-500/20',
+                   badge: 'bg-emerald-50 text-emerald-600',
+                   dot: 'bg-emerald-500'
+                 },
+                 blue: {
+                   icon: 'text-[#1562F0] shadow-blue-500/20',
+                   badge: 'bg-blue-50 text-[#1562F0]',
+                   dot: 'bg-[#1562F0]'
+                 },
+                 purple: {
+                   icon: 'text-purple-600 shadow-purple-500/20',
+                   badge: 'bg-purple-50 text-purple-600',
+                   dot: 'bg-purple-500'
+                 }
+               };
+               const styles = expansionStepStyles[step.color as keyof typeof expansionStepStyles] ?? expansionStepStyles.blue;
+
+               return (
+                 <div key={idx} className="relative flex flex-col items-center text-center">
+                   <div className={`relative z-10 w-24 h-24 rounded-2xl bg-white border border-slate-200 shadow-2xl ${styles.icon} flex items-center justify-center mb-9`}>
+                     {idx === 0 && <Store size={38} />}
+                     {idx === 1 && <Smartphone size={38} />}
+                     {idx === 2 && <Cpu size={38} />}
+                   </div>
+                   <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] ${styles.badge} mb-5`}>
+                     <span className={`w-1.5 h-1.5 rounded-full ${styles.dot}`}></span>
+                     {step.phase}
+                   </div>
+                   <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 mb-4">
+                     {step.title}
+                   </h3>
+                   <p className="max-w-sm text-sm md:text-base leading-relaxed text-slate-500">
+                     {step.desc}
+                   </p>
+                 </div>
+               );
+             })}
+           </div>
          </div>
        </div>
      </section>
@@ -1012,27 +1250,30 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
      {/* Footer / CTA */}
      <footer className="bg-slate-50 pt-24 pb-12">
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col items-center text-center">
-         <div className="w-12 h-12 bg-gradient-to-br from-[#1562F0] to-purple-600 rounded-xl flex items-center justify-center mb-8 shadow-lg shadow-blue-500/20">
-           <span className="text-white font-bold text-3xl leading-none italic pr-1">B</span>
+         <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-[#1562F0] mb-8 shadow-sm">
+           <Store size={28} />
          </div>
-         <h2 className="text-2xl md:text-4xl font-bold text-slate-900 mb-12 max-w-2xl leading-tight">
-           {t.footerText}
+         <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-5 max-w-4xl leading-tight tracking-tight">
+           {t.footerTitle}
          </h2>
+         <p className="max-w-2xl text-base md:text-lg text-slate-500 leading-relaxed mb-10">
+           {t.footerSub}
+         </p>
 
-         <div className="flex flex-col sm:flex-row gap-4 mb-24 w-full justify-center">
-            <a href="mailto:support@beamio.app?subject=Beamio%20strategy%20team" className="px-8 py-4 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">
-               Contact Strategy Team
-            </a>
-            <button onClick={() => setCurrentPage('whitepaper')} className="px-8 py-4 bg-white border border-slate-300 text-slate-700 rounded font-medium hover:bg-slate-50 transition-colors shadow-sm">
-               Developer Docs
-            </button>
+         <div className="flex mb-24 w-full justify-center">
+            <Link to="/homeExample" className="inline-flex items-center gap-3 px-8 py-4 bg-slate-950 text-white rounded-full font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-0.5">
+               {t.footerCta}
+               <ArrowRight size={18} />
+            </Link>
          </div>
 
 
          <div className="w-full flex flex-col md:flex-row justify-between items-center pt-8 border-t border-slate-200 text-xs font-mono text-slate-500">
            <p>© 2026 Beamio Core. All rights reserved.</p>
            <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="mailto:support@beamio.app" className="hover:text-slate-900 transition-colors">Contact</a>
+              <a href="https://github.com/petersunquest/android-init-NDEF/tree/main/src" target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">GitHub</a>
+              <a href="https://x.com/beamioapp" target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">X</a>
+              <Link to="/contact" className="hover:text-slate-900 transition-colors">Contact</Link>
               <a href="/terms" className="hover:text-slate-900 transition-colors">Terms</a>
               <a href="/privacy" className="hover:text-slate-900 transition-colors">Privacy</a>
            </div>

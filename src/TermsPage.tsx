@@ -1,4 +1,5 @@
 import React from "react"
+import BeamioBrandLogo from "./components/BeamioBrandLogo"
 
 const TermsPage: React.FC = () => {
   return (
@@ -7,7 +8,7 @@ const TermsPage: React.FC = () => {
       <header className="max-w-4xl mx-auto px-4 pt-10 pb-6">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-sky-500/30 bg-sky-50 text-sky-700 dark:bg-slate-900/70 dark:text-slate-200 dark:border-sky-500/40">
-            <span className="h-1.5 w-1.5 rounded-full bg-gradient-to-r from-sky-400 to-blue-500" />
+            <BeamioBrandLogo className="w-4 h-4 rounded object-cover" />
             <span className="text-[11px] uppercase tracking-[0.18em]">
               Beamio
             </span>
