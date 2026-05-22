@@ -7,6 +7,7 @@ import HomeExample from './pages/homeExample'
 import TermsPage from './TermsPage'
 import PrivacyPage from './PrivacyPage'
 import ContactPage from './pages/ContactPage'
+import AppDownloadPage from './pages/AppDownloadPage'
 
 const App: React.FC = () => {
 	return (
@@ -15,6 +16,7 @@ const App: React.FC = () => {
 				<Route path="/" element={<BeamioProtocolPage />} />
 				<Route path="/home" element={<BeamioProtocolPage />} />
 				<Route path="/homeExample" element={<HomeExample />} />
+				<Route path="/app-download" element={<AppDownloadPage />} />
 				<Route path="/contact" element={<ContactPage />} />
 				<Route path="/terms" element={<TermsPage />} />
 				<Route path="/privacy" element={<PrivacyPage />} />
