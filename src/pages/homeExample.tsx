@@ -28,7 +28,6 @@ export default function App() {
             <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
             <div className="flex items-center gap-2.5">
               <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-sm" />
-              <span className="font-bold text-xl tracking-tight text-slate-900">Beamio OS</span>
             </div>
           </div>
           

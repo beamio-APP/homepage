@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="light" lang="en">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
@@ -7,7 +7,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
     <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b0f1a" />
+    <meta name="theme-color" content="#f9f9fe" />
+    <meta name="color-scheme" content="light" />
 
     <!-- Primary Meta -->
     <title>Beamio — Stablecoin Pay App on Base</title>
@@ -50,14 +51,123 @@
     <meta name="twitter:image" content="https://beamio.app/og.png" />
 
     <!-- iOS Icons -->
+    <link rel="preload" as="image" href="%PUBLIC_URL%/logo192.png" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        color-scheme: light;
+        background: #f9f9fe;
+        color: #1a1c1f;
+      }
+      html {
+        background: #f9f9fe;
+      }
+      #root {
+        min-height: 100vh;
+        min-height: 100dvh;
+        background: #f9f9fe;
+      }
+      .boot-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 50% 20%, rgba(59, 130, 246, 0.12), transparent 30rem),
+          linear-gradient(180deg, #ffffff 0%, #f9f9fe 100%);
+      }
+      .boot-loading__card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-align: center;
+      }
+      .boot-loading__logo {
+        width: 76px;
+        height: 76px;
+        border-radius: 24px;
+        object-fit: contain;
+        box-shadow: 0 22px 54px rgba(37, 99, 235, 0.32);
+      }
+      .boot-loading__title {
+        color: #1a1c1f;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .boot-loading__text {
+        margin-top: -6px;
+        color: rgba(66, 70, 85, 0.82);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .boot-loading__spinner {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        border: 3px solid rgba(21, 98, 240, 0.18);
+        border-top-color: #1562f0;
+        animation: boot-loading-spin 0.8s linear infinite;
+      }
+      @keyframes boot-loading-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const forceLightMode = () => {
+          root.classList.remove('dark');
+          root.classList.add('light');
+          root.style.colorScheme = 'light';
+        };
+
+        forceLightMode();
+        new MutationObserver(forceLightMode).observe(root, {
+          attributes: true,
+          attributeFilter: ['class', 'style'],
+        });
+      })();
+    </script>
   </head>
 
   <body>
     <noscript>You need to enable JavaScript to run Beamio.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-loading" role="status" aria-live="polite" aria-label="Loading Beamio">
+        <div class="boot-loading__card">
+          <img
+            class="boot-loading__logo"
+            src="%PUBLIC_URL%/logo192.png"
+            alt="Beamio"
+            width="76"
+            height="76"
+            loading="eager"
+            decoding="sync"
+            fetchpriority="high"
+          />
+          <div class="boot-loading__title">Beamio</div>
+          <div class="boot-loading__text">Loading...</div>
+          <div class="boot-loading__spinner" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

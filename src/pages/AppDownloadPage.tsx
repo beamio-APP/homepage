@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ArrowLeft, Download, Loader2, Smartphone } from 'lucide-react'
 import BeamioBrandLogo from '../components/BeamioBrandLogo'
@@ -13,8 +13,28 @@ import {
 
 type PagePhase = 'checking' | 'install' | 'desktop'
 
+function resolveBeamioAppTarget(search: string): string {
+	const target = new URLSearchParams(search).get('target')?.trim() ?? ''
+	if (!target) return ''
+	try {
+		const url = new URL(target)
+		if (url.origin !== 'https://beamio.app') return ''
+		if (url.pathname !== '/app/' && url.pathname !== '/app' && !url.pathname.startsWith('/app/')) return ''
+		return url.toString()
+	} catch {
+		return ''
+	}
+}
+
+function isIosEmbeddedWebView(): boolean {
+	if (typeof navigator === 'undefined') return false
+	const ua = navigator.userAgent || ''
+	return isIosDevice() && !/Safari/i.test(ua)
+}
+
 export default function AppDownloadPage() {
 	const location = useLocation()
+	const targetUrl = useMemo(() => resolveBeamioAppTarget(location.search), [location.search])
 	const [phase, setPhase] = useState<PagePhase>(() => (isMobileDevice() ? 'checking' : 'desktop'))
 
 	useEffect(() => {
@@ -30,6 +50,16 @@ export default function AppDownloadPage() {
 				return
 			}
 
+			if (isIosDevice() && targetUrl && isIosEmbeddedWebView()) {
+				window.location.replace(targetUrl)
+				return
+			}
+
+			if (isIosDevice() && !targetUrl) {
+				window.location.replace(BEAMIO_IOS_STORE_URL)
+				return
+			}
+
 			setPhase('checking')
 			const result = await attemptOpenNativeBeamioApp(location.search)
 			if (cancelled) return
@@ -42,7 +72,7 @@ export default function AppDownloadPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [location.search])
+	}, [location.search, targetUrl])
 
 	const storeUrl = isIosDevice()
 		? BEAMIO_IOS_STORE_URL
@@ -98,20 +128,6 @@ export default function AppDownloadPage() {
 						</div>
 
 						<div className="mx-auto w-full max-w-xs space-y-3">
-							{isIosDevice() && (
-								<a
-									href={BEAMIO_IOS_STORE_URL}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="flex justify-center transition-opacity hover:opacity-80"
-								>
-									<img
-										src="/app-store-badge.png"
-										alt="Download on the App Store"
-										className="h-12 w-auto max-w-full"
-									/>
-								</a>
-							)}
 							{isAndroidDevice() && (
 								<a
 									href={BEAMIO_ANDROID_STORE_URL}
@@ -131,7 +147,7 @@ export default function AppDownloadPage() {
 								className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1562f0] px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#1250c4]"
 							>
 								<Download className="h-4 w-4" />
-								Open App Store
+								Open app store
 							</a>
 						</div>
 					</div>
@@ -159,7 +175,7 @@ export default function AppDownloadPage() {
 							>
 								<img
 									src="/app-store-badge.png"
-									alt="Download Beamio SoftPOS on the App Store"
+									alt="Download Beamio on the App Store"
 									className="h-12 w-auto max-w-full"
 								/>
 							</a>

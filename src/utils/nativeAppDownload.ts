@@ -3,10 +3,10 @@ export const BEAMIO_ANDROID_PACKAGE = 'com.beamio.app'
 export const BEAMIO_ANDROID_STORE_URL =
 	'https://play.google.com/store/apps/details?id=com.beamio.app'
 export const BEAMIO_IOS_STORE_URL =
-	'https://apps.apple.com/us/app/beamio-softpos/id6763462151'
+	'https://apps.apple.com/us/app/beamio-smart-local-pass/id6755375110'
 
 /** Custom schemes to probe / open when native handlers are registered. */
-const IOS_OPEN_SCHEMES = ['beamio://open', 'beamiosoftpos://open'] as const
+const IOS_OPEN_SCHEME = 'beamio://open'
 const ANDROID_SCHEME = 'beamio'
 
 export type NativeAppOpenResult = 'opened' | 'not_installed' | 'desktop'
@@ -88,7 +88,7 @@ function waitForNativeAppOpenOrTimeout(search: string, timeoutMs: number): Promi
 		window.addEventListener('pagehide', onPageHide)
 		window.addEventListener('blur', onBlur)
 
-		window.location.href = buildIosOpenUrl(IOS_OPEN_SCHEMES[0], search)
+		window.location.href = buildIosOpenUrl(IOS_OPEN_SCHEME, search)
 	})
 }
 

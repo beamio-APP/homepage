@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import BeamioBrandLogo from '../components/BeamioBrandLogo';
 import {
@@ -91,7 +91,7 @@ function Ecosystem({ onBack }: { onBack: () => void }) {
  return (
    <div className="min-h-screen bg-slate-50 text-slate-600 font-sans selection:bg-[#1562F0] selection:text-white pb-32">
 
-     <nav className="w-full border-b border-slate-200 bg-white/80 backdrop-blur-md py-4 sticky top-0 z-50 shadow-sm">
+     <nav className="w-full border-b border-slate-200 bg-white/95 py-4 sticky top-0 z-50 shadow-sm">
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
          <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
            <ArrowRight className="rotate-180 text-slate-400 hover:text-[#1562F0] transition-colors" size={24} />
@@ -191,7 +191,7 @@ function Ecosystem({ onBack }: { onBack: () => void }) {
 
        {/* Genesis G1 Hardware Preview (Full Width) */}
        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col md:flex-row items-center relative group mt-8">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400/10 blur-[100px] rounded-full pointer-events-none"></div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400/10 rounded-full pointer-events-none"></div>
 
 
           <div className="w-full md:w-1/2 p-8 md:p-16 relative z-10">
@@ -216,7 +216,7 @@ function Ecosystem({ onBack }: { onBack: () => void }) {
           <div className="w-full md:w-1/2 h-80 md:h-full min-h-[400px] relative flex items-center justify-center p-8 bg-slate-50/50 border-l border-slate-100">
              <div className="relative w-64 h-64 flex items-center justify-center group-hover:scale-105 transition-transform duration-700">
                 {/* The Box - Now Frosted Glass / Metallic feel */}
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-md rounded-xl border border-white shadow-2xl transform rotate-12 flex items-center justify-center">
+                <div className="absolute inset-0 bg-white/90 rounded-xl border border-white shadow-2xl transform rotate-12 flex items-center justify-center">
                    <div className="w-full h-[1px] bg-slate-200 absolute top-8"></div>
                    <div className="w-full h-[1px] bg-slate-200 absolute bottom-8"></div>
                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col gap-2 p-2">
@@ -421,7 +421,7 @@ require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
 
  return (
    <div className="min-h-screen bg-slate-50 text-slate-600 font-sans selection:bg-[#1562F0] selection:text-white pb-32">
-     <nav className="w-full border-b border-slate-200 bg-white/80 backdrop-blur-md py-4 sticky top-0 z-50 shadow-sm">
+    <nav className="w-full border-b border-slate-200 bg-white/95 py-4 sticky top-0 z-50 shadow-sm">
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
          <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
            <ArrowRight className="rotate-180 text-slate-400 hover:text-[#1562F0] transition-colors" size={24} />
@@ -549,6 +549,7 @@ export default function BeamioProtocolPage() {
  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
  const [currentPage, setCurrentPage] = useState<'home' | 'ecosystem' | 'whitepaper'>('home');
  const [whitepaperScrollTo, setWhitepaperScrollTo] = useState<string | null>(null);
+ const isScrolledRef = useRef(false);
 
 
  const content = {
@@ -731,9 +732,13 @@ export default function BeamioProtocolPage() {
 
  useEffect(() => {
    const handleScroll = () => {
-     setIsScrolled(window.scrollY > 50);
+     const next = window.scrollY > 50;
+     if (next === isScrolledRef.current) return;
+     isScrolledRef.current = next;
+     setIsScrolled(next);
    };
-   window.addEventListener('scroll', handleScroll);
+   handleScroll();
+   window.addEventListener('scroll', handleScroll, { passive: true });
    return () => window.removeEventListener('scroll', handleScroll);
  }, []);
 
@@ -758,7 +763,7 @@ export default function BeamioProtocolPage() {
    <div className="min-h-screen bg-slate-50 text-slate-600 font-sans selection:bg-purple-500 selection:text-white">
 
      {/* Navigation */}
-     <nav className={`fixed w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm py-4' : 'bg-transparent py-6'}`}>
+     <nav className={`fixed w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 border-b border-slate-200 shadow-sm py-4' : 'bg-white/0 py-6'}`}>
        <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
            <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
@@ -806,7 +811,7 @@ export default function BeamioProtocolPage() {
        </div>
 
        {mobileMenuOpen && (
-         <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-md">
+        <div className="md:hidden border-t border-slate-200 bg-white/95">
            <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3">
              {t.nav.map((item) => (
                item.to ? (
@@ -850,9 +855,7 @@ export default function BeamioProtocolPage() {
      {/* Hero Section */}
      <section className="relative pt-40 pb-32 md:pt-52 md:pb-40 px-6 overflow-hidden">
        {/* Modern Bright Fintech Gradients */}
-       <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-blue-400/20 blur-[100px] rounded-full pointer-events-none"></div>
-       <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[400px] h-[400px] bg-purple-400/20 blur-[120px] rounded-full pointer-events-none"></div>
-       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-orange-400/10 blur-[100px] rounded-full pointer-events-none"></div>
+       <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_45%,rgba(96,165,250,0.16),transparent_28rem),radial-gradient(circle_at_75%_45%,rgba(168,85,247,0.12),transparent_24rem),linear-gradient(180deg,#f9f9fe_0%,#ffffff_78%)] pointer-events-none"></div>
 
        <div className="max-w-5xl mx-auto text-center relative z-10">
          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold text-slate-900 tracking-tight leading-[1.05] mb-8">
@@ -902,7 +905,7 @@ export default function BeamioProtocolPage() {
                  <div className="h-2 bg-slate-200 w-[40%] rounded-l-full relative overflow-hidden">
                    <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-slate-200 to-slate-400"></div>
                  </div>
-                 <Zap className="text-red-500 mx-4 drop-shadow-md" size={32} />
+                <Zap className="text-red-500 mx-4" size={32} />
                  <div className="h-2 bg-slate-200 w-[40%] rounded-r-full relative overflow-hidden"></div>
                </div>
 
@@ -988,7 +991,7 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
 
      {/* B-Units Economy Section */}
      <section id="section-economy" className="py-24 bg-gradient-to-br from-orange-50 to-white border-y border-orange-100 overflow-hidden relative scroll-mt-24">
-       <div className="absolute -left-40 -top-40 w-[500px] h-[500px] bg-orange-400/10 blur-[100px] rounded-full pointer-events-none"></div>
+      <div className="absolute -left-40 -top-40 w-[500px] h-[500px] bg-orange-400/10 rounded-full pointer-events-none"></div>
        <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
          <div className="order-2 lg:order-1 relative flex justify-center lg:justify-start">
             {/* Abstract Orange Fuel Visualization */}
@@ -1167,15 +1170,15 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
              ))}
           </div>
 
-          <div className="max-w-4xl mx-auto rounded-3xl bg-slate-950 px-8 py-8 md:px-12 md:py-10 shadow-2xl shadow-slate-900/20 flex flex-col md:flex-row items-start gap-7">
-             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-[#1562F0] flex-shrink-0">
+          <div className="max-w-4xl mx-auto rounded-3xl border border-blue-100 bg-blue-50/70 px-8 py-8 md:px-12 md:py-10 shadow-xl shadow-blue-500/10 flex flex-col md:flex-row items-start gap-7">
+             <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#1562F0] flex-shrink-0 shadow-sm">
                 <ShieldCheck size={32} />
              </div>
              <div>
-                <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-white mb-3">
+                <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-900 mb-3">
                    {t.liveMoatTitle}
                 </h3>
-                <p className="text-sm md:text-base leading-relaxed text-slate-400">
+                <p className="text-sm md:text-base leading-relaxed text-slate-600">
                    {t.liveMoatDesc}
                 </p>
              </div>
@@ -1261,7 +1264,7 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
          </p>
 
          <div className="flex mb-24 w-full justify-center">
-            <Link to="/homeExample" className="inline-flex items-center gap-3 px-8 py-4 bg-slate-950 text-white rounded-full font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 hover:-translate-y-0.5">
+            <Link to="/homeExample" className="inline-flex items-center gap-3 px-8 py-4 bg-[#1562F0] text-white rounded-full font-bold hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 hover:-translate-y-0.5">
                {t.footerCta}
                <ArrowRight size={18} />
             </Link>
