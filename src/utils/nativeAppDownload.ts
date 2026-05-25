@@ -39,6 +39,12 @@ export function isIosDevice(): boolean {
 	return /iPhone|iPad|iPod/i.test(navigator.userAgent || '')
 }
 
+/** True when running inside the Beamio iOS native WKWebView shell. */
+export function isBeamioNativeShell(): boolean {
+	if (typeof window === 'undefined') return false
+	return Boolean((window as { CashTreesIOS?: unknown }).CashTreesIOS)
+}
+
 function buildDeepLinkSuffix(search: string): string {
 	const q = search.startsWith('?') ? search.slice(1) : search
 	return q ? `?${q}` : ''
