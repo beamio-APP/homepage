@@ -75,3 +75,10 @@ export async function fetchCouponClaimShareMeta(shareUrl: string): Promise<Coupo
 export function couponExpiryUsesUrgentVariant(expiresLabel: string): boolean {
 	return expiresLabel === 'EXPIRED' || /\bEXPIRES IN \d+H\b|\bEXPIRES IN \d+M\b/.test(expiresLabel)
 }
+
+/** Hide non-actionable open-ended status pills on coupon ticket UI. */
+export function shouldShowCouponExpiryPill(expiresLabel: string): boolean {
+	const normalized = expiresLabel.trim().toUpperCase()
+	if (!normalized) return false
+	return normalized !== 'VALID NOW' && normalized !== 'NO EXPIRY'
+}

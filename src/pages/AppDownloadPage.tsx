@@ -16,6 +16,7 @@ import {
 	applyCouponClaimShareMeta,
 	buildAppDownloadShareUrl,
 	couponExpiryUsesUrgentVariant,
+	shouldShowCouponExpiryPill,
 	fetchCouponClaimShareMeta,
 	type CouponClaimShareMeta,
 } from '../utils/couponClaimShare'
@@ -46,6 +47,37 @@ function shouldRedirectToInnerAppTarget(): boolean {
 	return isBeamioNativeShell() || isIosEmbeddedWebView()
 }
 
+function CouponClaimShareQr({ shareUrl, size = 120 }: { shareUrl: string; size?: number }) {
+	return (
+		<div className="mx-auto flex w-fit justify-center rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/[0.08]">
+			<QRCodeCanvas value={shareUrl} size={size} level="M" includeMargin={false} />
+		</div>
+	)
+}
+
+function CouponBannerImage({ src }: { src: string }) {
+	return (
+		<div className="absolute inset-0 overflow-hidden">
+			<div
+				className="absolute inset-y-0 left-0 w-1/2 scale-110 bg-cover bg-left bg-no-repeat blur-xl"
+				style={{ backgroundImage: `url("${src}")` }}
+				aria-hidden
+			/>
+			<div
+				className="absolute inset-y-0 right-0 w-1/2 scale-110 bg-cover bg-right bg-no-repeat blur-xl"
+				style={{ backgroundImage: `url("${src}")` }}
+				aria-hidden
+			/>
+			<img
+				src={src}
+				alt=""
+				className="absolute left-1/2 top-0 z-[1] h-full w-auto max-w-none -translate-x-1/2 object-contain"
+				draggable={false}
+			/>
+		</div>
+	)
+}
+
 function CouponSharePreview({
 	meta,
 	shareUrl,
@@ -54,7 +86,18 @@ function CouponSharePreview({
 	shareUrl: string
 }) {
 	const expiryUrgent = couponExpiryUsesUrgentVariant(meta.expiresLabel)
+	const showExpiryPill = shouldShowCouponExpiryPill(meta.expiresLabel)
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
+	const hasBanner = Boolean(meta.backgroundImage?.trim())
+	const title = meta.title.trim()
+	const subtitle = meta.subtitle.trim()
+	const iconUrl = meta.iconUrl.trim()
+	const innerExpiryClass = expiryUrgent
+		? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
+		: 'border border-white/25 bg-slate-950/65 text-white shadow-sm shadow-black/20 backdrop-blur-md'
+	const externalExpiryClass = expiryUrgent
+		? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
+		: 'border border-[#abadaf]/35 bg-[#eef1f3] text-[#595c5e]'
 
 	const shareHeadline =
 		meta.shareHeadline?.trim() ||
@@ -62,86 +105,121 @@ function CouponSharePreview({
 			? `${meta.shareKind === 'redeem' ? 'Redeem' : 'Claim'} a ${meta.merchantName.trim()} Coupon`
 			: '')
 
+	const renderExpiryPill = (placement: 'inner' | 'external') => (
+		<div
+			className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+				placement === 'external' ? externalExpiryClass : innerExpiryClass
+			}`}
+		>
+			<ExpiryIcon className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+			<span className="truncate">{meta.expiresLabel}</span>
+		</div>
+	)
+
+	const ticketShell = (
+		<div className="relative w-full rounded-[1.75rem]">
+			<div
+				className="pointer-events-none absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
+				aria-hidden
+			/>
+			<div
+				className="pointer-events-none absolute right-0 top-1/2 z-20 h-9 w-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
+				aria-hidden
+			/>
+			<div className="relative min-h-[7.5rem] overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
+				{hasBanner ? (
+					<CouponBannerImage src={meta.backgroundImage} />
+				) : (
+					<>
+						<div
+							className="absolute inset-0"
+							style={{ backgroundColor: meta.backgroundColorHex || '#2B2E3A' }}
+						/>
+						<div
+							className="pointer-events-none absolute inset-0 opacity-[0.12]"
+							style={{
+								backgroundImage:
+									'repeating-linear-gradient(-26deg, #fff 0, #fff 1px, transparent 1px, transparent 8px)',
+							}}
+							aria-hidden
+						/>
+						<div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/30" aria-hidden />
+					</>
+				)}
+
+				<div
+					className={[
+						'relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5',
+						!hasBanner && shareUrl ? 'pr-[6.25rem] sm:pr-[6.75rem]' : 'pr-7 sm:pr-8',
+					].join(' ')}
+				>
+					{iconUrl ? (
+						<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
+							<img src={iconUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+						</div>
+					) : null}
+
+					{!hasBanner ? (
+						<div className="font-manrope min-w-0 flex-1 text-white">
+							{title ? (
+								<p className="truncate text-[1.05rem] font-extrabold leading-tight tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-lg">
+									{title}
+								</p>
+							) : null}
+							{subtitle ? (
+								<p
+									className={`truncate text-sm font-semibold text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+										title ? 'mt-0.5' : ''
+									}`}
+								>
+									{subtitle}
+								</p>
+							) : null}
+							{showExpiryPill ? (
+								<div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill('inner')}</div>
+							) : null}
+						</div>
+					) : null}
+
+					{!hasBanner && shareUrl ? (
+						<div className="absolute right-6 top-1/2 z-[2] -translate-y-1/2 rounded-2xl bg-white p-2 shadow-sm sm:right-8">
+							<QRCodeCanvas value={shareUrl} size={96} level="M" includeMargin={false} />
+						</div>
+					) : null}
+				</div>
+			</div>
+		</div>
+	)
+
 	return (
-		<div className="mx-auto w-full max-w-xl text-left">
+		<div className="w-full text-left">
 			{shareHeadline ? (
 				<p className="mb-3 text-center font-manrope text-base font-extrabold tracking-tight text-slate-900 sm:text-lg">
 					{shareHeadline}
 				</p>
 			) : null}
-			<div className="relative w-full rounded-[1.75rem]">
-				<div
-					className="pointer-events-none absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
-					aria-hidden
-				/>
-				<div
-					className="pointer-events-none absolute right-0 top-1/2 z-20 h-9 w-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
-					aria-hidden
-				/>
-				<div className="relative min-h-[7.5rem] overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
-					{meta.backgroundImage ? (
-						<>
-							<img
-								src={meta.backgroundImage}
-								alt=""
-								className="absolute inset-0 h-full w-full object-cover"
-								draggable={false}
-							/>
-							<div className="absolute inset-0 bg-gradient-to-r from-black/72 via-black/52 to-black/35" />
-						</>
-					) : (
-						<div
-							className="absolute inset-0"
-							style={{ backgroundColor: meta.backgroundColorHex || '#2B2E3A' }}
+			{ticketShell}
+			{hasBanner ? (
+				<div className="mt-3 w-full">
+					{title ? (
+						<p className="truncate font-manrope text-[1.05rem] font-extrabold leading-tight tracking-tight text-[#2c2f31] sm:text-lg">
+							{title}
+						</p>
+					) : null}
+					{subtitle ? (
+						<p
+							className={`truncate font-manrope text-sm font-semibold text-[#595c5e] ${
+								title ? 'mt-0.5' : ''
+							}`}
 						>
-							<div
-								className="pointer-events-none absolute inset-0 opacity-[0.12]"
-								style={{
-									backgroundImage:
-										'repeating-linear-gradient(-26deg, #fff 0, #fff 1px, transparent 1px, transparent 8px)',
-								}}
-								aria-hidden
-							/>
-							<div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/30" />
-						</div>
-					)}
-
-					<div className="relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 pr-[6.25rem] sm:gap-4 sm:px-8 sm:py-5 sm:pr-[6.75rem]">
-						<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
-							{meta.iconUrl ? (
-								<img src={meta.iconUrl} alt="" className="h-full w-full object-cover" draggable={false} />
-							) : (
-								<div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white to-slate-200 text-base font-black text-[#2c2f31]/75 sm:text-lg">
-									{meta.title.charAt(0).toUpperCase()}
-								</div>
-							)}
-						</div>
-
-						<div className="min-w-0 flex-1 text-white">
-							<p className="truncate text-[1.05rem] font-extrabold leading-tight tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-lg">
-								{meta.title}
-							</p>
-							<p className="mt-0.5 truncate text-sm font-semibold text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
-								{meta.subtitle}
-							</p>
-							<div
-								className={`mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
-									expiryUrgent
-										? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
-										: 'border border-white/25 bg-slate-950/65 text-white shadow-sm shadow-black/20 backdrop-blur-md'
-								}`}
-							>
-								<ExpiryIcon className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-								<span className="truncate">{meta.expiresLabel}</span>
-							</div>
-						</div>
-
-						<div className="absolute right-6 top-1/2 z-[2] -translate-y-1/2 rounded-2xl bg-white p-2 shadow-sm sm:right-8">
-							<QRCodeCanvas value={shareUrl} size={96} level="M" includeMargin={false} />
-						</div>
-					</div>
+							{subtitle}
+						</p>
+					) : null}
+					{showExpiryPill ? (
+						<div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill('external')}</div>
+					) : null}
 				</div>
-			</div>
+			) : null}
 		</div>
 	)
 }
@@ -221,6 +299,9 @@ export default function AppDownloadPage() {
 
 	const couponPreview =
 		shareMeta && shareUrl ? <CouponSharePreview meta={shareMeta} shareUrl={shareUrl} /> : null
+	const showBannerQrAboveHeading = Boolean(
+		shareMeta?.backgroundImage?.trim() && shareUrl && phase === 'desktop'
+	)
 
 	return (
 		<div className="min-h-screen bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased">
@@ -295,6 +376,7 @@ export default function AppDownloadPage() {
 				{phase === 'desktop' && (
 					<div className="space-y-8">
 						{couponPreview}
+						{showBannerQrAboveHeading ? <CouponClaimShareQr shareUrl={shareUrl} /> : null}
 						{!shareMeta && (
 							<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
 								<Smartphone className="h-8 w-8" />
@@ -306,7 +388,9 @@ export default function AppDownloadPage() {
 							</h1>
 							<p className="mt-4 text-lg leading-relaxed text-slate-600">
 								{shareMeta
-									? 'Scan the QR on the coupon card or open this link on your phone to claim in Beamio.'
+									? showBannerQrAboveHeading
+										? 'Scan the QR code above or open this link on your phone to claim in Beamio.'
+										: 'Scan the QR on the coupon card or open this link on your phone to claim in Beamio.'
 									: 'Open this page on your phone to launch the Beamio app, or install it from the stores below.'}
 							</p>
 						</div>
