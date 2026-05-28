@@ -91,7 +91,7 @@ function CouponSharePreview({
 	const hasBanner = Boolean(meta.backgroundImage?.trim())
 	const title = meta.title.trim()
 	const subtitle = meta.subtitle.trim()
-	const iconUrl = meta.iconUrl.trim()
+	const iconUrl = hasBanner ? '' : meta.iconUrl.trim()
 	const innerExpiryClass = expiryUrgent
 		? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
 		: 'border border-white/25 bg-slate-950/65 text-white shadow-sm shadow-black/20 backdrop-blur-md'
