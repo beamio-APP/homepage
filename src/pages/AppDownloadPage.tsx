@@ -78,6 +78,89 @@ function CouponBannerImage({ src }: { src: string }) {
 	)
 }
 
+function CatalogShareCategoryLine({
+	globalCategory,
+	itemCategory,
+	tone,
+}: {
+	globalCategory?: string
+	itemCategory?: string
+	tone: 'inner' | 'external'
+}) {
+	const global = globalCategory?.trim() ?? ''
+	const item = itemCategory?.trim() ?? ''
+	if (!global && !item) return null
+	const label = [global, item].filter(Boolean).join(' · ')
+	const className =
+		tone === 'inner'
+			? 'text-[10px] font-bold uppercase tracking-wider text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
+			: 'text-[10px] font-bold uppercase tracking-wider text-[#ea580c]'
+	return <p className={className}>{label}</p>
+}
+
+function CatalogShareMetadataBlock({
+	meta,
+	tone,
+	showExpiryPill,
+	renderExpiryPill,
+}: {
+	meta: CouponClaimShareMeta
+	tone: 'inner' | 'external'
+	showExpiryPill: boolean
+	renderExpiryPill: (placement: 'inner' | 'external') => React.ReactNode
+}) {
+	const isCatalog = meta.distributionKind === 'catalog'
+	const title = meta.title.trim()
+	const subtitle = meta.subtitle.trim()
+	const titleClass =
+		tone === 'inner'
+			? 'break-words font-manrope text-[1.05rem] font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-lg'
+			: 'break-words font-manrope text-[1.05rem] font-extrabold leading-tight tracking-tight text-[#2c2f31] sm:text-lg'
+	const subtitleClass =
+		tone === 'inner'
+			? 'break-words font-manrope text-sm font-semibold leading-snug text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
+			: 'break-words font-manrope text-sm font-semibold leading-snug text-[#595c5e]'
+
+	if (isCatalog) {
+		const global = meta.globalCategory?.trim() ?? ''
+		const item = meta.itemCategory?.trim() ?? ''
+		return (
+			<div className="font-manrope min-w-0 flex-1">
+				<CatalogShareCategoryLine
+					globalCategory={meta.globalCategory}
+					itemCategory={meta.itemCategory}
+					tone={tone}
+				/>
+				{title ? <p className={`${titleClass} ${global || item ? 'mt-1' : ''}`}>{title}</p> : null}
+				{subtitle ? <p className={`${subtitleClass} ${title ? 'mt-0.5' : global || item ? 'mt-1' : ''}`}>{subtitle}</p> : null}
+				{showExpiryPill ? (
+					<div className={title || subtitle || global || item ? 'mt-2' : ''}>{renderExpiryPill(tone)}</div>
+				) : null}
+			</div>
+		)
+	}
+
+	return (
+		<div className={`font-manrope min-w-0 flex-1 ${tone === 'inner' ? 'text-white' : ''}`}>
+			{title ? (
+				<p className={`truncate text-[1.05rem] font-extrabold leading-tight tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-lg ${tone === 'external' ? 'text-[#2c2f31]' : ''}`}>
+					{title}
+				</p>
+			) : null}
+			{subtitle ? (
+				<p
+					className={`truncate text-sm font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
+						title ? 'mt-0.5' : ''
+					} ${tone === 'external' ? 'text-[#595c5e]' : 'text-white/90'}`}
+				>
+					{subtitle}
+				</p>
+			) : null}
+			{showExpiryPill ? <div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill(tone)}</div> : null}
+		</div>
+	)
+}
+
 function CouponSharePreview({
 	meta,
 	shareUrl,
@@ -89,8 +172,6 @@ function CouponSharePreview({
 	const showExpiryPill = shouldShowCouponExpiryPill(meta.expiresLabel)
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
 	const hasBanner = Boolean(meta.backgroundImage?.trim())
-	const title = meta.title.trim()
-	const subtitle = meta.subtitle.trim()
 	const iconUrl = hasBanner ? '' : meta.iconUrl.trim()
 	const innerExpiryClass = expiryUrgent
 		? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
@@ -160,25 +241,12 @@ function CouponSharePreview({
 					) : null}
 
 					{!hasBanner ? (
-						<div className="font-manrope min-w-0 flex-1 text-white">
-							{title ? (
-								<p className="truncate text-[1.05rem] font-extrabold leading-tight tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-lg">
-									{title}
-								</p>
-							) : null}
-							{subtitle ? (
-								<p
-									className={`truncate text-sm font-semibold text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${
-										title ? 'mt-0.5' : ''
-									}`}
-								>
-									{subtitle}
-								</p>
-							) : null}
-							{showExpiryPill ? (
-								<div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill('inner')}</div>
-							) : null}
-						</div>
+						<CatalogShareMetadataBlock
+							meta={meta}
+							tone="inner"
+							showExpiryPill={showExpiryPill}
+							renderExpiryPill={renderExpiryPill}
+						/>
 					) : null}
 
 					{!hasBanner && shareUrl ? (
@@ -201,23 +269,12 @@ function CouponSharePreview({
 			{ticketShell}
 			{hasBanner ? (
 				<div className="mt-3 w-full">
-					{title ? (
-						<p className="truncate font-manrope text-[1.05rem] font-extrabold leading-tight tracking-tight text-[#2c2f31] sm:text-lg">
-							{title}
-						</p>
-					) : null}
-					{subtitle ? (
-						<p
-							className={`truncate font-manrope text-sm font-semibold text-[#595c5e] ${
-								title ? 'mt-0.5' : ''
-							}`}
-						>
-							{subtitle}
-						</p>
-					) : null}
-					{showExpiryPill ? (
-						<div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill('external')}</div>
-					) : null}
+					<CatalogShareMetadataBlock
+						meta={meta}
+						tone="external"
+						showExpiryPill={showExpiryPill}
+						renderExpiryPill={renderExpiryPill}
+					/>
 				</div>
 			) : null}
 		</div>

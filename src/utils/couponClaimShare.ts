@@ -4,8 +4,11 @@ export type CouponClaimShareMeta = {
 	merchantName?: string
 	shareHeadline?: string
 	shareKind?: 'open_claim' | 'redeem'
+	distributionKind?: 'coupon' | 'catalog'
 	title: string
 	subtitle: string
+	globalCategory?: string
+	itemCategory?: string
 	iconUrl: string
 	backgroundImage: string
 	backgroundColorHex: string
