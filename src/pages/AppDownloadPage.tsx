@@ -20,6 +20,7 @@ import {
 	fetchCouponClaimShareMeta,
 	type CouponClaimShareMeta,
 } from '../utils/couponClaimShare'
+import { CatalogVideoOgPlayOverlay } from '../components/CatalogVideoOgPlayOverlay'
 import {
 	CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX,
 	CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME,
@@ -250,6 +251,7 @@ function CouponSharePreview({
 							className="h-full w-full object-cover"
 							draggable={false}
 						/>
+						<CatalogVideoOgPlayOverlay />
 					</div>
 					<div className={CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME}>
 						<CatalogShareMetadataBlock
