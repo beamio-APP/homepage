@@ -5,8 +5,12 @@ export type CouponClaimShareMeta = {
 	shareHeadline?: string
 	shareKind?: 'open_claim' | 'redeem'
 	distributionKind?: 'coupon' | 'catalog'
+	/** Catalog video — YouTube OG layout from API (`catalogProductionVideoOg`). */
+	catalogLayout?: 'default' | 'videoOg'
 	title: string
 	subtitle: string
+	/** Catalog video — `@publisherTag · channelName`. */
+	publisherLine?: string
 	globalCategory?: string
 	itemCategory?: string
 	iconUrl: string
@@ -34,9 +38,12 @@ function upsertMetaTag(attr: 'name' | 'property', key: string, content: string):
 
 export function applyCouponClaimShareMeta(meta: CouponClaimShareMeta): void {
 	if (typeof document === 'undefined') return
+	const isCatalog = meta.distributionKind === 'catalog'
 	const pageTitle = meta.shareHeadline?.trim()
 		? `${meta.shareHeadline} — Beamio`
-		: `${meta.title} — Beamio Coupon`
+		: isCatalog
+			? `${meta.title} — Beamio`
+			: `${meta.title} — Beamio Coupon`
 	document.title = pageTitle
 	upsertMetaTag('name', 'description', meta.subtitle)
 	upsertMetaTag('property', 'og:type', 'website')

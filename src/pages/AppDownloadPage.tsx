@@ -20,6 +20,10 @@ import {
 	fetchCouponClaimShareMeta,
 	type CouponClaimShareMeta,
 } from '../utils/couponClaimShare'
+import {
+	CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX,
+	CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME,
+} from '../utils/catalogProductionVideoOg'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
 
@@ -124,6 +128,34 @@ function CatalogShareMetadataBlock({
 	if (isCatalog) {
 		const global = meta.globalCategory?.trim() ?? ''
 		const item = meta.itemCategory?.trim() ?? ''
+		const isVideoOg = meta.catalogLayout === 'videoOg'
+		const publisherLine = meta.publisherLine?.trim() ?? ''
+		const publisherClass =
+			tone === 'inner'
+				? 'mt-1 truncate text-xs font-medium text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
+				: 'mt-1 truncate text-xs font-medium text-[#595c5e]'
+		if (isVideoOg) {
+			return (
+				<div className="min-w-0 flex-1">
+					<CatalogShareCategoryLine
+						globalCategory={meta.globalCategory}
+						itemCategory={meta.itemCategory}
+						tone={tone}
+					/>
+					{title ? <p className={`${titleClass} ${global || item ? 'mt-1' : ''}`}>{title}</p> : null}
+					{subtitle ? (
+						<p className={`${subtitleClass} ${title ? 'mt-0.5' : global || item ? 'mt-1' : ''}`}>{subtitle}</p>
+					) : null}
+					{publisherLine ? <p className={publisherClass}>{publisherLine}</p> : null}
+					{showExpiryPill ? (
+						<div className={title || subtitle || publisherLine || global || item ? 'mt-2' : ''}>
+							{renderExpiryPill(tone)}
+						</div>
+					) : null}
+				</div>
+			)
+		}
+
 		return (
 			<div className="font-manrope min-w-0 flex-1">
 				<CatalogShareCategoryLine
@@ -172,7 +204,12 @@ function CouponSharePreview({
 	const showExpiryPill = shouldShowCouponExpiryPill(meta.expiresLabel)
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
 	const hasBanner = Boolean(meta.backgroundImage?.trim())
-	const iconUrl = hasBanner ? '' : meta.iconUrl.trim()
+	const isCatalogVideoOg = meta.distributionKind === 'catalog' && meta.catalogLayout === 'videoOg'
+	const iconUrl = isCatalogVideoOg
+		? meta.iconUrl.trim()
+		: hasBanner
+			? ''
+			: meta.iconUrl.trim()
 	const innerExpiryClass = expiryUrgent
 		? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
 		: 'border border-white/25 bg-slate-950/65 text-white shadow-sm shadow-black/20 backdrop-blur-md'
@@ -181,10 +218,12 @@ function CouponSharePreview({
 		: 'border border-[#abadaf]/35 bg-[#eef1f3] text-[#595c5e]'
 
 	const shareHeadline =
-		meta.shareHeadline?.trim() ||
-		(meta.merchantName?.trim()
-			? `${meta.shareKind === 'redeem' ? 'Redeem' : 'Claim'} a ${meta.merchantName.trim()} Coupon`
-			: '')
+		meta.distributionKind === 'catalog'
+			? ''
+			: meta.shareHeadline?.trim() ||
+				(meta.merchantName?.trim()
+					? `${meta.shareKind === 'redeem' ? 'Redeem' : 'Claim'} a ${meta.merchantName.trim()} Coupon`
+					: '')
 
 	const renderExpiryPill = (placement: 'inner' | 'external') => (
 		<div
@@ -196,6 +235,34 @@ function CouponSharePreview({
 			<span className="truncate">{meta.expiresLabel}</span>
 		</div>
 	)
+
+	if (isCatalogVideoOg && hasBanner) {
+		return (
+			<div className="mx-auto w-full max-w-lg text-left">
+				<div className="overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
+					<div
+						className="relative w-full overflow-hidden bg-[#0f172a]"
+						style={{ height: CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX }}
+					>
+						<img
+							src={meta.backgroundImage}
+							alt=""
+							className="h-full w-full object-cover"
+							draggable={false}
+						/>
+					</div>
+					<div className={CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME}>
+						<CatalogShareMetadataBlock
+							meta={meta}
+							tone="external"
+							showExpiryPill={showExpiryPill}
+							renderExpiryPill={renderExpiryPill}
+						/>
+					</div>
+				</div>
+			</div>
+		)
+	}
 
 	const ticketShell = (
 		<div className="relative w-full rounded-[1.75rem]">
