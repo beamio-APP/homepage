@@ -241,7 +241,7 @@ function CouponSharePreview({
 
 	if (isCatalogVideoOg && hasBanner) {
 		return (
-			<div className="mx-auto w-full max-w-lg text-left">
+			<div className="mx-auto w-full min-w-0 max-w-lg text-left">
 				<div className="overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
 					<div
 						className="relative w-full overflow-hidden bg-[#0f172a]"
@@ -271,17 +271,21 @@ function CouponSharePreview({
 
 	const shareQrBelowTicket = shareUrl ? <CouponShareQrBelowTicket shareUrl={shareUrl} /> : null
 
+	/** Side punch holes extend 18px (half of h-9) past ticket edges — pad so they stay inside the viewport. */
+	const ticketPunchInsetClass = 'px-[18px]'
+
 	const ticketShell = (
-		<div className="relative w-full rounded-[1.75rem]">
-			<div
-				className="pointer-events-none absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
-				aria-hidden
-			/>
-			<div
-				className="pointer-events-none absolute right-0 top-1/2 z-20 h-9 w-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
-				aria-hidden
-			/>
-			<div className="relative min-h-[7.5rem] overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
+		<div className={`relative w-full min-w-0 ${ticketPunchInsetClass}`}>
+			<div className="relative w-full min-w-0 rounded-[1.75rem]">
+				<div
+					className="pointer-events-none absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
+					aria-hidden
+				/>
+				<div
+					className="pointer-events-none absolute right-0 top-1/2 z-20 h-9 w-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f8fafc]"
+					aria-hidden
+				/>
+				<div className="relative min-h-[7.5rem] overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
 				{hasBanner ? (
 					<CouponBannerImage src={meta.backgroundImage} />
 				) : (
@@ -302,7 +306,7 @@ function CouponSharePreview({
 					</>
 				)}
 
-				<div className="relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5">
+				<div className="relative z-[1] flex min-h-[7.5rem] min-w-0 items-center gap-3 px-5 py-4 sm:gap-4 sm:px-7 sm:py-5">
 					{iconUrl ? (
 						<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
 							<img src={iconUrl} alt="" className="h-full w-full object-cover" draggable={false} />
@@ -319,12 +323,13 @@ function CouponSharePreview({
 					) : null}
 
 				</div>
+				</div>
 			</div>
 		</div>
 	)
 
 	return (
-		<div className="w-full text-left">
+		<div className="mx-auto w-full min-w-0 max-w-full text-left">
 			{shareHeadline ? (
 				<p className="mb-3 text-center font-manrope text-base font-extrabold tracking-tight text-slate-900 sm:text-lg">
 					{shareHeadline}
@@ -332,7 +337,7 @@ function CouponSharePreview({
 			) : null}
 			{ticketShell}
 			{hasBanner ? (
-				<div className="mt-3 w-full">
+				<div className="mt-3 w-full min-w-0">
 					<CatalogShareMetadataBlock
 						meta={meta}
 						tone="external"
@@ -440,11 +445,11 @@ export default function AppDownloadPage() {
 	return (
 		<div className="min-h-[100dvh] bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased">
 			<AppDownloadHomeCapsule opacity={capsuleOpacity} />
-			<main className="mx-auto w-full max-w-lg px-6 pb-16 text-center">
+			<main className="mx-auto w-full max-w-lg min-w-0 px-4 pb-16 text-center sm:px-6">
 				<div className="shrink-0" style={beamioFixedCapsuleScrollTopSpacerStyle()} aria-hidden />
-				<div className="flex flex-col items-center justify-center py-6">
+				<div className="flex w-full min-w-0 max-w-full flex-col items-center justify-center py-6">
 				{phase === 'checking' && (
-					<div className="space-y-6">
+					<div className="w-full min-w-0 max-w-full space-y-6">
 						{couponPreview}
 						<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1562f0]/10">
 							<Loader2 className="h-8 w-8 animate-spin text-[#1562f0]" />
@@ -459,7 +464,7 @@ export default function AppDownloadPage() {
 				)}
 
 				{phase === 'install' && (
-					<div className="space-y-8">
+					<div className="w-full min-w-0 max-w-full space-y-8">
 						{couponPreview}
 						<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
 							<Download className="h-8 w-8" />
@@ -502,7 +507,7 @@ export default function AppDownloadPage() {
 				)}
 
 				{phase === 'desktop' && (
-					<div className="space-y-8">
+					<div className="w-full min-w-0 max-w-full space-y-8">
 						{couponPreview}
 						{!shareMeta && (
 							<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
