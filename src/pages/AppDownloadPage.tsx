@@ -483,91 +483,90 @@ export default function AppDownloadPage() {
 				{phase === 'install' && (
 					<div className="w-full min-w-0 max-w-full space-y-8">
 						{couponPreview}
-						<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
-							<Download className="h-8 w-8" />
-						</div>
-						<div>
-							<h1 className="text-3xl font-black tracking-tight text-slate-900">
-								{shareMeta ? 'Claim in Beamio' : 'Install Beamio'}
-							</h1>
-							<p className="mt-4 text-lg leading-relaxed text-slate-600">
-								{shareMeta
-									? 'Install the Beamio app on this device, then open this link again to claim your coupon.'
-									: 'The Beamio app is not installed on this device. Download it from your app store to manage balances, programs, and tap-to-pay features.'}
-							</p>
-						</div>
+						{!shareMeta ? (
+							<>
+								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
+									<Download className="h-8 w-8" />
+								</div>
+								<div>
+									<h1 className="text-3xl font-black tracking-tight text-slate-900">Install Beamio</h1>
+									<p className="mt-4 text-lg leading-relaxed text-slate-600">
+										The Beamio app is not installed on this device. Download it from your app store to manage
+										balances, programs, and tap-to-pay features.
+									</p>
+								</div>
 
-						<div className="mx-auto w-full max-w-xs space-y-3">
-							{isAndroidDevice() && (
-								<a
-									href={BEAMIO_ANDROID_STORE_URL}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="flex justify-center transition-opacity hover:opacity-80"
-								>
-									<img
-										src="/google-play-badge.png"
-										alt="Get it on Google Play"
-										className="h-12 w-auto max-w-full"
-									/>
-								</a>
-							)}
-							<a
-								href={storeUrl}
-								className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1562f0] px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#1250c4]"
-							>
-								<Download className="h-4 w-4" />
-								Open app store
-							</a>
-						</div>
+								<div className="mx-auto w-full max-w-xs space-y-3">
+									{isAndroidDevice() && (
+										<a
+											href={BEAMIO_ANDROID_STORE_URL}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="flex justify-center transition-opacity hover:opacity-80"
+										>
+											<img
+												src="/google-play-badge.png"
+												alt="Get it on Google Play"
+												className="h-12 w-auto max-w-full"
+											/>
+										</a>
+									)}
+									<a
+										href={storeUrl}
+										className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1562f0] px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#1250c4]"
+									>
+										<Download className="h-4 w-4" />
+										Open app store
+									</a>
+								</div>
+							</>
+						) : null}
 					</div>
 				)}
 
 				{phase === 'desktop' && (
 					<div className="w-full min-w-0 max-w-full space-y-8">
 						{couponPreview}
-						{!shareMeta && (
-							<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
-								<Smartphone className="h-8 w-8" />
-							</div>
-						)}
-						<div>
-							<h1 className="text-3xl font-black tracking-tight text-slate-900">
-								{shareMeta ? 'Claim on your phone' : 'Get Beamio on mobile'}
-							</h1>
-							<p className="mt-4 text-lg leading-relaxed text-slate-600">
-								{shareMeta
-									? 'Open this link on your phone to claim in the Beamio app.'
-									: 'Open this page on your phone to launch the Beamio app, or install it from the stores below.'}
-							</p>
-						</div>
+						{!shareMeta ? (
+							<>
+								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
+									<Smartphone className="h-8 w-8" />
+								</div>
+								<div>
+									<h1 className="text-3xl font-black tracking-tight text-slate-900">Get Beamio on mobile</h1>
+									<p className="mt-4 text-lg leading-relaxed text-slate-600">
+										Open this page on your phone to launch the Beamio app, or install it from the stores below.
+									</p>
+								</div>
 
-						<div className="mx-auto w-full max-w-xs space-y-3">
-							<a
-								href={BEAMIO_IOS_STORE_URL}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex justify-center transition-opacity hover:opacity-80"
-							>
-								<img
-									src="/app-store-badge.png"
-									alt="Download Beamio on the App Store"
-									className="h-12 w-auto max-w-full"
-								/>
-							</a>
-							<a
-								href={BEAMIO_ANDROID_STORE_URL}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex justify-center transition-opacity hover:opacity-80"
-							>
-								<img
-									src="/google-play-badge.png"
-									alt="Get Beamio on Google Play"
-									className="h-12 w-auto max-w-full"
-								/>
-							</a>
-						</div>
+								<div className="mx-auto w-full max-w-xs space-y-3">
+									<a
+										href={BEAMIO_IOS_STORE_URL}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="flex justify-center transition-opacity hover:opacity-80"
+									>
+										<img
+											src="/app-store-badge.png"
+											alt="Download Beamio on the App Store"
+											className="h-12 w-auto max-w-full"
+										/>
+									</a>
+									<a
+										href={BEAMIO_ANDROID_STORE_URL}
+										target="_blank"
+										rel="noopener noreferrer"
+										className="flex justify-center transition-opacity hover:opacity-80"
+									>
+										<img
+											src="/google-play-badge.png"
+											alt="Get Beamio on Google Play"
+											className="h-12 w-auto max-w-full"
+										/>
+									</a>
+								</div>
+							</>
+						) : null}
 					</div>
 				)}
 				</div>
