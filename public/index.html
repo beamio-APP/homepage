@@ -6,7 +6,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
     <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#f9f9fe" />
     <meta name="color-scheme" content="light" />
 
@@ -133,41 +136,34 @@
     <script>
       (() => {
         const root = document.documentElement;
-        const forceLightMode = () => {
-          root.classList.remove('dark');
-          root.classList.add('light');
-          root.style.colorScheme = 'light';
-        };
-
-        forceLightMode();
-        new MutationObserver(forceLightMode).observe(root, {
-          attributes: true,
-          attributeFilter: ['class', 'style'],
-        });
+        // One-shot light mode before React boots. Do NOT use MutationObserver here:
+        // AppDownloadPage adds classes to <html> and a style observer can loop forever.
+        if (root.classList.contains('dark')) root.classList.remove('dark');
+        if (!root.classList.contains('light')) root.classList.add('light');
+        if (root.style.colorScheme !== 'light') root.style.colorScheme = 'light';
       })();
     </script>
   </head>
 
   <body>
     <noscript>You need to enable JavaScript to run Beamio.</noscript>
-    <div id="root">
-      <div class="boot-loading" role="status" aria-live="polite" aria-label="Loading Beamio">
-        <div class="boot-loading__card">
-          <img
-            class="boot-loading__logo"
-            src="%PUBLIC_URL%/logo192.png"
-            alt="Beamio"
-            width="76"
-            height="76"
-            loading="eager"
-            decoding="sync"
-            fetchpriority="high"
-          />
-          <div class="boot-loading__title">Beamio</div>
-          <div class="boot-loading__text">Loading...</div>
-          <div class="boot-loading__spinner" aria-hidden="true"></div>
-        </div>
+    <div id="boot-loading" class="boot-loading" role="status" aria-live="polite" aria-label="Loading Beamio">
+      <div class="boot-loading__card">
+        <img
+          class="boot-loading__logo"
+          src="%PUBLIC_URL%/logo192.png"
+          alt="Beamio"
+          width="76"
+          height="76"
+          loading="eager"
+          decoding="sync"
+          fetchpriority="high"
+        />
+        <div class="boot-loading__title">Beamio</div>
+        <div class="boot-loading__text">Loading...</div>
+        <div class="boot-loading__spinner" aria-hidden="true"></div>
       </div>
     </div>
+    <div id="root"></div>
   </body>
 </html>

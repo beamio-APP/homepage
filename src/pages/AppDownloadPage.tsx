@@ -1,8 +1,10 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { Calendar, Clock, Download, Loader2, Smartphone } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
-import BeamioBrandLogo from '../components/BeamioBrandLogo'
+import AppDownloadHomeCapsule from '../components/AppDownloadHomeCapsule'
+import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
+import { beamioFixedCapsuleScrollTopSpacerStyle } from '../utils/beamioFixedTopCapsuleLayout'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -52,9 +54,9 @@ function shouldRedirectToInnerAppTarget(): boolean {
 	return isBeamioNativeShell() || isIosEmbeddedWebView()
 }
 
-function CouponClaimShareQr({ shareUrl, size = 120 }: { shareUrl: string; size?: number }) {
+function CouponShareQrBelowTicket({ shareUrl, size = 120 }: { shareUrl: string; size?: number }) {
 	return (
-		<div className="mx-auto flex w-fit justify-center rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/[0.08]">
+		<div className="mx-auto mt-4 flex w-fit justify-center rounded-2xl border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-black/[0.08]">
 			<QRCodeCanvas value={shareUrl} size={size} level="M" includeMargin={false} />
 		</div>
 	)
@@ -262,9 +264,12 @@ function CouponSharePreview({
 						/>
 					</div>
 				</div>
+				{shareUrl ? <CouponShareQrBelowTicket shareUrl={shareUrl} /> : null}
 			</div>
 		)
 	}
+
+	const shareQrBelowTicket = shareUrl ? <CouponShareQrBelowTicket shareUrl={shareUrl} /> : null
 
 	const ticketShell = (
 		<div className="relative w-full rounded-[1.75rem]">
@@ -297,12 +302,7 @@ function CouponSharePreview({
 					</>
 				)}
 
-				<div
-					className={[
-						'relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5',
-						!hasBanner && shareUrl ? 'pr-[6.25rem] sm:pr-[6.75rem]' : 'pr-7 sm:pr-8',
-					].join(' ')}
-				>
+				<div className="relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5">
 					{iconUrl ? (
 						<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
 							<img src={iconUrl} alt="" className="h-full w-full object-cover" draggable={false} />
@@ -318,11 +318,6 @@ function CouponSharePreview({
 						/>
 					) : null}
 
-					{!hasBanner && shareUrl ? (
-						<div className="absolute right-6 top-1/2 z-[2] -translate-y-1/2 rounded-2xl bg-white p-2 shadow-sm sm:right-8">
-							<QRCodeCanvas value={shareUrl} size={96} level="M" includeMargin={false} />
-						</div>
-					) : null}
 				</div>
 			</div>
 		</div>
@@ -344,13 +339,17 @@ function CouponSharePreview({
 						showExpiryPill={showExpiryPill}
 						renderExpiryPill={renderExpiryPill}
 					/>
+					{shareQrBelowTicket}
 				</div>
-			) : null}
+			) : (
+				shareQrBelowTicket
+			)}
 		</div>
 	)
 }
 
 export default function AppDownloadPage() {
+	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
 	const location = useLocation()
 	const targetUrl = useMemo(() => resolveBeamioAppTarget(location.search), [location.search])
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
@@ -362,6 +361,12 @@ export default function AppDownloadPage() {
 		if (!targetUrl || !shouldRedirectToInnerAppTarget()) return
 		window.location.replace(targetUrl)
 	}, [targetUrl])
+
+	/** Viewport scroll + page-scoped layout (class on body avoids html MutationObserver churn). */
+	useEffect(() => {
+		document.body.classList.add('beamio-app-download-page')
+		return () => document.body.classList.remove('beamio-app-download-page')
+	}, [])
 
 	useEffect(() => {
 		if (redirectingToInnerTarget) return
@@ -407,7 +412,13 @@ export default function AppDownloadPage() {
 			const result = await attemptOpenNativeBeamioApp(location.search)
 			if (cancelled) return
 
-			if (result === 'opened') return
+			if (result === 'opened') {
+				// Custom scheme may not leave the page; avoid infinite "checking" spinner.
+				window.setTimeout(() => {
+					if (!cancelled) setPhase('install')
+				}, 3500)
+				return
+			}
 			setPhase('install')
 		}
 
@@ -425,22 +436,13 @@ export default function AppDownloadPage() {
 
 	const couponPreview =
 		shareMeta && shareUrl ? <CouponSharePreview meta={shareMeta} shareUrl={shareUrl} /> : null
-	const showBannerQrAboveHeading = Boolean(
-		shareMeta?.backgroundImage?.trim() && shareUrl && phase === 'desktop'
-	)
 
 	return (
-		<div className="min-h-screen bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased">
-			<nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 shadow-sm backdrop-blur-md">
-				<div className="mx-auto flex h-16 max-w-7xl items-center px-6">
-					<Link to="/home" className="flex items-center gap-2.5">
-						<BeamioBrandLogo className="h-8 w-8 rounded-lg object-cover shadow-sm" />
-						<span className="text-xl font-bold tracking-tight text-slate-900">Beamio</span>
-					</Link>
-				</div>
-			</nav>
-
-			<main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-lg flex-col items-center justify-center px-6 py-16 text-center">
+		<div className="min-h-[100dvh] bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased">
+			<AppDownloadHomeCapsule opacity={capsuleOpacity} />
+			<main className="mx-auto w-full max-w-lg px-6 pb-16 text-center">
+				<div className="shrink-0" style={beamioFixedCapsuleScrollTopSpacerStyle()} aria-hidden />
+				<div className="flex flex-col items-center justify-center py-6">
 				{phase === 'checking' && (
 					<div className="space-y-6">
 						{couponPreview}
@@ -502,7 +504,6 @@ export default function AppDownloadPage() {
 				{phase === 'desktop' && (
 					<div className="space-y-8">
 						{couponPreview}
-						{showBannerQrAboveHeading ? <CouponClaimShareQr shareUrl={shareUrl} /> : null}
 						{!shareMeta && (
 							<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
 								<Smartphone className="h-8 w-8" />
@@ -514,9 +515,7 @@ export default function AppDownloadPage() {
 							</h1>
 							<p className="mt-4 text-lg leading-relaxed text-slate-600">
 								{shareMeta
-									? showBannerQrAboveHeading
-										? 'Scan the QR code above or open this link on your phone to claim in Beamio.'
-										: 'Scan the QR on the coupon card or open this link on your phone to claim in Beamio.'
+									? 'Scan the QR below the coupon or open this link on your phone to claim in Beamio.'
 									: 'Open this page on your phone to launch the Beamio app, or install it from the stores below.'}
 							</p>
 						</div>
@@ -549,6 +548,7 @@ export default function AppDownloadPage() {
 						</div>
 					</div>
 				)}
+				</div>
 			</main>
 		</div>
 	)
