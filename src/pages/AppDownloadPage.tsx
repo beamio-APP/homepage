@@ -339,7 +339,6 @@ export default function AppDownloadPage() {
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
 	const [phase, setPhase] = useState<PagePhase>(() => (isMobileDevice() ? 'checking' : 'desktop'))
 	const [shareMeta, setShareMeta] = useState<CouponClaimShareMeta | null>(null)
-	const [shareMetaFetchDone, setShareMetaFetchDone] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 
 	useLayoutEffect(() => {
@@ -374,14 +373,9 @@ export default function AppDownloadPage() {
 	}, [phase])
 
 	useEffect(() => {
-		setShareMetaFetchDone(false)
-	}, [location.search, redirectingToInnerTarget, shareUrl, targetUrl])
-
-	useEffect(() => {
 		if (redirectingToInnerTarget) return
 		if (!targetUrl || !shareUrl) {
 			document.title = 'Get Beamio App'
-			setShareMetaFetchDone(true)
 			return
 		}
 
@@ -395,7 +389,6 @@ export default function AppDownloadPage() {
 			} else {
 				document.title = 'Get Beamio App'
 			}
-			setShareMetaFetchDone(true)
 		})()
 
 		return () => {
@@ -403,12 +396,16 @@ export default function AppDownloadPage() {
 		}
 	}, [redirectingToInnerTarget, shareUrl, targetUrl])
 
-	useEffect(() => {
-		if (redirectingToInnerTarget || !shareMetaFetchDone) return
+	/**
+	 * Fire native scheme probe immediately on load — iOS only shows "Open in Beamio" when
+	 * navigation still carries the user tap gesture; deferring until share meta fetch breaks that.
+	 */
+	useLayoutEffect(() => {
+		if (redirectingToInnerTarget) return
 
 		let cancelled = false
 
-		async function run() {
+		void (async () => {
 			if (!isMobileDevice()) {
 				setPhase('desktop')
 				return
@@ -432,13 +429,12 @@ export default function AppDownloadPage() {
 				return
 			}
 			setPhase('install')
-		}
+		})()
 
-		void run()
 		return () => {
 			cancelled = true
 		}
-	}, [location.search, redirectingToInnerTarget, shareMetaFetchDone, targetUrl])
+	}, [location.search, redirectingToInnerTarget, targetUrl])
 
 	const storeUrl = isIosDevice()
 		? BEAMIO_IOS_STORE_URL
