@@ -94,6 +94,7 @@ function waitForNativeAppOpenOrTimeout(search: string, timeoutMs: number): Promi
 		window.addEventListener('pagehide', onPageHide)
 		window.addEventListener('blur', onBlur)
 
+		window.scrollTo(0, 0)
 		window.location.href = buildIosOpenUrl(IOS_OPEN_SCHEME, search)
 	})
 }

@@ -360,6 +360,7 @@ export default function AppDownloadPage() {
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
 	const [phase, setPhase] = useState<PagePhase>(() => (isMobileDevice() ? 'checking' : 'desktop'))
 	const [shareMeta, setShareMeta] = useState<CouponClaimShareMeta | null>(null)
+	const [shareMetaFetchDone, setShareMetaFetchDone] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 
 	useLayoutEffect(() => {
@@ -369,14 +370,39 @@ export default function AppDownloadPage() {
 
 	/** Viewport scroll + page-scoped layout (class on body avoids html MutationObserver churn). */
 	useEffect(() => {
+		document.documentElement.classList.add('beamio-app-download-page')
 		document.body.classList.add('beamio-app-download-page')
-		return () => document.body.classList.remove('beamio-app-download-page')
+		return () => {
+			document.documentElement.classList.remove('beamio-app-download-page')
+			document.body.classList.remove('beamio-app-download-page')
+		}
 	}, [])
+
+	/** iOS "Open in Beamio" system dimmer only covers the layout viewport — freeze scroll/height while probing. */
+	useEffect(() => {
+		if (phase !== 'checking') {
+			document.documentElement.classList.remove('beamio-app-download-page-checking')
+			document.body.classList.remove('beamio-app-download-page-checking')
+			return
+		}
+		document.documentElement.classList.add('beamio-app-download-page-checking')
+		document.body.classList.add('beamio-app-download-page-checking')
+		window.scrollTo(0, 0)
+		return () => {
+			document.documentElement.classList.remove('beamio-app-download-page-checking')
+			document.body.classList.remove('beamio-app-download-page-checking')
+		}
+	}, [phase])
+
+	useEffect(() => {
+		setShareMetaFetchDone(false)
+	}, [location.search, redirectingToInnerTarget, shareUrl, targetUrl])
 
 	useEffect(() => {
 		if (redirectingToInnerTarget) return
 		if (!targetUrl || !shareUrl) {
 			document.title = 'Get Beamio App'
+			setShareMetaFetchDone(true)
 			return
 		}
 
@@ -387,9 +413,10 @@ export default function AppDownloadPage() {
 			if (meta) {
 				setShareMeta(meta)
 				applyCouponClaimShareMeta(meta)
-				return
+			} else {
+				document.title = 'Get Beamio App'
 			}
-			document.title = 'Get Beamio App'
+			setShareMetaFetchDone(true)
 		})()
 
 		return () => {
@@ -398,7 +425,7 @@ export default function AppDownloadPage() {
 	}, [redirectingToInnerTarget, shareUrl, targetUrl])
 
 	useEffect(() => {
-		if (redirectingToInnerTarget) return
+		if (redirectingToInnerTarget || !shareMetaFetchDone) return
 
 		let cancelled = false
 
@@ -414,6 +441,7 @@ export default function AppDownloadPage() {
 			}
 
 			setPhase('checking')
+			window.scrollTo(0, 0)
 			const result = await attemptOpenNativeBeamioApp(location.search)
 			if (cancelled) return
 
@@ -431,7 +459,7 @@ export default function AppDownloadPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [location.search, redirectingToInnerTarget, targetUrl])
+	}, [location.search, redirectingToInnerTarget, shareMetaFetchDone, targetUrl])
 
 	const storeUrl = isIosDevice()
 		? BEAMIO_IOS_STORE_URL
@@ -440,12 +468,24 @@ export default function AppDownloadPage() {
 			: BEAMIO_ANDROID_STORE_URL
 
 	const couponPreview =
-		shareMeta && shareUrl ? <CouponSharePreview meta={shareMeta} shareUrl={shareUrl} /> : null
+		shareMeta && shareUrl && phase !== 'checking' ? (
+			<CouponSharePreview meta={shareMeta} shareUrl={shareUrl} />
+		) : null
 
 	return (
-		<div className="min-h-[100dvh] bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased">
+		<div
+			className={`bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased ${
+				phase === 'checking' ? 'relative h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'
+			}`}
+		>
+			{phase === 'checking' ? (
+				<div
+					className="pointer-events-none fixed inset-0 z-[90] bg-[#2c2f31]/35 backdrop-blur-[1px]"
+					aria-hidden
+				/>
+			) : null}
 			<AppDownloadHomeCapsule opacity={capsuleOpacity} />
-			<main className="mx-auto w-full max-w-lg min-w-0 px-4 pb-16 text-center sm:px-6">
+			<main className="relative z-[1] mx-auto w-full max-w-lg min-w-0 px-4 pb-16 text-center sm:px-6">
 				<div className="shrink-0" style={beamioFixedCapsuleScrollTopSpacerStyle()} aria-hidden />
 				<div className="flex w-full min-w-0 max-w-full flex-col items-center justify-center py-6">
 				{phase === 'checking' && (

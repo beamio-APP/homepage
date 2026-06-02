@@ -17,6 +17,14 @@ body.beamio-app-download-page {
   scrollbar-gutter: stable;
 }
 
+/* iOS custom-scheme prompt only dims the layout viewport — lock height while probing native app */
+html.beamio-app-download-page-checking,
+body.beamio-app-download-page-checking {
+  overflow: hidden;
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
