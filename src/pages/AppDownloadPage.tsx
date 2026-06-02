@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Calendar, Clock, Download, Loader2, Smartphone } from 'lucide-react'
-import { QRCodeCanvas } from 'qrcode.react'
 import AppDownloadHomeCapsule from '../components/AppDownloadHomeCapsule'
 import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
 import { beamioFixedCapsuleScrollTopSpacerStyle } from '../utils/beamioFixedTopCapsuleLayout'
@@ -52,14 +51,6 @@ function isIosEmbeddedWebView(): boolean {
 /** In native shell or embedded WKWebView: jump straight to inner `/app/` claim URL. */
 function shouldRedirectToInnerAppTarget(): boolean {
 	return isBeamioNativeShell() || isIosEmbeddedWebView()
-}
-
-function CouponShareQrBelowTicket({ shareUrl, size = 120 }: { shareUrl: string; size?: number }) {
-	return (
-		<div className="mx-auto mt-4 flex w-fit justify-center rounded-2xl border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-black/[0.08]">
-			<QRCodeCanvas value={shareUrl} size={size} level="M" includeMargin={false} />
-		</div>
-	)
 }
 
 function CouponBannerImage({ src }: { src: string }) {
@@ -196,13 +187,7 @@ function CatalogShareMetadataBlock({
 	)
 }
 
-function CouponSharePreview({
-	meta,
-	shareUrl,
-}: {
-	meta: CouponClaimShareMeta
-	shareUrl: string
-}) {
+function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 	const expiryUrgent = couponExpiryUsesUrgentVariant(meta.expiresLabel)
 	const showExpiryPill = shouldShowCouponExpiryPill(meta.expiresLabel)
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
@@ -264,12 +249,9 @@ function CouponSharePreview({
 						/>
 					</div>
 				</div>
-				{shareUrl ? <CouponShareQrBelowTicket shareUrl={shareUrl} /> : null}
 			</div>
 		)
 	}
-
-	const shareQrBelowTicket = shareUrl ? <CouponShareQrBelowTicket shareUrl={shareUrl} /> : null
 
 	/** Side punch holes extend 18px (half of h-9) past ticket edges — pad so they stay inside the viewport. */
 	const ticketPunchInsetClass = 'px-[18px]'
@@ -344,11 +326,8 @@ function CouponSharePreview({
 						showExpiryPill={showExpiryPill}
 						renderExpiryPill={renderExpiryPill}
 					/>
-					{shareQrBelowTicket}
 				</div>
-			) : (
-				shareQrBelowTicket
-			)}
+			) : null}
 		</div>
 	)
 }
@@ -468,9 +447,7 @@ export default function AppDownloadPage() {
 			: BEAMIO_ANDROID_STORE_URL
 
 	const couponPreview =
-		shareMeta && shareUrl && phase !== 'checking' ? (
-			<CouponSharePreview meta={shareMeta} shareUrl={shareUrl} />
-		) : null
+		shareMeta && shareUrl && phase !== 'checking' ? <CouponSharePreview meta={shareMeta} /> : null
 
 	return (
 		<div
@@ -560,7 +537,7 @@ export default function AppDownloadPage() {
 							</h1>
 							<p className="mt-4 text-lg leading-relaxed text-slate-600">
 								{shareMeta
-									? 'Scan the QR below the coupon or open this link on your phone to claim in Beamio.'
+									? 'Open this link on your phone to claim in the Beamio app.'
 									: 'Open this page on your phone to launch the Beamio app, or install it from the stores below.'}
 							</p>
 						</div>
