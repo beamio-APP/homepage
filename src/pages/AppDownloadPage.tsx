@@ -1,9 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Calendar, Clock, Download, Loader2, Smartphone } from 'lucide-react'
-import AppDownloadHomeCapsule from '../components/AppDownloadHomeCapsule'
-import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
-import { beamioFixedCapsuleScrollTopSpacerStyle } from '../utils/beamioFixedTopCapsuleLayout'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -333,7 +330,6 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 }
 
 export default function AppDownloadPage() {
-	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
 	const location = useLocation()
 	const targetUrl = useMemo(() => resolveBeamioAppTarget(location.search), [location.search])
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
@@ -457,9 +453,9 @@ export default function AppDownloadPage() {
 					aria-hidden
 				/>
 			) : null}
-			<AppDownloadHomeCapsule opacity={capsuleOpacity} />
-			<main className="relative z-[1] mx-auto w-full max-w-lg min-w-0 px-4 pb-16 text-center sm:px-6">
-				<div className="shrink-0" style={beamioFixedCapsuleScrollTopSpacerStyle()} aria-hidden />
+			<main
+				className="relative z-[1] mx-auto w-full max-w-lg min-w-0 px-4 pb-16 pt-[max(1rem,env(safe-area-inset-top,0px))] text-center sm:px-6"
+			>
 				<div className="flex w-full min-w-0 max-w-full flex-col items-center justify-center py-6">
 				{phase === 'checking' && (
 					<div className="w-full min-w-0 max-w-full space-y-6">
