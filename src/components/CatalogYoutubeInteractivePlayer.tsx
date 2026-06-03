@@ -238,7 +238,7 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 			) : null}
 			<div
 				id={mountId}
-				className="absolute left-0 z-[2] w-full border-0"
+				className="catalog-youtube-embed-mount absolute z-[2] border-0"
 				style={catalogVideoOgYoutubeEmbedIframeCropStyle()}
 				title="Catalog video"
 			/>

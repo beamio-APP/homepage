@@ -107,20 +107,35 @@ export function youtubeEmbedUrlFromVideoId(videoId: string): string {
 	return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
 }
 
-/** Crop embedded YouTube chrome (top-left logo pill) inside our aspect-video shell. */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX = 52
+/** @deprecated Top offset crop caused letterbox black bar; use center scale instead. */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX = 0
 
-/** Crop iframe bottom — hides Open in YouTube / More videos inside the embed. */
+/** Overlay height at bottom — blocks Open in YouTube taps inside the embed. */
 export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX = 100
+
+/** Center-scale so 16:9 video fills aspect-video shell (no negative top offset). */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE = 1.14
 
 export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST = 'https://www.youtube-nocookie.com'
 
-export function catalogVideoOgYoutubeEmbedIframeCropStyle(): { top: string; height: string } {
-	const top = CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX
-	const bottom = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX
+export function catalogVideoOgYoutubeEmbedIframeCropStyle(): {
+	position: 'absolute'
+	left: string
+	top: string
+	width: string
+	height: string
+	transform: string
+	transformOrigin: string
+} {
+	const scale = CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE
 	return {
-		top: `-${top}px`,
-		height: `calc(100% + ${top + bottom}px)`,
+		position: 'absolute',
+		left: '50%',
+		top: '50%',
+		width: '100%',
+		height: '100%',
+		transform: `translate(-50%, -50%) scale(${scale})`,
+		transformOrigin: 'center center',
 	}
 }
 

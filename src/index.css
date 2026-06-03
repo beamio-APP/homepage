@@ -68,6 +68,12 @@ html, body {
   background-color: #ef4444;
 }
 
+/* Catalog YouTube IFrame API mount — fill shell (avoid top letterbox / downward shift) */
+.catalog-youtube-embed-mount iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* /app-download: viewport scroll + visible vertical scrollbar (coupon share landing) */
 html.beamio-app-download-page,
 body.beamio-app-download-page {
