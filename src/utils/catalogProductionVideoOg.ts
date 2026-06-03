@@ -32,3 +32,189 @@ export type CouponClaimShareMetaVideoFields = {
 	iconUrl: string
 	backgroundImage: string
 }
+
+const PRODUCTION_BACKGROUND_YOUTUBE_MIME = 'video/youtube'
+
+export function inferProductionImageMimeFromUrl(url: string): string {
+	const u = url.trim()
+	if (!u) return ''
+	if (u.includes('youtube.com') || u.includes('youtu.be')) return PRODUCTION_BACKGROUND_YOUTUBE_MIME
+	if (/\.(mp4|webm|mov|m4v|ogv)(\?|&|$)/i.test(u)) return 'video/mp4'
+	if (/\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(u)) return 'image/jpeg'
+	return ''
+}
+
+export function youtubeThumbnailUrlFromProductionUrl(raw: string): string | null {
+	const id = parseYoutubeVideoId(raw)
+	if (!id) return null
+	return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+}
+
+/** Parse `https://img.youtube.com/vi/{id}/hqdefault.jpg` → video id. */
+export function parseYoutubeVideoIdFromThumbUrl(raw: string): string | null {
+	const match = raw.trim().match(/img\.youtube\.com\/vi\/([a-zA-Z0-9_-]{11})\//i)
+	return match?.[1] ?? null
+}
+
+export function parseYoutubeVideoId(raw: string): string | null {
+	const input = String(raw ?? '').trim()
+	if (!input) return null
+	try {
+		const url = input.startsWith('http') ? new URL(input) : new URL(`https://${input}`)
+		const host = url.hostname.replace(/^www\./, '').toLowerCase()
+		if (host === 'youtu.be') {
+			const id = url.pathname.replace(/^\//, '').split('/')[0]?.trim()
+			return id && /^[\w-]{6,}$/.test(id) ? id : null
+		}
+		if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+			if (url.pathname === '/watch') {
+				const id = url.searchParams.get('v')?.trim()
+				return id && /^[\w-]{6,}$/.test(id) ? id : null
+			}
+			const shorts = url.pathname.match(/^\/shorts\/([\w-]{6,})/)
+			if (shorts?.[1]) return shorts[1]
+			const embed = url.pathname.match(/^\/embed\/([\w-]{6,})/)
+			if (embed?.[1]) return embed[1]
+		}
+	} catch {
+		return null
+	}
+	return parseYoutubeVideoIdFromThumbUrl(input)
+}
+
+export function catalogVideoOgYoutubePlayerVars(videoId: string): Record<string, string | number> {
+	return {
+		rel: 0,
+		playsinline: 1,
+		modestbranding: 1,
+		/** Hide native bar (Share / Open in YouTube); custom scrubber rendered in-app. */
+		controls: 0,
+		iv_load_policy: 3,
+		disablekb: 1,
+		fs: 0,
+		enablejsapi: 1,
+		loop: 1,
+		playlist: videoId,
+		origin: typeof window !== 'undefined' ? window.location.origin : '',
+	}
+}
+
+export function youtubeEmbedUrlFromVideoId(videoId: string): string {
+	const params = new URLSearchParams()
+	for (const [key, value] of Object.entries(catalogVideoOgYoutubePlayerVars(videoId))) {
+		params.set(key, String(value))
+	}
+	return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
+}
+
+/** Crop embedded YouTube chrome (top-left logo pill) inside our aspect-video shell. */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX = 52
+
+/** Crop iframe bottom — hides Open in YouTube / More videos inside the embed. */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX = 100
+
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST = 'https://www.youtube-nocookie.com'
+
+export function catalogVideoOgYoutubeEmbedIframeCropStyle(): { top: string; height: string } {
+	const top = CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX
+	const bottom = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX
+	return {
+		top: `-${top}px`,
+		height: `calc(100% + ${top + bottom}px)`,
+	}
+}
+
+function formatYoutubeScrubberTime(totalSeconds: number): string {
+	if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00'
+	const whole = Math.floor(totalSeconds)
+	const minutes = Math.floor(whole / 60)
+	const seconds = whole % 60
+	return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+export { formatYoutubeScrubberTime }
+
+export function isYoutubeProductionVideo(args: {
+	videoUrl?: string
+	mime?: string
+	fallbackBannerUrl?: string
+}): boolean {
+	const mime = args.mime?.trim().toLowerCase() ?? ''
+	if (mime === 'video/youtube') return true
+	const id =
+		parseYoutubeVideoId(args.videoUrl ?? '') ||
+		parseYoutubeVideoIdFromThumbUrl(args.fallbackBannerUrl ?? '')
+	return Boolean(id)
+}
+
+export function resolveYoutubeVideoIdForSharePlayer(args: {
+	productionVideoUrl?: string
+	bannerImageUrl?: string
+	iconUrl?: string
+}): string | null {
+	return (
+		parseYoutubeVideoId(args.productionVideoUrl ?? '') ||
+		parseYoutubeVideoIdFromThumbUrl(args.bannerImageUrl ?? '') ||
+		parseYoutubeVideoIdFromThumbUrl(args.iconUrl ?? '') ||
+		parseYoutubeVideoId(args.bannerImageUrl ?? '')
+	)
+}
+
+/** Interactive app-download / share: native `<video>` when API video URL differs from banner thumb. */
+export function resolveCatalogShareInteractiveNativeVideoUrl(args: {
+	productionVideoUrl?: string
+	productionVideoMime?: string
+	bannerImageUrl?: string
+}): string | null {
+	const url = (args.productionVideoUrl ?? '').trim()
+	if (!url) return null
+	const banner = (args.bannerImageUrl ?? '').trim()
+	const mime = (args.productionVideoMime ?? '').trim() || inferProductionImageMimeFromUrl(url)
+	if (isYoutubeProductionVideo({ videoUrl: url, mime, fallbackBannerUrl: banner })) return null
+	const mimeLower = mime.toLowerCase()
+	if (mimeLower.startsWith('video/') && mimeLower !== PRODUCTION_BACKGROUND_YOUTUBE_MIME) {
+		if (!/\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(url) && !url.includes('img.youtube.com')) {
+			return url
+		}
+	}
+	if (
+		catalogVideoOgBannerShouldUseVideoElement({
+			bannerImageUrl: banner || url,
+			productionImage: url,
+			productionImageMime: mime,
+		})
+	) {
+		return url
+	}
+	return null
+}
+
+/** True when catalog videoOg banner slot should render `<video>` (uploaded clip), not `<img>`. */
+export function catalogVideoOgBannerShouldUseVideoElement(args: {
+	bannerImageUrl: string
+	productionImage: string
+	productionImageMime?: string
+}): boolean {
+	const banner = args.bannerImageUrl.trim()
+	const production = args.productionImage.trim()
+	if (!banner) return false
+
+	const lower = banner.toLowerCase()
+	if (lower.startsWith('data:image/')) return false
+	if (/\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(lower)) return false
+	if (youtubeThumbnailUrlFromProductionUrl(banner)) return false
+
+	const bannerIsProductionAsset =
+		production.length > 0 &&
+		(banner === production ||
+			(banner.startsWith('blob:') && production.startsWith('blob:') && banner === production))
+
+	if (!bannerIsProductionAsset) return false
+
+	return (
+		/\.(mp4|webm|mov|m4v|ogv)(\?|&|$)/i.test(lower) ||
+		lower.startsWith('blob:') ||
+		lower.startsWith('data:video/') ||
+		(args.productionImageMime?.trim().toLowerCase() ?? '').startsWith('video/')
+	)
+}
