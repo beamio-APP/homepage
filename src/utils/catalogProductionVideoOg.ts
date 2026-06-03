@@ -106,10 +106,12 @@ export function youtubeWatchUrlFromVideoId(videoId: string): string {
 	return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`
 }
 
-/** Same-origin MP4 mirror (Cluster `catalogYoutubeStreamProxy`). */
+/** MP4 mirror on ipfs.conet.network (`catalogYoutubeStreamProxy` on fragment daemon). */
+export const BEAMIO_IPFS_FRAGMENT_ORIGIN = 'https://ipfs.conet.network'
+
 export function catalogYoutubeProxyStreamUrl(videoId: string): string {
 	const id = videoId.trim()
-	return `/api/catalogYoutubeStream?v=${encodeURIComponent(id)}`
+	return `${BEAMIO_IPFS_FRAGMENT_ORIGIN}/api/catalogYoutubeStream?v=${encodeURIComponent(id)}`
 }
 
 export function youtubeEmbedUrlFromVideoId(videoId: string): string {
