@@ -198,7 +198,7 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 			/>
 			<div className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 pt-8">
 				<div className="pointer-events-auto rounded-lg bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pb-1 pt-6">
-					<div className="flex min-h-[44px] items-center gap-2">
+					<div className="flex items-center gap-2">
 						<span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-white/85">
 							{formatYoutubeScrubberTime(rangeValue)}
 						</span>
@@ -210,7 +210,7 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 							value={rangeValue}
 							disabled={max <= 0}
 							aria-label="Video progress"
-							className="h-2 min-h-[28px] min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/25 accent-red-500 py-3 disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-red-500 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500"
+							className="catalog-video-scrubber-range h-4 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-transparent accent-red-500 disabled:cursor-not-allowed"
 							style={{ touchAction: 'none' }}
 							onPointerDown={(event) => {
 								const next = Number(event.currentTarget.value)
