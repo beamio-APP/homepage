@@ -12,6 +12,7 @@ import { loadYoutubeIframeApi, type YtPlayerInstance } from '../utils/youtubeIfr
 const YT_ENDED = 0
 const YT_PLAYING = 1
 const YT_BUFFERING = 3
+const SCRUBBER_IDLE_HIDE_MS = 5000
 
 type CatalogYoutubeInteractivePlayerProps = {
 	videoId: string
@@ -24,21 +25,56 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 	const mountId = useId().replace(/:/g, '')
 	const playerRef = useRef<YtPlayerInstance | null>(null)
 	const scrubPreviewRef = useRef(0)
+	const scrubberIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 	const [duration, setDuration] = useState(0)
 	const [currentTime, setCurrentTime] = useState(0)
 	const [isPlaying, setIsPlaying] = useState(false)
 	const [isScrubbing, setIsScrubbing] = useState(false)
 	const [scrubPreview, setScrubPreview] = useState<number | null>(null)
 	const [hasUserStarted, setHasUserStarted] = useState(false)
+	const [scrubberVisible, setScrubberVisible] = useState(false)
+
+	const clearScrubberIdleTimer = useCallback(() => {
+		if (scrubberIdleTimerRef.current !== undefined) {
+			clearTimeout(scrubberIdleTimerRef.current)
+			scrubberIdleTimerRef.current = undefined
+		}
+	}, [])
+
+	const hideScrubber = useCallback(() => {
+		clearScrubberIdleTimer()
+		setScrubberVisible(false)
+	}, [clearScrubberIdleTimer])
+
+	const scheduleScrubberIdleHide = useCallback(() => {
+		clearScrubberIdleTimer()
+		scrubberIdleTimerRef.current = setTimeout(() => {
+			scrubberIdleTimerRef.current = undefined
+			setScrubberVisible(false)
+		}, SCRUBBER_IDLE_HIDE_MS)
+	}, [clearScrubberIdleTimer])
+
+	const revealScrubber = useCallback(() => {
+		if (!hasUserStarted) return
+		setScrubberVisible(true)
+		scheduleScrubberIdleHide()
+	}, [hasUserStarted, scheduleScrubberIdleHide])
+
+	const handlePlayerPointerLeave = useCallback(() => {
+		if (isScrubbing) return
+		hideScrubber()
+	}, [hideScrubber, isScrubbing])
 
 	const handlePlayRequest = useCallback(() => {
 		setHasUserStarted(true)
+		setScrubberVisible(true)
+		scheduleScrubberIdleHide()
 		try {
 			playerRef.current?.playVideo()
 		} catch {
 			/* ignore */
 		}
-	}, [])
+	}, [scheduleScrubberIdleHide])
 
 	const seekTo = useCallback((seconds: number, allowSeekAhead = true) => {
 		const clamped = Math.max(0, duration > 0 ? Math.min(seconds, duration) : seconds)
@@ -163,15 +199,35 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 		}
 	}, [hasUserStarted, isPlaying, videoId])
 
+	useEffect(() => {
+		if (isScrubbing) {
+			clearScrubberIdleTimer()
+			setScrubberVisible(true)
+			return
+		}
+		if (scrubberVisible && hasUserStarted) scheduleScrubberIdleHide()
+	}, [clearScrubberIdleTimer, hasUserStarted, isScrubbing, scheduleScrubberIdleHide, scrubberVisible])
+
+	useEffect(() => () => clearScrubberIdleTimer(), [clearScrubberIdleTimer])
+
 	const poster = posterUrl?.trim()
 	const max = duration > 0 ? duration : 0
 	const scrubValue = max > 0 ? Math.min(currentTime, max) : 0
 	const rangeValue = isScrubbing && scrubPreview !== null ? scrubPreview : scrubValue
 	const showPoster = Boolean(poster) && !hasUserStarted
 	const bottomChromeBlockPx = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX
+	const showScrubberChrome = hasUserStarted && (scrubberVisible || isScrubbing)
 
 	return (
-		<div className="relative h-full w-full overflow-hidden">
+		<div
+			className="relative h-full w-full overflow-hidden"
+			onMouseEnter={revealScrubber}
+			onMouseLeave={handlePlayerPointerLeave}
+			onMouseMove={revealScrubber}
+			onPointerDown={() => {
+				if (hasUserStarted) revealScrubber()
+			}}
+		>
 			{showPoster ? (
 				<img
 					src={poster}
@@ -196,8 +252,13 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 				style={{ height: bottomChromeBlockPx }}
 				aria-hidden
 			/>
-			<div className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 pt-8">
-				<div className="pointer-events-auto rounded-lg bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pb-1 pt-6">
+			<div
+				className={`absolute inset-x-0 bottom-0 z-40 px-3 pb-3 pt-8 transition-opacity duration-300 ease-out ${
+					showScrubberChrome ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+				}`}
+				aria-hidden={!showScrubberChrome}
+			>
+				<div className="rounded-lg bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pb-1 pt-6">
 					<div className="flex items-center gap-2">
 						<span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-white/85">
 							{formatYoutubeScrubberTime(rangeValue)}
@@ -213,6 +274,7 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 							className="catalog-video-scrubber-range h-4 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-transparent accent-red-500 disabled:cursor-not-allowed"
 							style={{ touchAction: 'none' }}
 							onPointerDown={(event) => {
+								revealScrubber()
 								const next = Number(event.currentTarget.value)
 								scrubPreviewRef.current = next
 								setScrubPreview(next)
