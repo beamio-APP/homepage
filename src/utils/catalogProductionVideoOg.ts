@@ -82,18 +82,15 @@ export function parseYoutubeVideoId(raw: string): string | null {
 	return parseYoutubeVideoIdFromThumbUrl(input)
 }
 
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST = 'https://www.youtube-nocookie.com'
+
 export function catalogVideoOgYoutubePlayerVars(videoId: string): Record<string, string | number> {
 	return {
 		rel: 0,
 		playsinline: 1,
 		modestbranding: 1,
-		/** Hide native bar (Share / Open in YouTube); custom scrubber rendered in-app. */
-		controls: 0,
-		autohide: 1,
-		cc_load_policy: 0,
+		controls: 1,
 		iv_load_policy: 3,
-		disablekb: 1,
-		fs: 0,
 		enablejsapi: 1,
 		loop: 1,
 		playlist: videoId,
@@ -104,14 +101,6 @@ export function catalogVideoOgYoutubePlayerVars(videoId: string): Record<string,
 export function youtubeWatchUrlFromVideoId(videoId: string): string {
 	const id = videoId.trim()
 	return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`
-}
-
-/** MP4 mirror on ipfs.conet.network (`catalogYoutubeStreamProxy` on fragment daemon). */
-export const BEAMIO_IPFS_FRAGMENT_ORIGIN = 'https://ipfs.conet.network'
-
-export function catalogYoutubeProxyStreamUrl(videoId: string): string {
-	const id = videoId.trim()
-	return `${BEAMIO_IPFS_FRAGMENT_ORIGIN}/api/catalogYoutubeStream?v=${encodeURIComponent(id)}`
 }
 
 export function youtubeEmbedUrlFromVideoId(videoId: string): string {

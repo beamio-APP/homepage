@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { CatalogVideoOgTapPlayOverlay } from './CatalogVideoOgTapPlayOverlay'
-import { CatalogVideoOgYoutubeProxyVideo } from './CatalogVideoOgYoutubeProxyVideo'
+import { CatalogYoutubeInteractivePlayer } from './CatalogYoutubeInteractivePlayer'
 import {
 	catalogVideoOgBannerShouldUseVideoElement,
 	inferProductionImageMimeFromUrl,
@@ -18,7 +18,7 @@ export type CatalogVideoOgBannerMediaProps = {
 	iconUrl?: string
 	backgroundColorHex?: string
 	previewBannerHeightPx: number
-	/** Catalog Distribution share link — native `<video>` or YouTube mirror stream (in-page). */
+	/** Catalog Distribution share link — native `<video>` or YouTube iframe (in-page). */
 	interactivePlayback?: boolean
 }
 
@@ -139,7 +139,7 @@ export function CatalogVideoOgBannerMedia({
 				previewBannerHeightPx={previewBannerHeightPx}
 				aspectVideo
 			>
-				<CatalogVideoOgYoutubeProxyVideo videoId={youtubeId} posterUrl={banner} />
+				<CatalogYoutubeInteractivePlayer videoId={youtubeId} posterUrl={banner} />
 			</CatalogVideoShell>
 		)
 	}
