@@ -31,13 +31,13 @@ html, body {
   border-radius: 9999px;
 }
 
-/* Catalog video share — semi-transparent timeline track (1rem tall) */
+/* Catalog video share — track 0.25rem, thumb 1rem (input height = thumb for touch) */
 .catalog-video-scrubber-range {
   height: 1rem;
 }
 
 .catalog-video-scrubber-range::-webkit-slider-runnable-track {
-  height: 1rem;
+  height: 0.25rem;
   border-radius: 9999px;
   background-color: rgb(255 255 255 / 0.25);
 }
@@ -47,14 +47,14 @@ html, body {
   appearance: none;
   width: 1rem;
   height: 1rem;
-  margin-top: 0;
+  margin-top: calc((0.25rem - 1rem) / 2);
   border: 0;
   border-radius: 9999px;
   background-color: #ef4444;
 }
 
 .catalog-video-scrubber-range::-moz-range-track {
-  height: 1rem;
+  height: 0.25rem;
   border: 0;
   border-radius: 9999px;
   background-color: rgb(255 255 255 / 0.25);
