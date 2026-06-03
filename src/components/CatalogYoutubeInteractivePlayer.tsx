@@ -1,34 +1,20 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { CatalogVideoOgTapPlayOverlay } from './CatalogVideoOgTapPlayOverlay'
+import { useEffect, useId, useRef } from 'react'
 import {
 	CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST,
 	catalogVideoOgYoutubePlayerVars,
 } from '../utils/catalogProductionVideoOg'
 import { loadYoutubeIframeApi, type YtPlayerInstance } from '../utils/youtubeIframeApi'
 
-const YT_PLAYING = 1
-
 type CatalogYoutubeInteractivePlayerProps = {
 	videoId: string
-	/** hqdefault / catalog thumb — shown until playback starts (iOS Safari). */
+	/** @deprecated Poster unused — YouTube native UI handles playback. */
 	posterUrl?: string
 }
 
-/** YouTube IFrame API embed with native controls (no chrome masking). */
-export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogYoutubeInteractivePlayerProps) {
+/** YouTube IFrame API embed with native controls only. */
+export function CatalogYoutubeInteractivePlayer({ videoId }: CatalogYoutubeInteractivePlayerProps) {
 	const mountId = useId().replace(/:/g, '')
 	const playerRef = useRef<YtPlayerInstance | null>(null)
-	const [isPlaying, setIsPlaying] = useState(false)
-	const [hasUserStarted, setHasUserStarted] = useState(false)
-
-	const handlePlayRequest = useCallback(() => {
-		setHasUserStarted(true)
-		try {
-			playerRef.current?.playVideo()
-		} catch {
-			/* ignore */
-		}
-	}, [])
 
 	useEffect(() => {
 		let cancelled = false
@@ -44,9 +30,6 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 				events: {
 					onReady: (event) => {
 						playerRef.current = event.target
-					},
-					onStateChange: (event) => {
-						setIsPlaying(event.data === YT_PLAYING)
 					},
 				},
 			})
@@ -64,24 +47,9 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 		}
 	}, [mountId, videoId])
 
-	const poster = posterUrl?.trim()
-	const showPoster = Boolean(poster) && !hasUserStarted && !isPlaying
-
 	return (
 		<div className="relative h-full w-full overflow-hidden bg-black">
-			{showPoster ? (
-				<img
-					src={poster}
-					alt=""
-					className="absolute inset-0 z-[1] h-full w-full object-cover"
-					draggable={false}
-				/>
-			) : null}
-			<div id={mountId} className="absolute inset-0 z-[2] h-full w-full border-0" title="Catalog video" />
-			<CatalogVideoOgTapPlayOverlay
-				visible={!hasUserStarted && !isPlaying}
-				onPlay={handlePlayRequest}
-			/>
+			<div id={mountId} className="absolute inset-0 h-full w-full border-0" title="Catalog video" />
 		</div>
 	)
 }

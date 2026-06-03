@@ -1,5 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
-import { CatalogVideoOgTapPlayOverlay } from './CatalogVideoOgTapPlayOverlay'
+import type { ReactNode } from 'react'
 import { CatalogYoutubeInteractivePlayer } from './CatalogYoutubeInteractivePlayer'
 import {
 	catalogVideoOgBannerShouldUseVideoElement,
@@ -62,9 +61,6 @@ function CatalogVideoOgInteractiveNativeVideo({
 	backgroundColorHex?: string
 	previewBannerHeightPx: number
 }) {
-	const videoRef = useRef<HTMLVideoElement>(null)
-	const [isPlaying, setIsPlaying] = useState(false)
-
 	return (
 		<CatalogVideoShell
 			backgroundColorHex={backgroundColorHex}
@@ -72,7 +68,6 @@ function CatalogVideoOgInteractiveNativeVideo({
 			aspectVideo
 		>
 			<video
-				ref={videoRef}
 				src={src}
 				className={`${BANNER_MEDIA_CLASS} relative z-0`}
 				controls
@@ -80,19 +75,6 @@ function CatalogVideoOgInteractiveNativeVideo({
 				controlsList="nodownload"
 				preload="metadata"
 				poster={posterUrl}
-				onPlay={() => setIsPlaying(true)}
-				onPause={() => setIsPlaying(false)}
-				onEnded={() => setIsPlaying(false)}
-			/>
-			<CatalogVideoOgTapPlayOverlay
-				visible={!isPlaying}
-				onPlay={() => {
-					const el = videoRef.current
-					if (!el) return
-					void el.play().catch(() => {
-						/* Safari may reject without gesture; overlay click is the gesture */
-					})
-				}}
 			/>
 		</CatalogVideoShell>
 	)
