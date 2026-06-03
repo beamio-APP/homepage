@@ -11,6 +11,7 @@ import { loadYoutubeIframeApi, type YtPlayerInstance } from '../utils/youtubeIfr
 
 const YT_ENDED = 0
 const YT_PLAYING = 1
+const YT_BUFFERING = 3
 
 type CatalogYoutubeInteractivePlayerProps = {
 	videoId: string
@@ -22,10 +23,12 @@ type CatalogYoutubeInteractivePlayerProps = {
 export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogYoutubeInteractivePlayerProps) {
 	const mountId = useId().replace(/:/g, '')
 	const playerRef = useRef<YtPlayerInstance | null>(null)
+	const scrubPreviewRef = useRef(0)
 	const [duration, setDuration] = useState(0)
 	const [currentTime, setCurrentTime] = useState(0)
 	const [isPlaying, setIsPlaying] = useState(false)
 	const [isScrubbing, setIsScrubbing] = useState(false)
+	const [scrubPreview, setScrubPreview] = useState<number | null>(null)
 	const [hasUserStarted, setHasUserStarted] = useState(false)
 
 	const handlePlayRequest = useCallback(() => {
@@ -37,19 +40,36 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 		}
 	}, [])
 
-	const endScrub = useCallback(() => {
-		setIsScrubbing(false)
-	}, [])
-
-	const seekTo = useCallback((seconds: number) => {
+	const seekTo = useCallback((seconds: number, allowSeekAhead = true) => {
 		const clamped = Math.max(0, duration > 0 ? Math.min(seconds, duration) : seconds)
 		setCurrentTime(clamped)
 		try {
-			playerRef.current?.seekTo(clamped, true)
+			playerRef.current?.seekTo(clamped, allowSeekAhead)
 		} catch {
 			/* ignore */
 		}
 	}, [duration])
+
+	const resumeAfterSeek = useCallback(() => {
+		try {
+			playerRef.current?.playVideo()
+		} catch {
+			/* ignore */
+		}
+	}, [])
+
+	const commitScrub = useCallback(() => {
+		const seconds = scrubPreviewRef.current
+		setScrubPreview(null)
+		setIsScrubbing(false)
+		seekTo(seconds, true)
+		if (hasUserStarted) resumeAfterSeek()
+	}, [hasUserStarted, resumeAfterSeek, seekTo])
+
+	const endScrub = useCallback(() => {
+		if (!isScrubbing) return
+		commitScrub()
+	}, [commitScrub, isScrubbing])
 
 	useEffect(() => {
 		let cancelled = false
@@ -78,7 +98,7 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 							setIsPlaying(true)
 							return
 						}
-						setIsPlaying(event.data === YT_PLAYING)
+						setIsPlaying(event.data === YT_PLAYING || event.data === YT_BUFFERING)
 					},
 				},
 			})
@@ -143,15 +163,16 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 		}
 	}, [hasUserStarted, isPlaying, videoId])
 
+	const poster = posterUrl?.trim()
 	const max = duration > 0 ? duration : 0
 	const scrubValue = max > 0 ? Math.min(currentTime, max) : 0
+	const rangeValue = isScrubbing && scrubPreview !== null ? scrubPreview : scrubValue
+	const showPoster = Boolean(poster) && !hasUserStarted
 	const bottomChromeBlockPx = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX
-
-	const poster = posterUrl?.trim()
 
 	return (
 		<div className="relative h-full w-full overflow-hidden">
-			{poster && !isPlaying ? (
+			{showPoster ? (
 				<img
 					src={poster}
 					alt=""
@@ -179,27 +200,40 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 				<div className="pointer-events-auto rounded-lg bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pb-1 pt-6">
 					<div className="flex min-h-[44px] items-center gap-2">
 						<span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-white/85">
-							{formatYoutubeScrubberTime(scrubValue)}
+							{formatYoutubeScrubberTime(rangeValue)}
 						</span>
 						<input
 							type="range"
 							min={0}
 							max={max || 1}
 							step={0.1}
-							value={scrubValue}
+							value={rangeValue}
 							disabled={max <= 0}
 							aria-label="Video progress"
 							className="h-2 min-h-[28px] min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/25 accent-red-500 py-3 disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-red-500 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500"
 							style={{ touchAction: 'none' }}
-							onPointerDown={() => setIsScrubbing(true)}
+							onPointerDown={(event) => {
+								const next = Number(event.currentTarget.value)
+								scrubPreviewRef.current = next
+								setScrubPreview(next)
+								setIsScrubbing(true)
+							}}
 							onPointerUp={endScrub}
 							onPointerCancel={endScrub}
 							onLostPointerCapture={endScrub}
-							onChange={(event) => {
-								seekTo(Number(event.target.value))
-							}}
 							onInput={(event) => {
-								seekTo(Number(event.target.value))
+								const next = Number(event.target.value)
+								scrubPreviewRef.current = next
+								setScrubPreview(next)
+							}}
+							onChange={(event) => {
+								const next = Number(event.target.value)
+								scrubPreviewRef.current = next
+								setScrubPreview(next)
+								if (!isScrubbing) {
+									seekTo(next, true)
+									if (hasUserStarted) resumeAfterSeek()
+								}
 							}}
 						/>
 						<span className="w-10 shrink-0 text-[11px] tabular-nums text-white/85">
