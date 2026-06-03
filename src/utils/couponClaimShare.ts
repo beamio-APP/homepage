@@ -15,6 +15,9 @@ export type CouponClaimShareMeta = {
 	itemCategory?: string
 	iconUrl: string
 	backgroundImage: string
+	/** Catalog video source URL (YouTube watch link or uploaded MP4/IPFS). */
+	productionVideoUrl?: string
+	productionVideoMime?: string
 	backgroundColorHex: string
 	validBeforeSec: number | null
 	expiresLabel: string

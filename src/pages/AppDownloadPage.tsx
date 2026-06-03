@@ -1,6 +1,6 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Calendar, Clock, Download, Loader2, Smartphone } from 'lucide-react'
+import { Calendar, Clock, Download, Gift, Loader2, Smartphone } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -9,6 +9,8 @@ import {
 	isBeamioNativeShell,
 	isIosDevice,
 	isMobileDevice,
+	openBeamioAppStore,
+	type NativeAppOpenResult,
 } from '../utils/nativeAppDownload'
 import {
 	applyCouponClaimShareMeta,
@@ -18,13 +20,21 @@ import {
 	fetchCouponClaimShareMeta,
 	type CouponClaimShareMeta,
 } from '../utils/couponClaimShare'
-import { CatalogVideoOgPlayOverlay } from '../components/CatalogVideoOgPlayOverlay'
+import { CatalogVideoOgBannerMedia } from '../components/CatalogVideoOgBannerMedia'
 import {
 	CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX,
 	CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME,
 } from '../utils/catalogProductionVideoOg'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
+type IosNativeProbeResult = 'pending' | NativeAppOpenResult
+
+/** POS Check Balance claim button — same orange/red gradient. */
+const CLAIM_GRADIENT = 'linear-gradient(to bottom right, rgb(255,132,36), rgb(255,71,87))'
+
+function isCouponShareMeta(meta: CouponClaimShareMeta): boolean {
+	return meta.distributionKind !== 'catalog'
+}
 
 function resolveBeamioAppTarget(search: string): string {
 	const target = new URLSearchParams(search).get('target')?.trim() ?? ''
@@ -73,6 +83,35 @@ function CouponBannerImage({ src }: { src: string }) {
 	)
 }
 
+function useCatalogVideoOgShareCardMaxHeight(cardRef: React.RefObject<HTMLElement | null>) {
+	const [maxHeightPx, setMaxHeightPx] = useState<number | undefined>(undefined)
+
+	useLayoutEffect(() => {
+		const measure = () => {
+			const el = cardRef.current
+			if (!el) return
+			const top = el.getBoundingClientRect().top
+			const safeBottomRaw = getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)')
+			const safeBottom = Number.parseFloat(safeBottomRaw) || 0
+			const reservePx = 20 + safeBottom
+			const next = Math.floor(window.innerHeight - top - reservePx)
+			setMaxHeightPx(Math.max(280, next))
+		}
+
+		measure()
+		window.addEventListener('resize', measure)
+		window.visualViewport?.addEventListener('resize', measure)
+		window.visualViewport?.addEventListener('scroll', measure)
+		return () => {
+			window.removeEventListener('resize', measure)
+			window.visualViewport?.removeEventListener('resize', measure)
+			window.visualViewport?.removeEventListener('scroll', measure)
+		}
+	}, [cardRef])
+
+	return maxHeightPx
+}
+
 function CatalogShareCategoryLine({
 	globalCategory,
 	itemCategory,
@@ -98,11 +137,14 @@ function CatalogShareMetadataBlock({
 	tone,
 	showExpiryPill,
 	renderExpiryPill,
+	descriptionViewportScroll = false,
 }: {
 	meta: CouponClaimShareMeta
 	tone: 'inner' | 'external'
 	showExpiryPill: boolean
 	renderExpiryPill: (placement: 'inner' | 'external') => React.ReactNode
+	/** Catalog videoOg — description fills remaining card height and scrolls (no line clamp). */
+	descriptionViewportScroll?: boolean
 }) {
 	const isCatalog = meta.distributionKind === 'catalog'
 	const title = meta.title.trim()
@@ -123,23 +165,42 @@ function CatalogShareMetadataBlock({
 		const publisherLine = meta.publisherLine?.trim() ?? ''
 		const publisherClass =
 			tone === 'inner'
-				? 'mt-1 truncate text-xs font-medium text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
-				: 'mt-1 truncate text-xs font-medium text-[#595c5e]'
+				? 'truncate text-xs font-medium text-white/85 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
+				: 'truncate text-xs font-medium text-[#595c5e]'
 		if (isVideoOg) {
+			const descriptionMarginClass = publisherLine || title ? 'mt-0.5' : global || item ? 'mt-1' : ''
 			return (
-				<div className="min-w-0 flex-1">
-					<CatalogShareCategoryLine
-						globalCategory={meta.globalCategory}
-						itemCategory={meta.itemCategory}
-						tone={tone}
-					/>
-					{title ? <p className={`${titleClass} ${global || item ? 'mt-1' : ''}`}>{title}</p> : null}
+				<div
+					className={`min-w-0 ${descriptionViewportScroll ? 'flex min-h-0 flex-1 flex-col' : 'flex-1'}`}
+				>
+					<div className="shrink-0">
+						<CatalogShareCategoryLine
+							globalCategory={meta.globalCategory}
+							itemCategory={meta.itemCategory}
+							tone={tone}
+						/>
+						{title ? <p className={`${titleClass} ${global || item ? 'mt-1' : ''}`}>{title}</p> : null}
+						{publisherLine ? (
+							<p className={`${publisherClass} ${title ? 'mt-0.5' : global || item ? 'mt-1' : ''}`}>
+								{publisherLine}
+							</p>
+						) : null}
+					</div>
 					{subtitle ? (
-						<p className={`${subtitleClass} ${title ? 'mt-0.5' : global || item ? 'mt-1' : ''}`}>{subtitle}</p>
+						descriptionViewportScroll ? (
+							<div
+								className={`catalog-share-description-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain ${descriptionMarginClass}`}
+							>
+								<p className={subtitleClass}>{subtitle}</p>
+							</div>
+						) : (
+							<p className={`${subtitleClass} ${descriptionMarginClass}`}>{subtitle}</p>
+						)
 					) : null}
-					{publisherLine ? <p className={publisherClass}>{publisherLine}</p> : null}
 					{showExpiryPill ? (
-						<div className={title || subtitle || publisherLine || global || item ? 'mt-2' : ''}>
+						<div
+							className={`shrink-0 ${title || subtitle || publisherLine || global || item ? 'mt-2' : ''}`}
+						>
 							{renderExpiryPill(tone)}
 						</div>
 					) : null}
@@ -185,6 +246,8 @@ function CatalogShareMetadataBlock({
 }
 
 function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
+	const catalogVideoOgCardRef = React.useRef<HTMLDivElement>(null)
+	const catalogVideoOgCardMaxHeightPx = useCatalogVideoOgShareCardMaxHeight(catalogVideoOgCardRef)
 	const expiryUrgent = couponExpiryUsesUrgentVariant(meta.expiresLabel)
 	const showExpiryPill = shouldShowCouponExpiryPill(meta.expiresLabel)
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
@@ -223,26 +286,31 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 
 	if (isCatalogVideoOg && hasBanner) {
 		return (
-			<div className="mx-auto w-full min-w-0 max-w-lg text-left">
-				<div className="overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
-					<div
-						className="relative w-full overflow-hidden bg-[#0f172a]"
-						style={{ height: CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX }}
-					>
-						<img
-							src={meta.backgroundImage}
-							alt=""
-							className="h-full w-full object-cover"
-							draggable={false}
+			<div ref={catalogVideoOgCardRef} className="mx-auto w-full min-w-0 max-w-lg text-left">
+				<div
+					className="flex flex-col overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]"
+					style={catalogVideoOgCardMaxHeightPx ? { maxHeight: catalogVideoOgCardMaxHeightPx } : undefined}
+				>
+					<div className="shrink-0">
+						<CatalogVideoOgBannerMedia
+							bannerImageUrl={meta.backgroundImage}
+							productionVideoUrl={meta.productionVideoUrl}
+							productionVideoMime={meta.productionVideoMime}
+							iconUrl={meta.iconUrl}
+							backgroundColorHex={meta.backgroundColorHex}
+							previewBannerHeightPx={CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX}
+							interactivePlayback
 						/>
-						<CatalogVideoOgPlayOverlay />
 					</div>
-					<div className={CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME}>
+					<div
+						className={`${CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME} flex min-h-0 flex-1 flex-col overflow-hidden`}
+					>
 						<CatalogShareMetadataBlock
 							meta={meta}
 							tone="external"
 							showExpiryPill={showExpiryPill}
 							renderExpiryPill={renderExpiryPill}
+							descriptionViewportScroll
 						/>
 					</div>
 				</div>
@@ -329,11 +397,87 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 	)
 }
 
+function CouponShareClaimActions({
+	targetUrl,
+	search,
+	onIosNativeProbeResult,
+	shareKind,
+	showClaimInApp,
+}: {
+	targetUrl: string
+	search: string
+	onIosNativeProbeResult?: (result: NativeAppOpenResult) => void
+	shareKind?: CouponClaimShareMeta['shareKind']
+	showClaimInApp: boolean
+}) {
+	const [claimInAppBusy, setClaimInAppBusy] = useState(false)
+	const actionLabel = shareKind === 'redeem' ? 'Redeem' : 'Claim'
+
+	const handleClaimInWeb = useCallback(() => {
+		window.location.href = targetUrl
+	}, [targetUrl])
+
+	const handleClaimInApp = useCallback(async () => {
+		if (claimInAppBusy) return
+		setClaimInAppBusy(true)
+		try {
+			// Fresh probe on every tap — never reuse page-load result (user may install App and return).
+			const result = await attemptOpenNativeBeamioApp(search, {
+				useLocationNavigation: isIosDevice(),
+				timeoutMs: 2800,
+			})
+			onIosNativeProbeResult?.(result)
+			if (result === 'not_installed') {
+				openBeamioAppStore()
+			}
+		} finally {
+			setClaimInAppBusy(false)
+		}
+	}, [claimInAppBusy, onIosNativeProbeResult, search])
+
+	return (
+		<div className="mx-auto mt-6 flex w-full max-w-xs flex-col items-stretch gap-3">
+			<button
+				type="button"
+				onClick={handleClaimInWeb}
+				className="inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98]"
+				style={{ background: CLAIM_GRADIENT }}
+			>
+				<Gift className="h-4 w-4 shrink-0" aria-hidden />
+				{actionLabel}
+			</button>
+			{showClaimInApp ? (
+				<button
+					type="button"
+					onClick={() => void handleClaimInApp()}
+					disabled={claimInAppBusy}
+					className="inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-opacity hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{claimInAppBusy ? (
+						<Loader2 className="h-10 w-10 animate-spin text-[#1562f0]" aria-hidden />
+					) : (
+						<img
+							src="/open-in-app.png"
+							alt=""
+							className="h-10 w-10 shrink-0 rounded-xl object-contain"
+							draggable={false}
+						/>
+					)}
+					<span>{claimInAppBusy ? 'Opening Beamio…' : 'Claim in App'}</span>
+				</button>
+			) : null}
+		</div>
+	)
+}
+
 export default function AppDownloadPage() {
 	const location = useLocation()
 	const targetUrl = useMemo(() => resolveBeamioAppTarget(location.search), [location.search])
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
 	const [phase, setPhase] = useState<PagePhase>(() => (isMobileDevice() ? 'checking' : 'desktop'))
+	const [iosNativeProbe, setIosNativeProbe] = useState<IosNativeProbeResult>(() =>
+		isMobileDevice() ? 'pending' : 'desktop',
+	)
 	const [shareMeta, setShareMeta] = useState<CouponClaimShareMeta | null>(null)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 
@@ -416,6 +560,7 @@ export default function AppDownloadPage() {
 			window.scrollTo(0, 0)
 			const result = await attemptOpenNativeBeamioApp(location.search)
 			if (cancelled) return
+			setIosNativeProbe(result)
 
 			if (result === 'opened') {
 				// Custom scheme may not leave the page; avoid infinite "checking" spinner.
@@ -440,6 +585,20 @@ export default function AppDownloadPage() {
 
 	const couponPreview =
 		shareMeta && shareUrl && phase !== 'checking' ? <CouponSharePreview meta={shareMeta} /> : null
+
+	const couponClaimActions =
+		shareMeta &&
+		targetUrl &&
+		isCouponShareMeta(shareMeta) &&
+		phase !== 'checking' ? (
+			<CouponShareClaimActions
+				targetUrl={targetUrl}
+				search={location.search}
+				onIosNativeProbeResult={setIosNativeProbe}
+				shareKind={shareMeta.shareKind}
+				showClaimInApp={isMobileDevice()}
+			/>
+		) : null
 
 	return (
 		<div
@@ -475,6 +634,7 @@ export default function AppDownloadPage() {
 				{phase === 'install' && (
 					<div className="w-full min-w-0 max-w-full space-y-8">
 						{couponPreview}
+						{couponClaimActions}
 						{!shareMeta ? (
 							<>
 								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
@@ -519,6 +679,7 @@ export default function AppDownloadPage() {
 				{phase === 'desktop' && (
 					<div className="w-full min-w-0 max-w-full space-y-8">
 						{couponPreview}
+						{couponClaimActions}
 						{!shareMeta ? (
 							<>
 								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">

@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { CatalogVideoOgTapPlayOverlay } from './CatalogVideoOgTapPlayOverlay'
-import { CatalogYoutubeInteractivePlayer } from './CatalogYoutubeInteractivePlayer'
+import { CatalogVideoOgYoutubePosterPlay } from './CatalogVideoOgYoutubePosterPlay'
 import {
 	catalogVideoOgBannerShouldUseVideoElement,
 	inferProductionImageMimeFromUrl,
@@ -18,7 +18,7 @@ export type CatalogVideoOgBannerMediaProps = {
 	iconUrl?: string
 	backgroundColorHex?: string
 	previewBannerHeightPx: number
-	/** Catalog Distribution share link — render an interactive player (YouTube iframe or `<video controls>`). */
+	/** Catalog Distribution share link — native `<video>` or YouTube poster → open watch URL (no iframe). */
 	interactivePlayback?: boolean
 }
 
@@ -139,7 +139,7 @@ export function CatalogVideoOgBannerMedia({
 				previewBannerHeightPx={previewBannerHeightPx}
 				aspectVideo
 			>
-				<CatalogYoutubeInteractivePlayer videoId={youtubeId} posterUrl={banner} />
+				<CatalogVideoOgYoutubePosterPlay videoId={youtubeId} posterUrl={banner} />
 			</CatalogVideoShell>
 		)
 	}

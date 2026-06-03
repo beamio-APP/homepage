@@ -45,17 +45,83 @@ export function isBeamioNativeShell(): boolean {
 	return Boolean((window as { CashTreesIOS?: unknown }).CashTreesIOS)
 }
 
-function buildDeepLinkSuffix(search: string): string {
-	const q = search.startsWith('?') ? search.slice(1) : search
-	return q ? `?${q}` : ''
+function normalizeSearch(search: string): string {
+	return search.startsWith('?') ? search.slice(1) : search
+}
+
+function isBeamioAppPath(pathname: string): boolean {
+	return pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/')
+}
+
+/** Inner SilentPassUI URL from `/app-download?target=…` (homepage share landing). */
+export function resolveBeamioAppTargetFromSearch(search: string): string {
+	const targetRaw = new URLSearchParams(normalizeSearch(search)).get('target')?.trim() ?? ''
+	if (!targetRaw) return ''
+	try {
+		const url = new URL(targetRaw)
+		if (url.origin !== 'https://beamio.app') return ''
+		if (!isBeamioAppPath(url.pathname)) return ''
+		return url.toString()
+	} catch {
+		return ''
+	}
+}
+
+function unwrapAppDownloadTarget(decodedTarget: string): string {
+	try {
+		const url = new URL(decodedTarget)
+		if (url.origin !== 'https://beamio.app') return decodedTarget
+		if (url.pathname !== '/app-download' && !url.pathname.startsWith('/app-download/')) {
+			return decodedTarget
+		}
+		const inner = url.searchParams.get('target')?.trim() ?? ''
+		return inner || decodedTarget
+	} catch {
+		return decodedTarget
+	}
+}
+
+/**
+ * Build query string for `beamio://open?…` without nested `target=` encoding or cache-bust `v=`.
+ * Prefer passthrough inner `/app/` params (`beamiocard`, `couponId`, `claim`) — matches iOS `BeamioDeepLink`.
+ */
+export function buildBeamioOpenQuery(search: string): string {
+	const pageParams = new URLSearchParams(normalizeSearch(search))
+	const targetRaw = pageParams.get('target')?.trim() ?? ''
+
+	if (targetRaw) {
+		const unwrapped = unwrapAppDownloadTarget(targetRaw)
+		try {
+			const inner = new URL(unwrapped)
+			if (inner.origin === 'https://beamio.app' && isBeamioAppPath(inner.pathname)) {
+				const passthrough = inner.searchParams.toString()
+				if (passthrough) return passthrough
+			}
+			if (inner.origin === 'https://beamio.app') {
+				return `target=${encodeURIComponent(unwrapped)}`
+			}
+		} catch {
+			/* fall through */
+		}
+	}
+
+	pageParams.delete('target')
+	pageParams.delete('v')
+	return pageParams.toString()
+}
+
+export function buildBeamioOpenUrl(search: string): string {
+	const query = buildBeamioOpenQuery(search)
+	return query ? `${IOS_OPEN_SCHEME}?${query}` : IOS_OPEN_SCHEME
 }
 
 /** Android Chrome: launch by package; Play Store fallback when app is missing. */
 export function buildAndroidIntentOpenUrl(search: string): string {
-	const suffix = buildDeepLinkSuffix(search)
+	const query = buildBeamioOpenQuery(search)
+	const intentPath = query ? `open?${query}` : 'open'
 	const fallback = encodeURIComponent(BEAMIO_ANDROID_STORE_URL)
 	return (
-		`intent://open${suffix}#Intent;` +
+		`intent://${intentPath}#Intent;` +
 		`scheme=${ANDROID_SCHEME};` +
 		`package=${BEAMIO_ANDROID_PACKAGE};` +
 		`action=android.intent.action.VIEW;` +
@@ -64,22 +130,41 @@ export function buildAndroidIntentOpenUrl(search: string): string {
 	)
 }
 
-function buildIosOpenUrl(scheme: string, search: string): string {
-	const suffix = buildDeepLinkSuffix(search)
-	const base = scheme.endsWith('/') ? scheme.slice(0, -1) : scheme
-	return `${base}${suffix}`
+function buildIosOpenUrl(search: string): string {
+	return buildBeamioOpenUrl(search)
 }
 
-function waitForNativeAppOpenOrTimeout(search: string, timeoutMs: number): Promise<NativeAppOpenResult> {
+export type AttemptOpenNativeBeamioAppOptions = {
+	/**
+	 * iOS: use top-level navigation (needs user gesture; may show system "Open in Beamio").
+	 * Default false — hidden iframe probe avoids Safari "invalid address" when app is missing.
+	 */
+	useLocationNavigation?: boolean
+	timeoutMs?: number
+}
+
+function waitForIosNativeAppOpenOrTimeout(
+	openUrl: string,
+	timeoutMs: number,
+	useLocationNavigation: boolean,
+): Promise<NativeAppOpenResult> {
 	return new Promise((resolve) => {
 		let settled = false
+		let iframe: HTMLIFrameElement | null = null
+
+		const cleanup = () => {
+			document.removeEventListener('visibilitychange', onVisibility)
+			window.removeEventListener('pagehide', onPageHide)
+			window.removeEventListener('blur', onBlur)
+			iframe?.remove()
+			iframe = null
+		}
+
 		const finish = (result: NativeAppOpenResult) => {
 			if (settled) return
 			settled = true
 			window.clearTimeout(timer)
-			document.removeEventListener('visibilitychange', onVisibility)
-			window.removeEventListener('pagehide', onPageHide)
-			window.removeEventListener('blur', onBlur)
+			cleanup()
 			resolve(result)
 		}
 
@@ -95,7 +180,16 @@ function waitForNativeAppOpenOrTimeout(search: string, timeoutMs: number): Promi
 		window.addEventListener('blur', onBlur)
 
 		window.scrollTo(0, 0)
-		window.location.href = buildIosOpenUrl(IOS_OPEN_SCHEME, search)
+		if (useLocationNavigation) {
+			window.location.href = openUrl
+			return
+		}
+
+		iframe = document.createElement('iframe')
+		iframe.style.cssText = 'display:none;border:0;width:0;height:0'
+		iframe.setAttribute('aria-hidden', 'true')
+		iframe.src = openUrl
+		document.body.appendChild(iframe)
 	})
 }
 
@@ -104,8 +198,13 @@ function waitForNativeAppOpenOrTimeout(search: string, timeoutMs: number): Promi
  * Web cannot enumerate installed apps — we infer from custom-scheme / visibility probes (iOS)
  * or Android intent + Play Store fallback.
  */
-export async function attemptOpenNativeBeamioApp(search: string): Promise<NativeAppOpenResult> {
+export async function attemptOpenNativeBeamioApp(
+	search: string,
+	options: AttemptOpenNativeBeamioAppOptions = {},
+): Promise<NativeAppOpenResult> {
 	if (!isMobileDevice()) return 'desktop'
+
+	const timeoutMs = options.timeoutMs ?? 2500
 
 	if (isAndroidDevice()) {
 		window.location.href = buildAndroidIntentOpenUrl(search)
@@ -113,9 +212,18 @@ export async function attemptOpenNativeBeamioApp(search: string): Promise<Native
 	}
 
 	if (isIosDevice()) {
-		// Direct navigation counts as user gesture — try open first, then install UI on timeout.
-		return waitForNativeAppOpenOrTimeout(search, 2500)
+		return waitForIosNativeAppOpenOrTimeout(
+			buildIosOpenUrl(search),
+			timeoutMs,
+			Boolean(options.useLocationNavigation),
+		)
 	}
 
 	return 'not_installed'
+}
+
+/** Open App Store / Play Store (HTTPS only — never shows Safari custom-scheme errors). */
+export function openBeamioAppStore(): void {
+	if (typeof window === 'undefined') return
+	window.location.href = isIosDevice() ? BEAMIO_IOS_STORE_URL : BEAMIO_ANDROID_STORE_URL
 }

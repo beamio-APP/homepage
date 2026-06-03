@@ -101,6 +101,11 @@ export function catalogVideoOgYoutubePlayerVars(videoId: string): Record<string,
 	}
 }
 
+export function youtubeWatchUrlFromVideoId(videoId: string): string {
+	const id = videoId.trim()
+	return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`
+}
+
 export function youtubeEmbedUrlFromVideoId(videoId: string): string {
 	const params = new URLSearchParams()
 	for (const [key, value] of Object.entries(catalogVideoOgYoutubePlayerVars(videoId))) {
@@ -108,58 +113,6 @@ export function youtubeEmbedUrlFromVideoId(videoId: string): string {
 	}
 	return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
 }
-
-/** @deprecated Use TOP_MASK_PX — negative top offset caused letterbox black bar. */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX = 0
-
-/** Opaque mask over embed top chrome (title / overflow menu). */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_MASK_PX = 52
-
-/** Opaque mask over embed bottom chrome (Watch on YouTube / share). */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_MASK_PX = 96
-
-/** @deprecated Alias for BOTTOM_MASK_PX */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_MASK_PX
-
-/** Center-scale so 16:9 video fills aspect-video shell. */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE = 1.2
-
-/** Nudge embed up slightly after scale — crops bottom UI without top letterbox. */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_NUDGE_UP_PX = 12
-
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST = 'https://www.youtube-nocookie.com'
-
-export function catalogVideoOgYoutubeEmbedIframeCropStyle(): {
-	position: 'absolute'
-	left: string
-	top: string
-	width: string
-	height: string
-	transform: string
-	transformOrigin: string
-} {
-	const scale = CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE
-	const nudgeUp = CATALOG_VIDEO_OG_YOUTUBE_EMBED_NUDGE_UP_PX
-	return {
-		position: 'absolute',
-		left: '50%',
-		top: '50%',
-		width: '100%',
-		height: '100%',
-		transform: `translate(-50%, calc(-50% - ${nudgeUp}px)) scale(${scale})`,
-		transformOrigin: 'center center',
-	}
-}
-
-function formatYoutubeScrubberTime(totalSeconds: number): string {
-	if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00'
-	const whole = Math.floor(totalSeconds)
-	const minutes = Math.floor(whole / 60)
-	const seconds = whole % 60
-	return `${minutes}:${String(seconds).padStart(2, '0')}`
-}
-
-export { formatYoutubeScrubberTime }
 
 export function isYoutubeProductionVideo(args: {
 	videoUrl?: string
