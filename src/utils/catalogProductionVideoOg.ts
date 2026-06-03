@@ -89,6 +89,8 @@ export function catalogVideoOgYoutubePlayerVars(videoId: string): Record<string,
 		modestbranding: 1,
 		/** Hide native bar (Share / Open in YouTube); custom scrubber rendered in-app. */
 		controls: 0,
+		autohide: 1,
+		cc_load_policy: 0,
 		iv_load_policy: 3,
 		disablekb: 1,
 		fs: 0,
@@ -107,14 +109,23 @@ export function youtubeEmbedUrlFromVideoId(videoId: string): string {
 	return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
 }
 
-/** @deprecated Top offset crop caused letterbox black bar; use center scale instead. */
+/** @deprecated Use TOP_MASK_PX — negative top offset caused letterbox black bar. */
 export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_CROP_PX = 0
 
-/** Overlay height at bottom — blocks Open in YouTube taps inside the embed. */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX = 100
+/** Opaque mask over embed top chrome (title / overflow menu). */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_MASK_PX = 52
 
-/** Center-scale so 16:9 video fills aspect-video shell (no negative top offset). */
-export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE = 1.14
+/** Opaque mask over embed bottom chrome (Watch on YouTube / share). */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_MASK_PX = 96
+
+/** @deprecated Alias for BOTTOM_MASK_PX */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_MASK_PX
+
+/** Center-scale so 16:9 video fills aspect-video shell. */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE = 1.2
+
+/** Nudge embed up slightly after scale — crops bottom UI without top letterbox. */
+export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_NUDGE_UP_PX = 12
 
 export const CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST = 'https://www.youtube-nocookie.com'
 
@@ -128,13 +139,14 @@ export function catalogVideoOgYoutubeEmbedIframeCropStyle(): {
 	transformOrigin: string
 } {
 	const scale = CATALOG_VIDEO_OG_YOUTUBE_EMBED_FILL_SCALE
+	const nudgeUp = CATALOG_VIDEO_OG_YOUTUBE_EMBED_NUDGE_UP_PX
 	return {
 		position: 'absolute',
 		left: '50%',
 		top: '50%',
 		width: '100%',
 		height: '100%',
-		transform: `translate(-50%, -50%) scale(${scale})`,
+		transform: `translate(-50%, calc(-50% - ${nudgeUp}px)) scale(${scale})`,
 		transformOrigin: 'center center',
 	}
 }

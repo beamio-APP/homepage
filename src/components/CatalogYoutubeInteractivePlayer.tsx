@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { CatalogVideoOgTapPlayOverlay } from './CatalogVideoOgTapPlayOverlay'
 import {
-	CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX,
+	CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_MASK_PX,
+	CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_MASK_PX,
 	CATALOG_VIDEO_OG_YOUTUBE_EMBED_HOST,
 	catalogVideoOgYoutubeEmbedIframeCropStyle,
 	catalogVideoOgYoutubePlayerVars,
@@ -215,7 +216,8 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 	const scrubValue = max > 0 ? Math.min(currentTime, max) : 0
 	const rangeValue = isScrubbing && scrubPreview !== null ? scrubPreview : scrubValue
 	const showPoster = Boolean(poster) && !hasUserStarted
-	const bottomChromeBlockPx = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX
+	const topChromeMaskPx = CATALOG_VIDEO_OG_YOUTUBE_EMBED_TOP_MASK_PX
+	const bottomChromeMaskPx = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_MASK_PX
 	const showScrubberChrome = hasUserStarted && (scrubberVisible || isScrubbing)
 
 	return (
@@ -246,10 +248,15 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 				visible={!hasUserStarted && !isPlaying}
 				onPlay={handlePlayRequest}
 			/>
-			{/* Block iframe chrome only; scrubber sits above (z-40). */}
+			{/* Opaque masks — hide YouTube top/bottom chrome (controls:0 still shows on mobile). */}
 			<div
-				className="pointer-events-none absolute inset-x-0 bottom-0 z-10"
-				style={{ height: bottomChromeBlockPx }}
+				className="pointer-events-auto absolute inset-x-0 top-0 z-[30] bg-black"
+				style={{ height: topChromeMaskPx }}
+				aria-hidden
+			/>
+			<div
+				className="pointer-events-auto absolute inset-x-0 bottom-0 z-[30] bg-black"
+				style={{ height: bottomChromeMaskPx }}
 				aria-hidden
 			/>
 			<div
