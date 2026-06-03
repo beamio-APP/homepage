@@ -106,6 +106,12 @@ export function youtubeWatchUrlFromVideoId(videoId: string): string {
 	return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`
 }
 
+/** Same-origin MP4 mirror (Cluster `catalogYoutubeStreamProxy`). */
+export function catalogYoutubeProxyStreamUrl(videoId: string): string {
+	const id = videoId.trim()
+	return `/api/catalogYoutubeStream?v=${encodeURIComponent(id)}`
+}
+
 export function youtubeEmbedUrlFromVideoId(videoId: string): string {
 	const params = new URLSearchParams()
 	for (const [key, value] of Object.entries(catalogVideoOgYoutubePlayerVars(videoId))) {
