@@ -74,9 +74,10 @@ function CatalogVideoOgInteractiveNativeVideo({
 			<video
 				ref={videoRef}
 				src={src}
-				className={BANNER_MEDIA_CLASS}
+				className={`${BANNER_MEDIA_CLASS} relative z-0`}
 				controls
 				playsInline
+				controlsList="nodownload"
 				preload="metadata"
 				poster={posterUrl}
 				onPlay={() => setIsPlaying(true)}

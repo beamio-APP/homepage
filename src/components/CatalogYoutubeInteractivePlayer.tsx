@@ -26,13 +26,30 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 	const [currentTime, setCurrentTime] = useState(0)
 	const [isPlaying, setIsPlaying] = useState(false)
 	const [isScrubbing, setIsScrubbing] = useState(false)
+	const [hasUserStarted, setHasUserStarted] = useState(false)
+
 	const handlePlayRequest = useCallback(() => {
+		setHasUserStarted(true)
 		try {
 			playerRef.current?.playVideo()
 		} catch {
 			/* ignore */
 		}
 	}, [])
+
+	const endScrub = useCallback(() => {
+		setIsScrubbing(false)
+	}, [])
+
+	const seekTo = useCallback((seconds: number) => {
+		const clamped = Math.max(0, duration > 0 ? Math.min(seconds, duration) : seconds)
+		setCurrentTime(clamped)
+		try {
+			playerRef.current?.seekTo(clamped, true)
+		} catch {
+			/* ignore */
+		}
+	}, [duration])
 
 	useEffect(() => {
 		let cancelled = false
@@ -101,6 +118,31 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 		}
 	}, [isPlaying, isScrubbing])
 
+	/** YouTube API may report duration late on mobile; keep scrubber enabled once known. */
+	useEffect(() => {
+		if (!hasUserStarted && !isPlaying) return
+		let cancelled = false
+		let timer: ReturnType<typeof setTimeout> | undefined
+		const pollDuration = () => {
+			if (cancelled || !playerRef.current) return
+			try {
+				const nextDuration = playerRef.current.getDuration()
+				if (Number.isFinite(nextDuration) && nextDuration > 0) {
+					setDuration(nextDuration)
+					return
+				}
+			} catch {
+				/* ignore */
+			}
+			timer = setTimeout(pollDuration, 400)
+		}
+		pollDuration()
+		return () => {
+			cancelled = true
+			if (timer !== undefined) clearTimeout(timer)
+		}
+	}, [hasUserStarted, isPlaying, videoId])
+
 	const max = duration > 0 ? duration : 0
 	const scrubValue = max > 0 ? Math.min(currentTime, max) : 0
 	const bottomChromeBlockPx = CATALOG_VIDEO_OG_YOUTUBE_EMBED_BOTTOM_CROP_PX
@@ -123,38 +165,47 @@ export function CatalogYoutubeInteractivePlayer({ videoId, posterUrl }: CatalogY
 				style={catalogVideoOgYoutubeEmbedIframeCropStyle()}
 				title="Catalog video"
 			/>
-			<CatalogVideoOgTapPlayOverlay visible={!isPlaying} onPlay={handlePlayRequest} />
-			{/* Block clicks on residual YouTube outbound chrome (Open in YouTube / More videos). */}
+			<CatalogVideoOgTapPlayOverlay
+				visible={!hasUserStarted && !isPlaying}
+				onPlay={handlePlayRequest}
+			/>
+			{/* Block iframe chrome only; scrubber sits above (z-40). */}
 			<div
-				className="absolute inset-x-0 bottom-0 z-10"
+				className="pointer-events-none absolute inset-x-0 bottom-0 z-10"
 				style={{ height: bottomChromeBlockPx }}
 				aria-hidden
 			/>
-			<div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-3 pb-2 pt-10">
-				<div className="pointer-events-auto flex items-center gap-2">
-					<span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-white/85">
-						{formatYoutubeScrubberTime(scrubValue)}
-					</span>
-					<input
-						type="range"
-						min={0}
-						max={max || 1}
-						step={0.1}
-						value={scrubValue}
-						disabled={max <= 0}
-						aria-label="Video progress"
-						className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/25 accent-red-500 disabled:cursor-not-allowed [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-red-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500"
-						onPointerDown={() => setIsScrubbing(true)}
-						onPointerUp={() => setIsScrubbing(false)}
-						onChange={(event) => {
-							const next = Number(event.target.value)
-							setCurrentTime(next)
-							playerRef.current?.seekTo(next, true)
-						}}
-					/>
-					<span className="w-10 shrink-0 text-[11px] tabular-nums text-white/85">
-						{formatYoutubeScrubberTime(max)}
-					</span>
+			<div className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 pt-8">
+				<div className="pointer-events-auto rounded-lg bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pb-1 pt-6">
+					<div className="flex min-h-[44px] items-center gap-2">
+						<span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-white/85">
+							{formatYoutubeScrubberTime(scrubValue)}
+						</span>
+						<input
+							type="range"
+							min={0}
+							max={max || 1}
+							step={0.1}
+							value={scrubValue}
+							disabled={max <= 0}
+							aria-label="Video progress"
+							className="h-2 min-h-[28px] min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-white/25 accent-red-500 py-3 disabled:cursor-not-allowed [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-red-500 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-red-500"
+							style={{ touchAction: 'none' }}
+							onPointerDown={() => setIsScrubbing(true)}
+							onPointerUp={endScrub}
+							onPointerCancel={endScrub}
+							onLostPointerCapture={endScrub}
+							onChange={(event) => {
+								seekTo(Number(event.target.value))
+							}}
+							onInput={(event) => {
+								seekTo(Number(event.target.value))
+							}}
+						/>
+						<span className="w-10 shrink-0 text-[11px] tabular-nums text-white/85">
+							{formatYoutubeScrubberTime(max)}
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>

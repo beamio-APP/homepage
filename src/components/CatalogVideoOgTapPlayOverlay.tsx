@@ -5,7 +5,7 @@ type CatalogVideoOgTapPlayOverlayProps = {
 	onPlay: () => void
 }
 
-/** Center play control for iOS Safari — must use a real button + user gesture (not pointer-events-none). */
+/** Center play control for iOS Safari — real button + user gesture; must not cover bottom scrubber/controls. */
 export function CatalogVideoOgTapPlayOverlay({ visible, onPlay }: CatalogVideoOgTapPlayOverlayProps) {
 	if (!visible) return null
 	return (
@@ -15,7 +15,7 @@ export function CatalogVideoOgTapPlayOverlay({ visible, onPlay }: CatalogVideoOg
 				event.stopPropagation()
 				onPlay()
 			}}
-			className="absolute inset-0 z-30 flex items-center justify-center border-0 bg-black/20 p-0"
+			className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 border-0 bg-transparent p-0"
 			aria-label="Play video"
 		>
 			<span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55 shadow-lg ring-2 ring-white/85 sm:h-16 sm:w-16">
