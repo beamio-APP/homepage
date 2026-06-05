@@ -21,6 +21,7 @@ import {
  Share2,
  Download,
  CheckCircle2,
+ MousePointerClick,
  BookOpen,
  Flame,
  Coins,
@@ -611,30 +612,32 @@ export default function BeamioProtocolPage() {
        { phase: 'Phase 2 — Scaling', title: 'Online Apps', desc: 'Extending the deterministic rail to consumer applications, digital marketplaces, and e-commerce checkouts.', color: 'blue' },
        { phase: 'Phase 3 — The Vision', title: 'AI Agents', desc: 'Programmable commerce executed seamlessly by autonomous agents without human intervention or chargeback risks.', color: 'purple' }
      ],
-     economyTitle: 'The Clearing Fuel',
-     economyHeadline: 'Zero-Gas Experience via B-Units.',
-     economyDesc: 'To abstract away the complexities of Web3 gas fees for everyday consumers and merchants, Beamio introduces B-Units—a shadow accounting system. It enables seamless delegated transactions while driving real revenue through merchant clearing.',
+     economyTitle: 'The SaaS Engine',
+     economyHeadline: 'Pay-As-You-Go B-Units',
+     economyDesc:
+       'Ditch the expensive percentage-based fees of traditional finance. Beamio operates on a completely transparent, consumption-based credit system. Zero hidden monthly subscriptions, zero percentage extraction—you only pay for the exact software utility you consume.',
      economyItems: [
        {
-         title: '1.00 B-Unit = $0.01 USDC Value Anchor',
-         desc: 'Completely transparent, gasless UX for end-users. 100% stablecoin backed.'
+         title: 'Absolute Value Anchor',
+         desc: 'The system operates on a hard-pegged digital dollar standard (USDC) for global stability. For local convenience, CAD purchases are dynamically routed to ensure you always know the exact purchasing power of your operational expenses.',
+         badges: ['1 B-Unit = 0.01 USDC', '1 CAD ≈ 70 B-Units'],
        },
        {
-         title: '2.00% Logic Tax',
-         desc: 'Merchant-paid clearing tax for heavy real-world settlement. Prevents margin squeeze on high-ticket items.',
-         badge: 'Capped @ 10 USDC',
-         featured: true
+         title: 'Flat-Rate Settlement',
+         desc: 'Whether a customer spends $10 or $150, your clearing cost remains fixed (only 25 B-Units). This completely crushes the 2.4% extortion of traditional credit cards. The higher the ticket size, the more you save.',
+         badge: '~ $0.35 CAD / tx',
+         featured: true,
        },
        {
-         title: '0.02 USDC Interaction Fee',
-         desc: 'Counter-cyclical, high-frequency cash flow for physical point-of-sale verification.',
-         badge: 'Per Tap'
+         title: 'Basic Interaction',
+         desc: 'Ideal for daily, high-frequency actions like tap-to-redeem and digital receipt pushing (only 5 B-Units). At roughly 7 cents per tap, it shatters the $0.10 CAD floor of traditional debit cards.',
+         badge: 'Per Tap',
        },
        {
-         title: '1.00 USDC Batch Minting',
-         desc: 'Enterprise fuel packs for mass AI agent issuance and O(1) red-packet drops.',
-         badge: 'Flat Fee'
-       }
+         title: 'Batch Voucher Issuance',
+         desc: 'Instantly bundle and mint hundreds of private-domain vouchers or cross-promotional coupons (only 100 B-Units). Extremely low fixed costs (~$1.43 CAD) mean aggressive local marketing is no longer hindered by high system fees.',
+         badge: 'Flat Fee',
+       },
      ],
      footerTitle: 'Ready to upgrade your physical storefront?',
      footerSub: 'Step into our Digital Store OS. Discover how local businesses bypass legacy credit card fees and tap into the decentralized traffic network.',
@@ -698,30 +701,32 @@ export default function BeamioProtocolPage() {
        { phase: 'Phase 2 — Scaling', title: 'Online Apps', desc: 'Extending the deterministic rail to consumer applications, digital marketplaces, and e-commerce checkouts.', color: 'blue' },
        { phase: 'Phase 3 — The Vision', title: 'AI Agents', desc: 'Programmable commerce executed seamlessly by autonomous agents without human intervention or chargeback risks.', color: 'purple' }
      ],
-     economyTitle: '清算燃料体系',
-     economyHeadline: '通过 B-Units 实现零 Gas 摩擦体验。',
-     economyDesc: '为了向普通消费者和商户抽象掉 Web3 昂贵的 Gas 费用，Beamio 引入了 B-Units 影子计账系统。这使得高频的委托交易得以无缝进行，同时通过商户清算实现真实的商业变现。',
+     economyTitle: 'The SaaS Engine',
+     economyHeadline: 'Pay-As-You-Go B-Units',
+     economyDesc:
+       'Ditch the expensive percentage-based fees of traditional finance. Beamio operates on a completely transparent, consumption-based credit system. Zero hidden monthly subscriptions, zero percentage extraction—you only pay for the exact software utility you consume.',
      economyItems: [
        {
-         title: '1.00 B-Unit = $0.01 USDC Value Anchor',
-         desc: 'Completely transparent, gasless UX for end-users. 100% stablecoin backed.'
+         title: 'Absolute Value Anchor',
+         desc: 'The system operates on a hard-pegged digital dollar standard (USDC) for global stability. For local convenience, CAD purchases are dynamically routed to ensure you always know the exact purchasing power of your operational expenses.',
+         badges: ['1 B-Unit = 0.01 USDC', '1 CAD ≈ 70 B-Units'],
        },
        {
-         title: '2.00% Logic Tax',
-         desc: 'Merchant-paid clearing tax for heavy real-world settlement. Prevents margin squeeze on high-ticket items.',
-         badge: 'Capped @ 10 USDC',
-         featured: true
+         title: 'Flat-Rate Settlement',
+         desc: 'Whether a customer spends $10 or $150, your clearing cost remains fixed (only 25 B-Units). This completely crushes the 2.4% extortion of traditional credit cards. The higher the ticket size, the more you save.',
+         badge: '~ $0.35 CAD / tx',
+         featured: true,
        },
        {
-         title: '0.02 USDC Interaction Fee',
-         desc: 'Counter-cyclical, high-frequency cash flow for physical point-of-sale verification.',
-         badge: 'Per Tap'
+         title: 'Basic Interaction',
+         desc: 'Ideal for daily, high-frequency actions like tap-to-redeem and digital receipt pushing (only 5 B-Units). At roughly 7 cents per tap, it shatters the $0.10 CAD floor of traditional debit cards.',
+         badge: 'Per Tap',
        },
        {
-         title: '1.00 USDC Batch Minting',
-         desc: 'Enterprise fuel packs for mass AI agent issuance and O(1) red-packet drops.',
-         badge: 'Flat Fee'
-       }
+         title: 'Batch Voucher Issuance',
+         desc: 'Instantly bundle and mint hundreds of private-domain vouchers or cross-promotional coupons (only 100 B-Units). Extremely low fixed costs (~$1.43 CAD) mean aggressive local marketing is no longer hindered by high system fees.',
+         badge: 'Flat Fee',
+       },
      ],
      footerTitle: 'Ready to upgrade your physical storefront?',
      footerSub: 'Step into our Digital Store OS. Discover how local businesses bypass legacy credit card fees and tap into the decentralized traffic network.',
@@ -998,9 +1003,9 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
             <div className="w-72 h-72 md:w-96 md:h-96 relative flex items-center justify-center">
                <div className="absolute inset-0 bg-white rounded-full shadow-2xl border border-orange-100 flex items-center justify-center z-20">
                   <div className="text-center">
-                     <Flame size={48} className="text-orange-500 mx-auto mb-2" />
-                     <span className="text-3xl font-black text-slate-900">B-Units</span>
-                     <p className="text-orange-500 font-mono text-sm mt-1">SHADOW FUEL</p>
+                     <Flame size={40} className="text-orange-500 mx-auto mb-2" />
+                     <span className="text-2xl font-black text-slate-900">B-Units</span>
+                     <p className="text-orange-500 font-mono text-xs mt-1 tracking-widest">SHADOW FUEL</p>
                   </div>
                </div>
                {/* Orbiting Elements */}
@@ -1018,42 +1023,49 @@ console.<span className="text-blue-400">log</span>(<span className="text-green-4
            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
              {t.economyHeadline}
            </h2>
-           <p className="text-slate-600 text-lg mb-8 leading-relaxed">
+           <p className="text-base md:text-lg text-slate-500 mb-8 leading-relaxed">
              {t.economyDesc}
            </p>
-           <ul className="flex flex-col gap-5">
+           <ul className="flex flex-col gap-4">
              {t.economyItems.map((item, i) => (
                <li
                  key={i}
-                 className={`relative flex items-start gap-5 rounded-2xl bg-white p-6 border shadow-sm overflow-hidden ${
+                 className={`relative flex items-start gap-4 rounded-xl bg-white p-5 border shadow-sm overflow-hidden ${
                    item.featured
                      ? 'border-orange-200 shadow-orange-500/10'
                      : 'border-slate-200'
                  }`}
                >
                  {item.featured && <div className="absolute left-0 top-0 h-full w-1.5 bg-orange-500" />}
-                 <div className="mt-1 w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0">
-                   {i === 0 && <CheckCircle2 size={18} />}
-                   {i === 1 && <Terminal size={18} />}
-                   {i === 2 && <Zap size={18} />}
-                   {i === 3 && <Box size={18} />}
+                 <div className="mt-0.5 w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0">
+                   {i === 0 && <CheckCircle2 size={16} />}
+                   {i === 1 && <Zap size={16} />}
+                   {i === 2 && <MousePointerClick size={16} />}
+                   {i === 3 && <Box size={16} />}
                  </div>
                  <div className="min-w-0 flex-1">
-                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                     <h4 className="text-xl font-extrabold tracking-tight text-slate-900">
+                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                     <h4 className="text-base font-bold text-slate-900">
                        {item.title}
                      </h4>
-                     {item.badge && (
-                       <span className={`self-start rounded-full px-4 py-1 text-xs font-extrabold uppercase tracking-[0.18em] ${
-                         item.featured
-                           ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                           : 'text-slate-400'
-                       }`}>
-                         {item.badge}
-                       </span>
-                     )}
+                     {((item as { badges?: string[] }).badges?.length || item.badge) ? (
+                       <div className="flex flex-wrap items-center justify-end gap-1.5 self-start">
+                         {((item as { badges?: string[] }).badges ?? (item.badge ? [item.badge] : [])).map((badgeLabel) => (
+                           <span
+                             key={badgeLabel}
+                             className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] whitespace-nowrap ${
+                               item.featured
+                                 ? 'bg-orange-50 text-orange-600 border border-orange-100'
+                                 : 'text-slate-400'
+                             }`}
+                           >
+                             {badgeLabel}
+                           </span>
+                         ))}
+                       </div>
+                     ) : null}
                    </div>
-                   <p className="mt-3 text-base md:text-lg leading-relaxed text-slate-500">
+                   <p className="mt-2 text-sm leading-relaxed text-slate-500">
                      {item.desc}
                    </p>
                  </div>
