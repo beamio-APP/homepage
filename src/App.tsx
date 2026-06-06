@@ -9,6 +9,7 @@ const HomeExample = lazy(() => import('./pages/homeExample'))
 const TermsPage = lazy(() => import('./TermsPage'))
 const PrivacyPage = lazy(() => import('./PrivacyPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
+const UsdcTopupPage = lazy(() => import('./pages/UsdcTopupPage'))
 
 function RouteLoading() {
 	return (
@@ -63,6 +64,7 @@ const App: React.FC = () => {
 					<Route path="/contact" element={<ContactPage />} />
 					<Route path="/terms" element={<TermsPage />} />
 					<Route path="/privacy" element={<PrivacyPage />} />
+					<Route path="/usdc-topup" element={<UsdcTopupPage />} />
 				</Routes>
 			</Suspense>
 		</BrowserRouter>
