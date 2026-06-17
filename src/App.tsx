@@ -11,6 +11,8 @@ const PrivacyPage = lazy(() => import('./PrivacyPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
 const UsdcTopupPage = lazy(() => import('./pages/UsdcTopupPage'))
 
+
+
 function RouteLoading() {
 	return (
 		<div className="fixed inset-0 z-[2147483647] flex min-h-dvh items-center justify-center bg-[#f9f9fe] px-6 text-center text-[#1a1c1f]">
