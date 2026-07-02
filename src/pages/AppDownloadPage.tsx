@@ -411,7 +411,9 @@ function CouponShareClaimActions({
 	showClaimInApp: boolean
 }) {
 	const [claimInAppBusy, setClaimInAppBusy] = useState(false)
-	const actionLabel = shareKind === 'redeem' ? 'Redeem' : 'Claim'
+	const isDiscoverMerchant = shareKind === 'discover_merchant'
+	const actionLabel = isDiscoverMerchant ? 'Discover' : shareKind === 'redeem' ? 'Redeem' : 'Claim'
+	const inAppLabel = isDiscoverMerchant ? 'Open in App' : 'Claim in App'
 
 	const handleClaimInWeb = useCallback(() => {
 		window.location.href = targetUrl
@@ -463,7 +465,7 @@ function CouponShareClaimActions({
 							draggable={false}
 						/>
 					)}
-					<span>{claimInAppBusy ? 'Opening Beamio…' : 'Claim in App'}</span>
+					<span>{claimInAppBusy ? 'Opening Beamio…' : inAppLabel}</span>
 				</button>
 			) : null}
 		</div>
@@ -624,7 +626,11 @@ export default function AppDownloadPage() {
 						</div>
 						<div>
 							<h1 className="text-2xl font-bold tracking-tight text-slate-900">
-								{shareMeta ? 'Opening Beamio Coupon' : 'Opening Beamio'}
+								{shareMeta
+									? shareMeta.shareKind === 'discover_merchant'
+										? 'Opening Beamio'
+										: 'Opening Beamio Coupon'
+									: 'Opening Beamio'}
 							</h1>
 							<p className="mt-3 text-slate-600">Checking for the Beamio app on your device…</p>
 						</div>
