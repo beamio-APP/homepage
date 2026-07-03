@@ -304,16 +304,14 @@ async function registerBeamioAccount(beamioTag: string, privateKey: string, mnem
 }
 
 /**
- * Cluster `/addUser` requires `^[a-zA-Z0-9_.]{3,20}$`.
- * Full `web_${uuid62.v4()}` is 26 chars and always fails registration → no share-click.
+ * Cluster `/addUser` allows `^[a-zA-Z0-9_.]{3,26}$` — full `web_${uuid62.v4()}` is 26 chars.
  */
 function buildWebVisitBeamioTag(): string {
-	const entropy = uuid62.v4().replace(/[^a-zA-Z0-9]/g, '')
-	return (`web_${entropy}`).slice(0, 20)
+	return `web_${uuid62.v4()}`
 }
 
 /**
- * Discover share landing: reuse PWA wallet or silently create 12-word + `web_*` tag (≤20 chars).
+ * Discover share landing: reuse PWA wallet or silently create 12-word + `web_*` tag.
  * Share-click signing only needs a local EOA; registry write is best-effort (persist only on success).
  */
 export async function provisionWebShareVisitWallet(): Promise<encrypt_keys_object | null> {
