@@ -304,7 +304,17 @@ async function registerBeamioAccount(beamioTag: string, privateKey: string, mnem
 }
 
 /**
- * Discover share landing: reuse PWA wallet or silently create 12-word + `web_${uuid62}` tag.
+ * Cluster `/addUser` requires `^[a-zA-Z0-9_.]{3,20}$`.
+ * Full `web_${uuid62.v4()}` is 26 chars and always fails registration → no share-click.
+ */
+function buildWebVisitBeamioTag(): string {
+	const entropy = uuid62.v4().replace(/[^a-zA-Z0-9]/g, '')
+	return (`web_${entropy}`).slice(0, 20)
+}
+
+/**
+ * Discover share landing: reuse PWA wallet or silently create 12-word + `web_*` tag (≤20 chars).
+ * Share-click signing only needs a local EOA; registry write is best-effort (persist only on success).
  */
 export async function provisionWebShareVisitWallet(): Promise<encrypt_keys_object | null> {
 	const stored = await checkBeamioWalletStorageWithTimeout()
@@ -319,13 +329,15 @@ export async function provisionWebShareVisitWallet(): Promise<encrypt_keys_objec
 	const privateKey = fresh.profiles[0]?.privateKeyArmor
 	if (!isValidEthersPrivateKey(privateKey)) return null
 
-	const beamioTag = `web_${uuid62.v4()}`
-	const registered = await registerBeamioAccount(beamioTag, privateKey, fresh.mnemonicPhrase)
-	if (!registered) return null
-
+	const beamioTag = buildWebVisitBeamioTag()
 	fresh.beamio = buildMinimalBeamioFromAccountName(beamioTag)
 	setCoNET_Data(fresh)
-	await flushStoreSystemData()
+
+	const registered = await registerBeamioAccount(beamioTag, privateKey, fresh.mnemonicPhrase)
+	if (registered) {
+		await flushStoreSystemData()
+	}
+	// Always return in-memory wallet so share-click attestation can proceed even if addUser fails.
 	return fresh
 }
 
