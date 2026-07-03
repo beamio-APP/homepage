@@ -25,6 +25,11 @@ import {
 	CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX,
 	CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME,
 } from '../utils/catalogProductionVideoOg'
+import {
+	parseDiscoverMerchantCardFromTarget,
+	parseDiscoverMerchantOpenFromTarget,
+	recordDiscoverShareClickIfNeeded,
+} from '../utils/discoverShareClickEvent'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
 type IosNativeProbeResult = 'pending' | NativeAppOpenResult
@@ -147,6 +152,8 @@ function CatalogShareMetadataBlock({
 	descriptionViewportScroll?: boolean
 }) {
 	const isCatalog = meta.distributionKind === 'catalog'
+	const isDiscoverMerchant =
+		meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant'
 	const title = meta.title.trim()
 	const subtitle = meta.subtitle.trim()
 	const titleClass =
@@ -224,6 +231,34 @@ function CatalogShareMetadataBlock({
 		)
 	}
 
+	if (isDiscoverMerchant && meta.catalogLayout === 'videoOg') {
+		const descriptionMarginClass = title ? 'mt-0.5' : 'mt-1'
+		return (
+			<div
+				className={`min-w-0 ${descriptionViewportScroll ? 'flex min-h-0 flex-1 flex-col' : 'flex-1'}`}
+			>
+				<div className="shrink-0">
+					<p className="text-[10px] font-black uppercase tracking-wide text-[#1562f0]">Discover</p>
+					{title ? <p className={`${titleClass} mt-1`}>{title}</p> : null}
+				</div>
+				{subtitle ? (
+					descriptionViewportScroll ? (
+						<div
+							className={`catalog-share-description-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain ${descriptionMarginClass}`}
+						>
+							<p className={subtitleClass}>{subtitle}</p>
+						</div>
+					) : (
+						<p className={`${subtitleClass} ${descriptionMarginClass}`}>{subtitle}</p>
+					)
+				) : null}
+				{showExpiryPill ? (
+					<div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill(tone)}</div>
+				) : null}
+			</div>
+		)
+	}
+
 	return (
 		<div className={`font-manrope min-w-0 flex-1 ${tone === 'inner' ? 'text-white' : ''}`}>
 			{title ? (
@@ -253,6 +288,9 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
 	const hasBanner = Boolean(meta.backgroundImage?.trim())
 	const isCatalogVideoOg = meta.distributionKind === 'catalog' && meta.catalogLayout === 'videoOg'
+	const isDiscoverMerchantVideoOg =
+		(meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant') &&
+		meta.catalogLayout === 'videoOg'
 	const iconUrl = isCatalogVideoOg
 		? meta.iconUrl.trim()
 		: hasBanner
@@ -266,7 +304,7 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 		: 'border border-[#abadaf]/35 bg-[#eef1f3] text-[#595c5e]'
 
 	const shareHeadline =
-		meta.distributionKind === 'catalog'
+		meta.distributionKind === 'catalog' || isDiscoverMerchantVideoOg
 			? ''
 			: meta.shareHeadline?.trim() ||
 				(meta.merchantName?.trim()
@@ -305,6 +343,37 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 					<div
 						className={`${CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME} flex min-h-0 flex-1 flex-col overflow-hidden`}
 					>
+						<CatalogShareMetadataBlock
+							meta={meta}
+							tone="external"
+							showExpiryPill={showExpiryPill}
+							renderExpiryPill={renderExpiryPill}
+							descriptionViewportScroll
+						/>
+					</div>
+				</div>
+			</div>
+		)
+	}
+
+	if (isDiscoverMerchantVideoOg) {
+		return (
+			<div className="mx-auto w-full min-w-0 max-w-lg text-left">
+				<div className="flex flex-col overflow-hidden rounded-[1.75rem] bg-white ring-1 ring-black/[0.08]">
+					<div
+						className="relative aspect-[4/3] w-full overflow-hidden"
+						style={{ backgroundColor: meta.backgroundColorHex || '#0f172a' }}
+					>
+						{hasBanner ? (
+							<img
+								src={meta.backgroundImage}
+								alt=""
+								className="h-full w-full object-contain"
+								draggable={false}
+							/>
+						) : null}
+					</div>
+					<div className={`${CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME} flex flex-col`}>
 						<CatalogShareMetadataBlock
 							meta={meta}
 							tone="external"
@@ -537,6 +606,33 @@ export default function AppDownloadPage() {
 			cancelled = true
 		}
 	}, [redirectingToInnerTarget, shareUrl, targetUrl])
+
+	/** Discover merchant share: silent `web_` wallet + share-click social event (REF_CLICK). Runs even when redirecting to inner `/app/`. */
+	useEffect(() => {
+		const cardFromMeta =
+			shareMeta?.shareKind === 'discover_merchant' || shareMeta?.distributionKind === 'merchant'
+				? shareMeta.cardAddress
+				: null
+		const cardFromTarget = parseDiscoverMerchantCardFromTarget(targetUrl)
+		const openFromTarget = parseDiscoverMerchantOpenFromTarget(targetUrl)
+		const cardAddress = cardFromMeta ?? cardFromTarget
+		if (!cardAddress) return
+
+		let cancelled = false
+		void (async () => {
+			const result = await recordDiscoverShareClickIfNeeded(cardAddress, {
+				referrerEoa: openFromTarget?.referrerEoa ?? null,
+			})
+			if (cancelled || result.ok) return
+			if (process.env.NODE_ENV !== 'production') {
+				console.debug('[AppDownload] discover share click skipped:', result.reason)
+			}
+		})()
+
+		return () => {
+			cancelled = true
+		}
+	}, [shareMeta, targetUrl])
 
 	/**
 	 * Fire native scheme probe immediately on load — iOS only shows "Open in Beamio" when
