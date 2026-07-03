@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { ethers } from 'ethers'
 import { useLocation } from 'react-router-dom'
-import { Calendar, Clock, Download, Gift, Loader2, Smartphone } from 'lucide-react'
+import { Calendar, Clock, Download, Gift, Heart, Loader2, Share2, Smartphone } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -30,6 +31,11 @@ import {
 	parseDiscoverMerchantOpenFromTarget,
 	recordDiscoverShareClickIfNeeded,
 } from '../utils/discoverShareClickEvent'
+import {
+	fetchCardProgramSocialSummary,
+	formatProgramSocialStatCount,
+	type CardProgramSocialSummary,
+} from '../utils/cardProgramSocialStats'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
 type IosNativeProbeResult = 'pending' | NativeAppOpenResult
@@ -280,7 +286,51 @@ function CatalogShareMetadataBlock({
 	)
 }
 
-function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
+function isDiscoverMerchantMeta(meta: CouponClaimShareMeta): boolean {
+	return meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant'
+}
+
+function DiscoverMerchantSocialStatsFooter({
+	stats,
+}: {
+	stats: CardProgramSocialSummary | null
+}) {
+	if (!stats || (stats.likeCount == null && stats.shareClickCount == null)) return null
+	return (
+		<div className="flex flex-wrap items-center gap-4 border-t border-slate-100 px-4 py-3 sm:px-5">
+			{stats.likeCount != null ? (
+				<div className="flex min-w-0 flex-1 items-center gap-2">
+					<Heart className="h-4 w-4 shrink-0 text-rose-500" strokeWidth={2.25} fill="currentColor" aria-hidden />
+					<div className="min-w-0 text-left">
+						<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Total likes</p>
+						<p className="font-manrope text-lg font-extrabold leading-tight text-[#2c2f31]">
+							{formatProgramSocialStatCount(stats.likeCount)}
+						</p>
+					</div>
+				</div>
+			) : null}
+			{stats.shareClickCount != null ? (
+				<div className="flex min-w-0 flex-1 items-center gap-2">
+					<Share2 className="h-4 w-4 shrink-0 text-[#1562f0]" strokeWidth={2.25} aria-hidden />
+					<div className="min-w-0 text-left">
+						<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Share clicks</p>
+						<p className="font-manrope text-lg font-extrabold leading-tight text-[#2c2f31]">
+							{formatProgramSocialStatCount(stats.shareClickCount)}
+						</p>
+					</div>
+				</div>
+			) : null}
+		</div>
+	)
+}
+
+function CouponSharePreview({
+	meta,
+	discoverSocialStats,
+}: {
+	meta: CouponClaimShareMeta
+	discoverSocialStats?: CardProgramSocialSummary | null
+}) {
 	const catalogVideoOgCardRef = React.useRef<HTMLDivElement>(null)
 	const catalogVideoOgCardMaxHeightPx = useCatalogVideoOgShareCardMaxHeight(catalogVideoOgCardRef)
 	const expiryUrgent = couponExpiryUsesUrgentVariant(meta.expiresLabel)
@@ -382,6 +432,7 @@ function CouponSharePreview({ meta }: { meta: CouponClaimShareMeta }) {
 							descriptionViewportScroll
 						/>
 					</div>
+					<DiscoverMerchantSocialStatsFooter stats={discoverSocialStats ?? null} />
 				</div>
 			</div>
 		)
@@ -550,6 +601,7 @@ export default function AppDownloadPage() {
 		isMobileDevice() ? 'pending' : 'desktop',
 	)
 	const [shareMeta, setShareMeta] = useState<CouponClaimShareMeta | null>(null)
+	const [discoverSocialStats, setDiscoverSocialStats] = useState<CardProgramSocialSummary | null>(null)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 
 	useLayoutEffect(() => {
@@ -607,6 +659,32 @@ export default function AppDownloadPage() {
 		}
 	}, [redirectingToInnerTarget, shareUrl, targetUrl])
 
+	const discoverMerchantCardAddress = useMemo(() => {
+		if (shareMeta && isDiscoverMerchantMeta(shareMeta) && shareMeta.cardAddress) {
+			try {
+				return ethers.getAddress(shareMeta.cardAddress)
+			} catch {
+				return null
+			}
+		}
+		return parseDiscoverMerchantCardFromTarget(targetUrl)
+	}, [shareMeta, targetUrl])
+
+	useEffect(() => {
+		if (!discoverMerchantCardAddress) {
+			setDiscoverSocialStats(null)
+			return
+		}
+		let cancelled = false
+		void (async () => {
+			const summary = await fetchCardProgramSocialSummary(discoverMerchantCardAddress)
+			if (!cancelled && summary) setDiscoverSocialStats(summary)
+		})()
+		return () => {
+			cancelled = true
+		}
+	}, [discoverMerchantCardAddress])
+
 	/** Discover merchant share: silent `web_` wallet + share-click social event (REF_CLICK). Runs even when redirecting to inner `/app/`. */
 	useEffect(() => {
 		const cardFromMeta =
@@ -623,8 +701,12 @@ export default function AppDownloadPage() {
 			const result = await recordDiscoverShareClickIfNeeded(cardAddress, {
 				referrerEoa: openFromTarget?.referrerEoa ?? null,
 			})
-			if (cancelled || result.ok) return
-			if (process.env.NODE_ENV !== 'production') {
+			if (cancelled) return
+			if (result.ok && result.txQueued) {
+				const summary = await fetchCardProgramSocialSummary(cardAddress)
+				if (!cancelled && summary) setDiscoverSocialStats(summary)
+			}
+			if (!result.ok && process.env.NODE_ENV !== 'production') {
 				console.debug('[AppDownload] discover share click skipped:', result.reason)
 			}
 		})()
@@ -682,7 +764,9 @@ export default function AppDownloadPage() {
 			: BEAMIO_ANDROID_STORE_URL
 
 	const couponPreview =
-		shareMeta && shareUrl && phase !== 'checking' ? <CouponSharePreview meta={shareMeta} /> : null
+		shareMeta && shareUrl && phase !== 'checking' ? (
+			<CouponSharePreview meta={shareMeta} discoverSocialStats={discoverSocialStats} />
+		) : null
 
 	const couponClaimActions =
 		shareMeta &&
