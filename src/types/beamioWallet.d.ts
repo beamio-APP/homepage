@@ -4,6 +4,7 @@ type profile = {
 	tokens?: Record<string, unknown>
 	publicKeyArmor?: string
 	keyID?: string
+	aaAccount?: string
 	isPrimary?: boolean
 	referrer?: string | null
 	isNode?: boolean

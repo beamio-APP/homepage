@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ethers } from 'ethers'
 import { useLocation } from 'react-router-dom'
-import { Calendar, Clock, Download, Gift, Heart, Loader2, Share2, Smartphone } from 'lucide-react'
+import { Calendar, Clock, Download, Gift, Loader2, Smartphone } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -33,9 +33,16 @@ import {
 } from '../utils/discoverShareClickEvent'
 import {
 	fetchCardProgramSocialSummary,
-	formatProgramSocialStatCount,
 	type CardProgramSocialSummary,
 } from '../utils/cardProgramSocialStats'
+import { DiscoverMerchantShareDetail } from '../components/DiscoverMerchantShareDetail'
+import AppDownloadBeamioTagCapsule from '../components/AppDownloadBeamioTagCapsule'
+import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
+import {
+	loadAppDownloadVisitWalletProfile,
+	type AppDownloadVisitWalletProfile,
+} from '../utils/beamioWebShareWallet'
+import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
 type IosNativeProbeResult = 'pending' | NativeAppOpenResult
@@ -290,46 +297,10 @@ function isDiscoverMerchantMeta(meta: CouponClaimShareMeta): boolean {
 	return meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant'
 }
 
-function DiscoverMerchantSocialStatsFooter({
-	stats,
-}: {
-	stats: CardProgramSocialSummary | null
-}) {
-	if (!stats || (stats.likeCount == null && stats.shareClickCount == null)) return null
-	return (
-		<div className="flex flex-wrap items-center gap-4 border-t border-slate-100 px-4 py-3 sm:px-5">
-			{stats.likeCount != null ? (
-				<div className="flex min-w-0 flex-1 items-center gap-2">
-					<Heart className="h-4 w-4 shrink-0 text-rose-500" strokeWidth={2.25} fill="currentColor" aria-hidden />
-					<div className="min-w-0 text-left">
-						<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Total likes</p>
-						<p className="font-manrope text-lg font-extrabold leading-tight text-[#2c2f31]">
-							{formatProgramSocialStatCount(stats.likeCount)}
-						</p>
-					</div>
-				</div>
-			) : null}
-			{stats.shareClickCount != null ? (
-				<div className="flex min-w-0 flex-1 items-center gap-2">
-					<Share2 className="h-4 w-4 shrink-0 text-[#1562f0]" strokeWidth={2.25} aria-hidden />
-					<div className="min-w-0 text-left">
-						<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Share clicks</p>
-						<p className="font-manrope text-lg font-extrabold leading-tight text-[#2c2f31]">
-							{formatProgramSocialStatCount(stats.shareClickCount)}
-						</p>
-					</div>
-				</div>
-			) : null}
-		</div>
-	)
-}
-
 function CouponSharePreview({
 	meta,
-	discoverSocialStats,
 }: {
 	meta: CouponClaimShareMeta
-	discoverSocialStats?: CardProgramSocialSummary | null
 }) {
 	const catalogVideoOgCardRef = React.useRef<HTMLDivElement>(null)
 	const catalogVideoOgCardMaxHeightPx = useCatalogVideoOgShareCardMaxHeight(catalogVideoOgCardRef)
@@ -338,9 +309,6 @@ function CouponSharePreview({
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
 	const hasBanner = Boolean(meta.backgroundImage?.trim())
 	const isCatalogVideoOg = meta.distributionKind === 'catalog' && meta.catalogLayout === 'videoOg'
-	const isDiscoverMerchantVideoOg =
-		(meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant') &&
-		meta.catalogLayout === 'videoOg'
 	const iconUrl = isCatalogVideoOg
 		? meta.iconUrl.trim()
 		: hasBanner
@@ -354,7 +322,7 @@ function CouponSharePreview({
 		: 'border border-[#abadaf]/35 bg-[#eef1f3] text-[#595c5e]'
 
 	const shareHeadline =
-		meta.distributionKind === 'catalog' || isDiscoverMerchantVideoOg
+		meta.distributionKind === 'catalog'
 			? ''
 			: meta.shareHeadline?.trim() ||
 				(meta.merchantName?.trim()
@@ -406,39 +374,6 @@ function CouponSharePreview({
 		)
 	}
 
-	if (isDiscoverMerchantVideoOg) {
-		return (
-			<div className="mx-auto w-full min-w-0 max-w-lg text-left">
-				<div className="flex flex-col overflow-hidden rounded-[1.75rem] bg-white ring-1 ring-black/[0.08]">
-					<div
-						className="relative aspect-[4/3] w-full overflow-hidden"
-						style={{ backgroundColor: meta.backgroundColorHex || '#0f172a' }}
-					>
-						{hasBanner ? (
-							<img
-								src={meta.backgroundImage}
-								alt=""
-								className="h-full w-full object-contain"
-								draggable={false}
-							/>
-						) : null}
-					</div>
-					<div className={`${CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME} flex flex-col`}>
-						<CatalogShareMetadataBlock
-							meta={meta}
-							tone="external"
-							showExpiryPill={showExpiryPill}
-							renderExpiryPill={renderExpiryPill}
-							descriptionViewportScroll
-						/>
-					</div>
-					<DiscoverMerchantSocialStatsFooter stats={discoverSocialStats ?? null} />
-				</div>
-			</div>
-		)
-	}
-
-	/** Side punch holes extend 18px (half of h-9) past ticket edges — pad so they stay inside the viewport. */
 	const ticketPunchInsetClass = 'px-[18px]'
 
 	const ticketShell = (
@@ -602,9 +537,28 @@ export default function AppDownloadPage() {
 	)
 	const [shareMeta, setShareMeta] = useState<CouponClaimShareMeta | null>(null)
 	const [discoverSocialStats, setDiscoverSocialStats] = useState<CardProgramSocialSummary | null>(null)
+	const [visitWalletProfile, setVisitWalletProfile] = useState<AppDownloadVisitWalletProfile | null>(null)
+	const [myWalletOpen, setMyWalletOpen] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
+	const shareClickStartedRef = useRef(false)
+	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
 
 	useLayoutEffect(() => {
+		if (!shareClickStartedRef.current) {
+			const openFromTarget = parseDiscoverMerchantOpenFromTarget(targetUrl)
+			const cardFromTarget = openFromTarget?.cardAddress ?? parseDiscoverMerchantCardFromTarget(targetUrl)
+			if (cardFromTarget) {
+				shareClickStartedRef.current = true
+				void recordDiscoverShareClickIfNeeded(cardFromTarget, {
+					referrerEoa: openFromTarget?.referrerEoa ?? null,
+				}).then((result) => {
+					if (!result.ok) return
+					void fetchCardProgramSocialSummary(cardFromTarget).then((summary) => {
+						if (summary) setDiscoverSocialStats(summary)
+					})
+				})
+			}
+		}
 		if (!targetUrl || !shouldRedirectToInnerAppTarget()) return
 		window.location.replace(targetUrl)
 	}, [targetUrl])
@@ -670,6 +624,33 @@ export default function AppDownloadPage() {
 		return parseDiscoverMerchantCardFromTarget(targetUrl)
 	}, [shareMeta, targetUrl])
 
+	const isDiscoverMerchantShare = Boolean(
+		discoverMerchantCardAddress &&
+			((shareMeta && isDiscoverMerchantMeta(shareMeta)) ||
+				Boolean(parseDiscoverMerchantOpenFromTarget(targetUrl)?.cardAddress)),
+	)
+
+	const effectiveShareMeta = useMemo((): CouponClaimShareMeta | null => {
+		if (shareMeta) return shareMeta
+		if (!discoverMerchantCardAddress || !shareUrl) return null
+		return {
+			cardAddress: discoverMerchantCardAddress,
+			couponId: '',
+			shareKind: 'discover_merchant',
+			distributionKind: 'merchant',
+			catalogLayout: 'videoOg',
+			title: 'Merchant',
+			subtitle: '',
+			iconUrl: '',
+			backgroundImage: '',
+			backgroundColorHex: '#2B2E3A',
+			validBeforeSec: null,
+			expiresLabel: 'VALID NOW',
+			shareUrl,
+			ogImageUrl: '',
+		}
+	}, [discoverMerchantCardAddress, shareMeta, shareUrl])
+
 	useEffect(() => {
 		if (!discoverMerchantCardAddress) {
 			setDiscoverSocialStats(null)
@@ -685,36 +666,27 @@ export default function AppDownloadPage() {
 		}
 	}, [discoverMerchantCardAddress])
 
-	/** Discover merchant share: silent `web_` wallet + share-click social event (REF_CLICK). Runs even when redirecting to inner `/app/`. */
+	/** Silent web_ / existing PWA wallet for top-right @beamioTag capsule (Discover merchant share). */
 	useEffect(() => {
-		const cardFromMeta =
-			shareMeta?.shareKind === 'discover_merchant' || shareMeta?.distributionKind === 'merchant'
-				? shareMeta.cardAddress
-				: null
-		const cardFromTarget = parseDiscoverMerchantCardFromTarget(targetUrl)
-		const openFromTarget = parseDiscoverMerchantOpenFromTarget(targetUrl)
-		const cardAddress = cardFromMeta ?? cardFromTarget
-		if (!cardAddress) return
-
+		if (redirectingToInnerTarget || !isDiscoverMerchantShare) return
 		let cancelled = false
 		void (async () => {
-			const result = await recordDiscoverShareClickIfNeeded(cardAddress, {
-				referrerEoa: openFromTarget?.referrerEoa ?? null,
-			})
-			if (cancelled) return
-			if (result.ok && result.txQueued) {
-				const summary = await fetchCardProgramSocialSummary(cardAddress)
-				if (!cancelled && summary) setDiscoverSocialStats(summary)
-			}
-			if (!result.ok && process.env.NODE_ENV !== 'production') {
-				console.debug('[AppDownload] discover share click skipped:', result.reason)
-			}
+			const profile = await loadAppDownloadVisitWalletProfile()
+			if (!cancelled && profile) setVisitWalletProfile(profile)
 		})()
-
 		return () => {
 			cancelled = true
 		}
-	}, [shareMeta, targetUrl])
+	}, [isDiscoverMerchantShare, redirectingToInnerTarget])
+
+	useEffect(() => {
+		if (!myWalletOpen) return
+		const prev = document.body.style.overflow
+		document.body.style.overflow = 'hidden'
+		return () => {
+			document.body.style.overflow = prev
+		}
+	}, [myWalletOpen])
 
 	/**
 	 * Fire native scheme probe immediately on load — iOS only shows "Open in Beamio" when
@@ -764,63 +736,120 @@ export default function AppDownloadPage() {
 			: BEAMIO_ANDROID_STORE_URL
 
 	const couponPreview =
-		shareMeta && shareUrl && phase !== 'checking' ? (
-			<CouponSharePreview meta={shareMeta} discoverSocialStats={discoverSocialStats} />
+		effectiveShareMeta && shareUrl && (phase !== 'checking' || isDiscoverMerchantShare) ? (
+			isDiscoverMerchantShare && discoverMerchantCardAddress ? (
+				<DiscoverMerchantShareDetail
+					cardAddress={discoverMerchantCardAddress}
+					shareMeta={effectiveShareMeta}
+					socialStats={discoverSocialStats}
+				/>
+			) : !isDiscoverMerchantShare ? (
+				<CouponSharePreview meta={effectiveShareMeta} />
+			) : null
 		) : null
 
 	const couponClaimActions =
-		shareMeta &&
+		effectiveShareMeta &&
 		targetUrl &&
-		isCouponShareMeta(shareMeta) &&
+		isCouponShareMeta(effectiveShareMeta) &&
 		phase !== 'checking' ? (
 			<CouponShareClaimActions
 				targetUrl={targetUrl}
 				search={location.search}
 				onIosNativeProbeResult={setIosNativeProbe}
-				shareKind={shareMeta.shareKind}
+				shareKind={effectiveShareMeta.shareKind}
 				showClaimInApp={isMobileDevice()}
 			/>
 		) : null
 
 	return (
 		<div
-			className={`bg-[#f8fafc] font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased ${
-				phase === 'checking' ? 'relative h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'
+			className={`font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased ${
+				isDiscoverMerchantShare ? 'bg-[#f5f7f9]' : 'bg-[#f8fafc]'
+			} ${
+				phase === 'checking' && !isDiscoverMerchantShare
+					? 'relative h-[100dvh] max-h-[100dvh] overflow-hidden'
+					: 'min-h-[100dvh]'
 			}`}
 		>
-			{phase === 'checking' ? (
+			{phase === 'checking' && !isDiscoverMerchantShare ? (
 				<div
 					className="pointer-events-none fixed inset-0 z-[90] bg-[#2c2f31]/35 backdrop-blur-[1px]"
 					aria-hidden
 				/>
 			) : null}
+			{isDiscoverMerchantShare && visitWalletProfile && !myWalletOpen ? (
+				<AppDownloadBeamioTagCapsule
+					profile={visitWalletProfile}
+					opacity={capsuleOpacity}
+					onOpen={() => setMyWalletOpen(true)}
+				/>
+			) : null}
+			{myWalletOpen && visitWalletProfile ? (
+				<AppDownloadMyWalletPanel
+					profile={visitWalletProfile}
+					onClose={() => setMyWalletOpen(false)}
+					openInAppUrl={targetUrl || undefined}
+				/>
+			) : null}
 			<main
-				className="relative z-[1] mx-auto w-full max-w-lg min-w-0 px-4 pb-16 pt-[max(1rem,env(safe-area-inset-top,0px))] text-center sm:px-6"
+				className={`relative z-[1] w-full min-w-0 ${
+					isDiscoverMerchantShare
+						? 'max-w-none px-0 pb-0 pt-0 text-left'
+						: 'mx-auto max-w-lg px-4 pb-16 pt-[max(1rem,env(safe-area-inset-top,0px))] text-center sm:px-6'
+				}`}
 			>
-				<div className="flex w-full min-w-0 max-w-full flex-col items-center justify-center py-6">
+				<div
+					className={`flex w-full min-w-0 max-w-full flex-col ${
+						isDiscoverMerchantShare
+							? 'items-stretch justify-start'
+							: 'items-center justify-center py-6'
+					}`}
+				>
 				{phase === 'checking' && (
 					<div className="w-full min-w-0 max-w-full space-y-6">
 						{couponPreview}
-						<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1562f0]/10">
-							<Loader2 className="h-8 w-8 animate-spin text-[#1562f0]" />
-						</div>
-						<div>
-							<h1 className="text-2xl font-bold tracking-tight text-slate-900">
-								{shareMeta
-									? shareMeta.shareKind === 'discover_merchant'
-										? 'Opening Beamio'
-										: 'Opening Beamio Coupon'
-									: 'Opening Beamio'}
-							</h1>
-							<p className="mt-3 text-slate-600">Checking for the Beamio app on your device…</p>
-						</div>
+						{!isDiscoverMerchantShare ? (
+							<>
+								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1562f0]/10">
+									<Loader2 className="h-8 w-8 animate-spin text-[#1562f0]" />
+								</div>
+								<div>
+									<h1 className="text-2xl font-bold tracking-tight text-slate-900">
+										{shareMeta
+											? shareMeta.shareKind === 'discover_merchant'
+												? 'Opening Beamio'
+												: 'Opening Beamio Coupon'
+											: 'Opening Beamio'}
+									</h1>
+									<p className="mt-3 text-slate-600">Checking for the Beamio app on your device…</p>
+								</div>
+							</>
+						) : (
+							<div className="mx-auto max-w-lg px-4 pb-6 text-center">
+								<div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1562f0]/10">
+									<Loader2 className="h-6 w-6 animate-spin text-[#1562f0]" />
+								</div>
+								<p className="mt-3 text-[14px] font-medium text-slate-600">
+									Checking for the Beamio app on your device…
+								</p>
+							</div>
+						)}
 					</div>
 				)}
 
 				{phase === 'install' && (
-					<div className="w-full min-w-0 max-w-full space-y-8">
+					<div
+						className={`w-full min-w-0 max-w-full ${
+							isDiscoverMerchantShare ? 'space-y-4' : 'space-y-8'
+						}`}
+					>
 						{couponPreview}
-						{couponClaimActions}
+						{couponClaimActions ? (
+							<div className={isDiscoverMerchantShare ? 'mx-auto max-w-lg px-4 pb-8' : undefined}>
+								{couponClaimActions}
+							</div>
+						) : null}
 						{!shareMeta ? (
 							<>
 								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
@@ -863,9 +892,17 @@ export default function AppDownloadPage() {
 				)}
 
 				{phase === 'desktop' && (
-					<div className="w-full min-w-0 max-w-full space-y-8">
+					<div
+						className={`w-full min-w-0 max-w-full ${
+							isDiscoverMerchantShare ? 'space-y-4' : 'space-y-8'
+						}`}
+					>
 						{couponPreview}
-						{couponClaimActions}
+						{couponClaimActions ? (
+							<div className={isDiscoverMerchantShare ? 'mx-auto max-w-lg px-4 pb-8' : undefined}>
+								{couponClaimActions}
+							</div>
+						) : null}
 						{!shareMeta ? (
 							<>
 								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">

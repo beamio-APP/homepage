@@ -158,6 +158,7 @@ export async function recordDiscoverShareClickIfNeeded(
 		const res = await fetch(`${BEAMIO_API}/cardRecordDiscoverShareClick`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
+			keepalive: true,
 			body: JSON.stringify({
 				cardAddress: card,
 				actorWallet: actorEOA,

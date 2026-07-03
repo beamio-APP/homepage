@@ -339,3 +339,61 @@ export function resolveSigningWalletFromBlob(data: encrypt_keys_object | null): 
 		return null
 	}
 }
+
+export type AppDownloadVisitWalletProfile = {
+	accountName: string
+	tagLabel: string
+	avatarSrc: string
+	displayName: string
+	eoaAddress: string
+	aaAddress: string
+	createdAt: number | null
+}
+
+function dicebearAvatarSrc(seed: string): string {
+	return `https://api.dicebear.com/8.x/fun-emoji/svg?seed=${encodeURIComponent(seed || '@Beamio')}`
+}
+
+function profileDisplayName(beamio: beamio | undefined, accountName: string): string {
+	if (!beamio) return accountName
+	const first = String(beamio.firstName ?? '').trim()
+	const lastRaw = String(beamio.lastName ?? '').trim()
+	const lastSeg = lastRaw.split('\r\n')[0]?.trim() ?? ''
+	const last = lastSeg.startsWith('{') ? '' : lastSeg
+	const full = `${first} ${last}`.trim()
+	return full || accountName
+}
+
+export function visitWalletProfileFromBlob(
+	data: encrypt_keys_object | null,
+): AppDownloadVisitWalletProfile | null {
+	const hydrated = ensureProfilePrivateKeyArmorFromMnemonic(data)
+	if (!hydrated || !hasCompletedBeamioAccount(hydrated)) return null
+	const accountName = String(hydrated.beamio?.accountName ?? '').trim().replace(/^@+/, '')
+	if (!accountName) return null
+	const eoaRaw = String(hydrated.profiles?.[0]?.keyID ?? '').trim()
+	if (!eoaRaw || !ethers.isAddress(eoaRaw)) return null
+	const aaRaw = String(hydrated.profiles?.[0]?.aaAccount ?? '').trim()
+	const aaAddress = aaRaw && ethers.isAddress(aaRaw) ? ethers.getAddress(aaRaw) : ''
+	const image = String(hydrated.beamio?.image ?? '').trim()
+	const createdAtRaw = hydrated.beamio?.createdAt
+	const createdAt =
+		typeof createdAtRaw === 'number' && Number.isFinite(createdAtRaw) && createdAtRaw > 0
+			? createdAtRaw
+			: null
+	return {
+		accountName,
+		tagLabel: `@${accountName}`,
+		avatarSrc: image || dicebearAvatarSrc(accountName),
+		displayName: profileDisplayName(hydrated.beamio, accountName),
+		eoaAddress: ethers.getAddress(eoaRaw),
+		aaAddress,
+		createdAt,
+	}
+}
+
+/** Reuse PWA / silent web_ visit wallet for app-download capsule + myWallet panel. */
+export async function loadAppDownloadVisitWalletProfile(): Promise<AppDownloadVisitWalletProfile | null> {
+	const blob = await provisionWebShareVisitWallet()
+	return visitWalletProfileFromBlob(blob)
+}

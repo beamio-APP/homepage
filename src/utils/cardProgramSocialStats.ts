@@ -7,6 +7,25 @@ export type CardProgramSocialSummary = {
 	shareClickCount: number | null
 }
 
+function pickMaxStat(a: number | null | undefined, b: number | null | undefined): number | null {
+	if (a == null && b == null) return null
+	if (a == null) return b ?? null
+	if (b == null) return a
+	return Math.max(a, b)
+}
+
+/** Prefer fresher live props; take max when both present (post-click refetch vs landing snapshot). */
+export function mergeCardProgramSocialSummary(
+	live: CardProgramSocialSummary | null | undefined,
+	cached: CardProgramSocialSummary | null | undefined,
+): CardProgramSocialSummary | null {
+	if (!live && !cached) return null
+	return {
+		likeCount: pickMaxStat(live?.likeCount, cached?.likeCount),
+		shareClickCount: pickMaxStat(live?.shareClickCount, cached?.shareClickCount),
+	}
+}
+
 export function formatProgramSocialStatCount(n: number | null | undefined): string {
 	if (n == null || !Number.isFinite(n) || n < 0) return '—'
 	const v = Math.trunc(n)
