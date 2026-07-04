@@ -21,6 +21,8 @@ export type DiscoverAboutFields = {
 
 export type DiscoverMerchantCouponPreview = {
 	id: string
+	couponId: string
+	tokenId: string
 	title: string
 	subtitle: string
 	backgroundImage: string
@@ -221,16 +223,39 @@ function readMetadataSubtitle(meta: Record<string, unknown> | null): string {
 	return raw
 }
 
+function readMetadataStringFromKeys(src: Record<string, unknown> | null, keys: readonly string[]): string {
+	if (!src) return ''
+	for (const key of keys) {
+		const v = readString(src[key])
+		if (v) return v
+	}
+	return ''
+}
+
+const COUPON_BACKGROUND_IMAGE_KEYS = [
+	'couponImage',
+	'background',
+	'backgroundImage',
+	'backgroundImageUrl',
+	'cover',
+	'coverImage',
+] as const
+
+const COUPON_BACKGROUND_COLOR_KEYS = [
+	'backgroundColor',
+	'bgColor',
+	'color',
+	'backgroundColorHex',
+	'background_color',
+] as const
+
 function readMetadataBackgroundImage(meta: Record<string, unknown> | null): string {
 	if (!meta) return ''
 	const props = asRecord(meta.properties)
 	const beamioCoupon = asRecord(props?.beamioCoupon)
 	return (
-		readString(meta.backgroundImage) ||
-		readString(meta.couponImage) ||
-		readString(beamioCoupon?.backgroundImage) ||
-		readString(beamioCoupon?.couponImage) ||
-		''
+		readMetadataStringFromKeys(meta, COUPON_BACKGROUND_IMAGE_KEYS) ||
+		readMetadataStringFromKeys(beamioCoupon, COUPON_BACKGROUND_IMAGE_KEYS)
 	)
 }
 
@@ -238,12 +263,33 @@ function readMetadataBackgroundColor(meta: Record<string, unknown> | null): stri
 	if (!meta) return '#2B2E3A'
 	const props = asRecord(meta.properties)
 	const beamioCoupon = asRecord(props?.beamioCoupon)
+	const c =
+		readMetadataStringFromKeys(meta, COUPON_BACKGROUND_COLOR_KEYS) ||
+		readMetadataStringFromKeys(beamioCoupon, COUPON_BACKGROUND_COLOR_KEYS)
+	if (!c) return '#2B2E3A'
+	return c.startsWith('#') ? c : `#${c}`
+}
+
+/** Align SilentPassUI ActiveCouponsScreen `readMetadataIconUrl`. */
+function readMetadataIconUrl(meta: Record<string, unknown> | null): string {
+	if (!meta) return ''
+	const props = asRecord(meta.properties)
+	const beamioCoupon = asRecord(props?.beamioCoupon)
+	const shareTokenMetadata = asRecord(meta.shareTokenMetadata)
+	const imageObj = asRecord(meta.image)
 	return (
-		readString(meta.backgroundColorHex) ||
-		readString(meta.backgroundColor) ||
-		readString(beamioCoupon?.backgroundColorHex) ||
-		readString(beamioCoupon?.backgroundColor) ||
-		'#2B2E3A'
+		readString(meta.iconUrl) ||
+		readString(meta.icon) ||
+		readString(meta.logoUrl) ||
+		readString(meta.logo) ||
+		readString(beamioCoupon?.iconUrl) ||
+		readString(beamioCoupon?.icon) ||
+		readString(beamioCoupon?.logoUrl) ||
+		readString(beamioCoupon?.logo) ||
+		readString(shareTokenMetadata?.logoUrl) ||
+		readString(shareTokenMetadata?.logo) ||
+		readString(imageObj?.url) ||
+		readString(meta.image)
 	)
 }
 
@@ -319,10 +365,23 @@ async function fetchLatestCardsMetadata(cardAddress: string): Promise<{
 	return { metadata: null, currency: 'USD' }
 }
 
+function parseCouponMetadata(raw: unknown): Record<string, unknown> | null {
+	if (raw == null) return null
+	if (typeof raw === 'string') {
+		try {
+			return asRecord(JSON.parse(raw))
+		} catch {
+			return null
+		}
+	}
+	return asRecord(raw)
+}
+
+/** Align SilentPassUI `mapActiveCouponRow` + Discover merchant coupon list. */
 async function fetchMerchantCoupons(cardAddress: string): Promise<DiscoverMerchantCouponPreview[] | null> {
 	try {
 		const res = await fetch(
-			`${BEAMIO_API}/cardActiveIssuedCouponSeries?card=${encodeURIComponent(cardAddress)}&limit=20`,
+			`${BEAMIO_API}/cardActiveIssuedCouponSeries?card=${encodeURIComponent(cardAddress)}&limit=50`,
 		)
 		if (!res.ok) return null
 		const json = (await res.json()) as { items?: unknown[] }
@@ -331,19 +390,23 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<DiscoverMercha
 		for (const raw of items) {
 			const row = asRecord(raw)
 			if (!row) continue
-			const meta = asRecord(row.metadata)
-			const couponId = readMetadataCouponId(meta)
-			if (!couponId) continue
+			const meta = parseCouponMetadata(row.metadata)
+			const tokenId = String(row.tokenId ?? '').trim()
+			const couponId = readMetadataCouponId(meta) || tokenId
+			if (!couponId && !tokenId) continue
 			const validBeforeNum = Number(row.issuedNftValidBefore ?? 0)
 			const validBeforeSec =
 				Number.isFinite(validBeforeNum) && validBeforeNum > 0 ? validBeforeNum : null
+			const idKey = tokenId || couponId
 			mapped.push({
-				id: `${cardAddress.toLowerCase()}:${String(row.tokenId ?? couponId)}`,
+				id: `${cardAddress.toLowerCase()}:${idKey}`,
+				couponId: couponId || idKey,
+				tokenId,
 				title: readMetadataTitle(meta) || 'Coupon',
 				subtitle: readMetadataSubtitle(meta),
 				backgroundImage: readMetadataBackgroundImage(meta),
 				backgroundColorHex: readMetadataBackgroundColor(meta),
-				iconUrl: '',
+				iconUrl: readMetadataIconUrl(meta),
 				expiresLabel: formatCouponExpiryFromSec(validBeforeSec),
 				supplySummary: formatSupplySummary(row),
 			})

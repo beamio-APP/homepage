@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
 	Building2,
+	Calendar,
 	Clock,
 	Clapperboard,
 	Dumbbell,
@@ -122,72 +123,131 @@ function CouponBannerImage({ src }: { src: string }) {
 	)
 }
 
+/**
+ * Align SilentPassUI Discover `ActiveCouponTicketItem` + `metadataBelowBackgroundImage`:
+ * - With banner: image only in ticket; title / subtitle / expiry below.
+ * - Without banner: icon + title + subtitle + expiry inside ticket (white text).
+ */
 function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponPreview }) {
 	const hasBanner = Boolean(coupon.backgroundImage?.trim())
 	const showExpiry = shouldShowCouponExpiryPill(coupon.expiresLabel)
 	const expiryUrgent = couponExpiryUsesUrgentVariant(coupon.expiresLabel)
+	const ExpiryIcon = expiryUrgent ? Clock : Calendar
+	const title = coupon.title.trim() || 'Coupon'
+	const subtitle = coupon.subtitle.trim()
+	const iconUrl = hasBanner ? '' : coupon.iconUrl.trim()
+	const copyBelowBanner = hasBanner
+
+	const expiryPillInner = (
+		<div
+			className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+				expiryUrgent
+					? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
+					: 'border border-white/25 bg-slate-950/65 text-white shadow-sm shadow-black/20 backdrop-blur-md'
+			}`}
+		>
+			<ExpiryIcon className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+			<span className="truncate">{coupon.expiresLabel}</span>
+		</div>
+	)
+
+	const expiryPillExternal = (
+		<div
+			className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
+				expiryUrgent
+					? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
+					: 'border border-[#abadaf]/35 bg-[#eef1f3] text-[#595c5e]'
+			}`}
+		>
+			<ExpiryIcon className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+			<span className="truncate">{coupon.expiresLabel}</span>
+		</div>
+	)
+
+	const ticketShell = (
+		<div className="relative w-full min-w-0 rounded-[1.75rem]">
+			<div
+				className="pointer-events-none absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
+				aria-hidden
+			/>
+			<div
+				className="pointer-events-none absolute right-0 top-1/2 z-20 h-9 w-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
+				aria-hidden
+			/>
+			<div className="relative min-h-[7.5rem] overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
+				{hasBanner ? (
+					<CouponBannerImage src={coupon.backgroundImage} />
+				) : (
+					<>
+						<div
+							className="absolute inset-0"
+							style={{ backgroundColor: coupon.backgroundColorHex || '#2B2E3A' }}
+						/>
+						<div
+							className="pointer-events-none absolute inset-0 opacity-[0.12]"
+							style={{
+								backgroundImage:
+									'repeating-linear-gradient(-26deg, #fff 0, #fff 1px, transparent 1px, transparent 8px)',
+							}}
+							aria-hidden
+						/>
+						<div
+							className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/30"
+							aria-hidden
+						/>
+					</>
+				)}
+
+				{!copyBelowBanner ? (
+					<div className="relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5">
+						{iconUrl ? (
+							<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
+								<img
+									src={iconUrl}
+									alt=""
+									className="h-full w-full object-cover"
+									draggable={false}
+								/>
+							</div>
+						) : null}
+						<div className="font-manrope min-w-0 flex-1 text-white">
+							<p className="truncate text-[1.05rem] font-extrabold leading-tight tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:text-lg">
+								{title}
+							</p>
+							{subtitle ? (
+								<p className="mt-0.5 line-clamp-2 text-sm font-semibold text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+									{subtitle}
+								</p>
+							) : null}
+							{showExpiry ? <div className="mt-2">{expiryPillInner}</div> : null}
+						</div>
+					</div>
+				) : null}
+			</div>
+		</div>
+	)
 
 	return (
 		<div className="space-y-1.5">
-			<div className="relative w-full min-w-0 px-[18px]">
-				<div className="relative w-full min-w-0 rounded-[1.75rem]">
-					<div
-						className="pointer-events-none absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
-						aria-hidden
-					/>
-					<div
-						className="pointer-events-none absolute right-0 top-1/2 z-20 h-9 w-9 translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
-						aria-hidden
-					/>
-					<div className="relative min-h-[7.5rem] overflow-hidden rounded-[1.75rem] ring-1 ring-black/[0.08]">
-						{hasBanner ? (
-							<CouponBannerImage src={coupon.backgroundImage} />
-						) : (
-							<>
-								<div
-									className="absolute inset-0"
-									style={{ backgroundColor: coupon.backgroundColorHex || '#2B2E3A' }}
-								/>
-								<div
-									className="pointer-events-none absolute inset-0 opacity-[0.12]"
-									style={{
-										backgroundImage:
-											'repeating-linear-gradient(-26deg, #fff 0, #fff 1px, transparent 1px, transparent 8px)',
-									}}
-									aria-hidden
-								/>
-							</>
-						)}
-					</div>
-				</div>
-			</div>
-			<div className="px-1">
-				<p className="font-manrope text-[1.05rem] font-extrabold leading-tight text-[#2c2f31]">
-					{coupon.title}
-				</p>
-				<p className="mt-0.5 font-manrope text-sm font-semibold leading-snug text-[#595c5e] line-clamp-2">
-					{coupon.subtitle}
-				</p>
-				{showExpiry ? (
-					<div className="mt-2">
-						<span
-							className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${
-								expiryUrgent
-									? 'bg-red-600 text-white shadow-sm shadow-red-900/25'
-									: 'border border-[#abadaf]/35 bg-[#eef1f3] text-[#595c5e]'
-							}`}
-						>
-							<Clock className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-							<span className="truncate">{coupon.expiresLabel}</span>
-						</span>
-					</div>
-				) : null}
-				{coupon.supplySummary ? (
-					<p className="mt-1 line-clamp-1 text-[11px] font-semibold text-slate-500">
-						{coupon.supplySummary}
+			<div className="relative w-full min-w-0 px-[18px]">{ticketShell}</div>
+			{copyBelowBanner ? (
+				<div className="px-1">
+					<p className="font-manrope text-[1.05rem] font-extrabold leading-tight text-[#2c2f31]">
+						{title}
 					</p>
-				) : null}
-			</div>
+					{subtitle ? (
+						<p className="mt-0.5 font-manrope text-sm font-semibold leading-snug text-[#595c5e] line-clamp-2">
+							{subtitle}
+						</p>
+					) : null}
+					{showExpiry ? <div className="mt-2">{expiryPillExternal}</div> : null}
+				</div>
+			) : null}
+			{coupon.supplySummary ? (
+				<p className="line-clamp-1 px-1 text-[11px] font-semibold text-slate-500">
+					{coupon.supplySummary}
+				</p>
+			) : null}
 		</div>
 	)
 }
