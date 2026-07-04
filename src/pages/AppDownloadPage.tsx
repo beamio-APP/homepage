@@ -36,7 +36,7 @@ import {
 	type CardProgramSocialSummary,
 } from '../utils/cardProgramSocialStats'
 import { DiscoverMerchantShareDetail } from '../components/DiscoverMerchantShareDetail'
-import AppDownloadBeamioTagCapsule from '../components/AppDownloadBeamioTagCapsule'
+import AppDownloadDiscoverTopBar from '../components/AppDownloadDiscoverTopBar'
 import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
 import {
 	loadAppDownloadVisitWalletProfile,
@@ -778,11 +778,26 @@ export default function AppDownloadPage() {
 					aria-hidden
 				/>
 			) : null}
-			{isDiscoverMerchantShare && visitWalletProfile && !myWalletOpen ? (
-				<AppDownloadBeamioTagCapsule
+			{isDiscoverMerchantShare &&
+			visitWalletProfile &&
+			discoverMerchantCardAddress &&
+			!myWalletOpen ? (
+				<AppDownloadDiscoverTopBar
 					profile={visitWalletProfile}
+					cardAddress={discoverMerchantCardAddress}
+					merchantTitle={
+						effectiveShareMeta?.title ||
+						effectiveShareMeta?.merchantName ||
+						'Merchant'
+					}
 					opacity={capsuleOpacity}
-					onOpen={() => setMyWalletOpen(true)}
+					socialStats={discoverSocialStats}
+					onOpenWallet={() => setMyWalletOpen(true)}
+					onSocialStatsRefresh={() => {
+						void fetchCardProgramSocialSummary(discoverMerchantCardAddress).then((summary) => {
+							if (summary) setDiscoverSocialStats(summary)
+						})
+					}}
 				/>
 			) : null}
 			{myWalletOpen && visitWalletProfile ? (

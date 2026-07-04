@@ -14,11 +14,32 @@ function conetDepinProvider(): ethers.JsonRpcProvider {
 	return conetProviderSingleton
 }
 
+/** CoNET UserCard factory — EIP-712 verifyingContract for merchant card writes. */
+export const CONET_CARD_FACTORY = '0xfA52a0CcC96C19cF4b6Ea864615F6d52BD0774FB'
+
 /** Merchant program cards: CoNET 224422 only. */
 export async function providerForBeamioUserCard(
 	_cardAddress: string,
 ): Promise<{ provider: ethers.Provider; chainId: number }> {
 	return { provider: conetDepinProvider(), chainId: CONET_MAINNET_CHAIN_ID }
+}
+
+export async function eip712ChainIdForBeamioUserCard(_cardAddress: string): Promise<number> {
+	return CONET_MAINNET_CHAIN_ID
+}
+
+export async function getCardFactoryGatewayForEip712(cardAddress: string): Promise<string> {
+	try {
+		const { provider } = await providerForBeamioUserCard(cardAddress)
+		const c = new ethers.Contract(
+			ethers.getAddress(cardAddress),
+			['function factoryGateway() view returns (address)'],
+			provider,
+		)
+		return ethers.getAddress(await c.factoryGateway())
+	} catch {
+		return ethers.getAddress(CONET_CARD_FACTORY)
+	}
 }
 
 export function beamioUserCardAddressExplorerUrl(

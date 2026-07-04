@@ -1,0 +1,184 @@
+import React, { useCallback, useEffect, useState } from 'react'
+import { Check, Heart, Loader2, Share2 } from 'lucide-react'
+import { beamioFixedCapsuleTopStyle } from '../utils/beamioFixedTopCapsuleLayout'
+import type { AppDownloadVisitWalletProfile } from '../utils/beamioWebShareWallet'
+import {
+	resolveSigningWalletFromBlob,
+	provisionWebShareVisitWallet,
+} from '../utils/beamioWebShareWallet'
+import {
+	buildDiscoverMerchantShareUrl,
+	shareDiscoverMerchantUrl,
+} from '../utils/discoverMerchantShare'
+import {
+	fetchUserHasLikedMerchantCard,
+	postMerchantCardUserLike,
+} from '../utils/discoverMerchantLike'
+import type { CardProgramSocialSummary } from '../utils/cardProgramSocialStats'
+import { formatProgramSocialStatCount } from '../utils/cardProgramSocialStats'
+
+type AppDownloadDiscoverTopBarProps = {
+	profile: AppDownloadVisitWalletProfile
+	cardAddress: string
+	merchantTitle: string
+	opacity?: number
+	socialStats?: CardProgramSocialSummary | null
+	onOpenWallet: () => void
+	onSocialStatsRefresh?: () => void
+}
+
+/**
+ * Discover merchant detail top chrome on app-download:
+ * left `@beamioTag` capsule; right share + like (aligned with SilentPassUI Market detail).
+ */
+export default function AppDownloadDiscoverTopBar({
+	profile,
+	cardAddress,
+	merchantTitle,
+	opacity = 1,
+	socialStats,
+	onOpenWallet,
+	onSocialStatsRefresh,
+}: AppDownloadDiscoverTopBarProps) {
+	const [shared, setShared] = useState(false)
+	const [userLiked, setUserLiked] = useState<boolean | null>(null)
+	const [likeLoading, setLikeLoading] = useState(false)
+	const pointer = opacity < 0.05 ? 'none' : 'auto'
+
+	useEffect(() => {
+		let cancelled = false
+		void fetchUserHasLikedMerchantCard(cardAddress, profile.eoaAddress).then((liked) => {
+			if (!cancelled && liked != null) setUserLiked(liked)
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [cardAddress, profile.eoaAddress])
+
+	const handleShare = useCallback(
+		async (e: React.MouseEvent) => {
+			e.stopPropagation()
+			const shareUrl = buildDiscoverMerchantShareUrl(cardAddress, profile.eoaAddress)
+			if (!shareUrl) return
+			const outcome = await shareDiscoverMerchantUrl(shareUrl, {
+				title: merchantTitle.trim()
+					? `Discover ${merchantTitle.trim()} on Beamio`
+					: 'Discover this brand on Beamio',
+			})
+			if (outcome === 'shared' || outcome === 'copied') {
+				setShared(true)
+				window.setTimeout(() => setShared(false), 2000)
+			}
+		},
+		[cardAddress, merchantTitle, profile.eoaAddress],
+	)
+
+	const handleLike = useCallback(async () => {
+		if (likeLoading || userLiked) return
+		setLikeLoading(true)
+		try {
+			const blob = await provisionWebShareVisitWallet()
+			const wallet = resolveSigningWalletFromBlob(blob)
+			const pk = wallet?.privateKey
+			if (!pk) return
+			const ret = await postMerchantCardUserLike({
+				cardAddress,
+				privateKeyArmor: pk,
+				liked: true,
+			})
+			if (ret.success) {
+				setUserLiked(true)
+				onSocialStatsRefresh?.()
+			}
+		} finally {
+			setLikeLoading(false)
+		}
+	}, [cardAddress, likeLoading, onSocialStatsRefresh, userLiked])
+
+	const likeCount = socialStats?.likeCount ?? null
+	const shareClickCount = socialStats?.shareClickCount ?? null
+
+	return (
+		<div
+			className="pointer-events-none fixed left-4 right-4 z-40 flex items-start justify-between gap-2 transition-opacity duration-300"
+			style={{
+				...beamioFixedCapsuleTopStyle(),
+				opacity,
+			}}
+		>
+			<button
+				type="button"
+				onClick={onOpenWallet}
+				className="flex min-w-0 items-center justify-self-start"
+				style={{ pointerEvents: pointer }}
+				aria-label="Open wallet"
+			>
+				<div className="flex min-w-0 max-w-[min(52vw,14rem)] items-center gap-2.5 rounded-full border border-slate-100/90 bg-white py-2 pl-2 pr-4 shadow-[0_4px_24px_rgba(15,23,42,0.08)] transition-transform active:scale-[0.98]">
+					<div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/80">
+						<img
+							src={profile.avatarSrc}
+							alt=""
+							className="h-full w-full object-cover"
+							draggable={false}
+						/>
+					</div>
+					<span className="min-w-0 truncate text-[15px] font-bold tracking-tight text-[#0F172A]">
+						{profile.tagLabel}
+					</span>
+				</div>
+			</button>
+
+			<div className="flex shrink-0 items-center gap-2" style={{ pointerEvents: pointer }}>
+				<button
+					type="button"
+					onClick={(e) => void handleShare(e)}
+					className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-800/85 text-white shadow-lg ring-1 ring-white/10 transition active:scale-95"
+					aria-label={
+						shareClickCount != null
+							? `Share brand link (${formatProgramSocialStatCount(shareClickCount)} clicks)`
+							: 'Share brand link'
+					}
+					title="Share brand link"
+				>
+					{shared ? (
+						<Check className="h-5 w-5 text-emerald-400" strokeWidth={2.4} aria-hidden />
+					) : (
+						<Share2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+					)}
+				</button>
+				<button
+					type="button"
+					onClick={() => void handleLike()}
+					disabled={likeLoading || Boolean(userLiked)}
+					className={[
+						'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full shadow-lg ring-1 transition active:scale-95 disabled:opacity-70',
+						userLiked
+							? 'bg-rose-500 text-white ring-rose-600/30 disabled:cursor-default'
+							: 'bg-slate-800/85 text-white ring-white/10',
+					].join(' ')}
+					aria-label={
+						userLiked
+							? likeCount != null
+								? `Liked (${formatProgramSocialStatCount(likeCount)})`
+								: 'Liked'
+							: likeCount != null
+								? `Like this brand (${formatProgramSocialStatCount(likeCount)})`
+								: 'Like this brand'
+					}
+					aria-pressed={Boolean(userLiked)}
+				>
+					{likeLoading ? (
+						<Loader2 className="h-5 w-5 animate-spin" strokeWidth={2} aria-hidden />
+					) : (
+						<Heart
+							className="h-5 w-5"
+							strokeWidth={2}
+							fill={userLiked ? 'currentColor' : 'none'}
+							aria-hidden
+						/>
+					)}
+				</button>
+			</div>
+		</div>
+	)
+}
