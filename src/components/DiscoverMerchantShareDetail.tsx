@@ -428,10 +428,10 @@ export function DiscoverMerchantShareDetail({
 								<Radio className="h-5 w-5" strokeWidth={2} aria-hidden />
 							</span>
 						</div>
-						<div className="mt-5 flex items-end justify-between gap-3">
-							<p className="text-[14px] font-medium text-slate-500">Available Balance</p>
+						<div className="mt-5">
+							<p className="text-center text-[14px] font-medium text-slate-500">Available Balance</p>
 						</div>
-						<p className="mt-1 text-right text-[15px] font-semibold leading-relaxed text-[#1562f0]">
+						<p className="mt-1 text-center text-[15px] font-semibold leading-relaxed text-[#1562f0]">
 							Open Beamio to view your balance and top up
 						</p>
 					</div>
