@@ -66,7 +66,7 @@ function categoryIconForId(categoryId: string | null): LucideIcon {
 function HeroStatCapsules({ stats }: { stats: CardProgramSocialSummary | null }) {
 	if (!stats || (stats.likeCount == null && stats.shareClickCount == null)) return null
 	return (
-		<div className="mt-3 flex flex-wrap items-center gap-2">
+		<div className="mt-3 flex w-full flex-wrap items-center gap-2">
 			{stats.likeCount != null ? (
 				<span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/30 bg-white/15 px-2.5 py-1 text-[12px] font-semibold text-white backdrop-blur-sm">
 					<Heart className="h-3.5 w-3.5 text-rose-300" strokeWidth={2.25} fill="currentColor" aria-hidden />
@@ -395,7 +395,7 @@ export function DiscoverMerchantShareDetail({
 							</span>
 						</div>
 						<h1 className="text-2xl font-bold leading-tight text-white drop-shadow-sm">{view.title}</h1>
-						<p className="mt-1 line-clamp-2 text-[15px] font-medium text-white/90">{view.subtitle}</p>
+						<p className="mt-1 block w-full line-clamp-2 text-[15px] font-medium text-white/90">{view.subtitle}</p>
 						<HeroStatCapsules stats={mergedStats} />
 						<DiscoverMerchantCardAddressCapsule address={view.cardAddress} />
 					</div>
