@@ -13,7 +13,6 @@ const SESSION_KEY_PREFIX = 'beamio:discover-share-click:v1:'
 
 const REWARD_RULE_ABI = [
 	'function getRewardRule(uint256 ruleId) view returns (bool active, uint8 eventKind, uint8 targetKind, uint256 issuedParentId, uint256 actorMint13, uint256 refMint13)',
-	'function rewardMintBudget13() view returns (uint256)',
 ] as const
 
 /** Parse inner `/app/?beamiocard=…&discover=open[&ref=…]` from app-download target URL. */
@@ -77,7 +76,7 @@ function markShareClickRecordedThisSession(cardAddress: string, actorEOA: string
 	}
 }
 
-/** Optional voucher rewards when merchant configured an active USER_CLICK rule + budget. */
+/** Optional #13 voucher rewards when merchant configured an active USER_CLICK rule. */
 async function resolveRewardDispatchRuleId(cardAddress: string): Promise<number | null> {
 	try {
 		const { provider } = await providerForBeamioUserCard(cardAddress)
@@ -97,9 +96,7 @@ async function resolveRewardDispatchRuleId(cardAddress: string): Promise<number 
 				Number(eventKind) === UC_USER_CLICK &&
 				(actorMint13 > 0n || refMint13 > 0n)
 			) {
-				const budget = BigInt((await c.rewardMintBudget13()).toString())
-				const need = (actorMint13 > 0n ? actorMint13 : 0n) + (refMint13 > 0n ? refMint13 : 0n)
-				if (need > 0n && budget >= need) return ruleId
+				return ruleId
 			}
 		}
 	} catch {
@@ -129,7 +126,7 @@ export type DiscoverShareClickResult =
 
 /**
  * Ensure local wallet + record merchant Discover share link click (REF_CLICK totalSupply).
- * Counting does not require Top-up reward budget; optional #13 vouchers only when funded.
+ * Counting does not require Top-up reward budget; optional #13 vouchers mint on active promotion rules.
  */
 export async function recordDiscoverShareClickIfNeeded(
 	cardAddress: string,
