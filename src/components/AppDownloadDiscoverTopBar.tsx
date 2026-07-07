@@ -21,6 +21,7 @@ type AppDownloadDiscoverTopBarProps = {
 	profile: AppDownloadVisitWalletProfile
 	cardAddress: string
 	merchantTitle: string
+	referrerEoa?: string | null
 	opacity?: number
 	socialStats?: CardProgramSocialSummary | null
 	onOpenWallet: () => void
@@ -35,6 +36,7 @@ export default function AppDownloadDiscoverTopBar({
 	profile,
 	cardAddress,
 	merchantTitle,
+	referrerEoa = null,
 	opacity = 1,
 	socialStats,
 	onOpenWallet,
@@ -85,6 +87,7 @@ export default function AppDownloadDiscoverTopBar({
 				cardAddress,
 				privateKeyArmor: pk,
 				liked: true,
+				referrerEoa,
 			})
 			if (ret.success) {
 				setUserLiked(true)
@@ -93,7 +96,7 @@ export default function AppDownloadDiscoverTopBar({
 		} finally {
 			setLikeLoading(false)
 		}
-	}, [cardAddress, likeLoading, onSocialStatsRefresh, userLiked])
+	}, [cardAddress, likeLoading, onSocialStatsRefresh, referrerEoa, userLiked])
 
 	const likeCount = socialStats?.likeCount ?? null
 	const shareClickCount = socialStats?.shareClickCount ?? null

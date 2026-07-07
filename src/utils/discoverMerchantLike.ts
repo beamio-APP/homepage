@@ -4,6 +4,7 @@ import {
 	getCardFactoryGatewayForEip712,
 	providerForBeamioUserCard,
 } from './beamioUserCardChain'
+import { dispatchDiscoverLikeReward13IfNeeded } from './discoverMerchantLikeReward'
 
 const BEAMIO_API = '/api'
 /** UserCumulativeStatLib.MERCHANT_CARD_LIKE_TOKEN_ID */
@@ -32,7 +33,8 @@ export async function postMerchantCardUserLike(params: {
 	cardAddress: string
 	privateKeyArmor: string
 	liked: boolean
-}): Promise<{ success: boolean; error?: string }> {
+	referrerEoa?: string | null
+}): Promise<{ success: boolean; error?: string; rewardTxQueued?: boolean }> {
 	const cardAddress = params.cardAddress?.trim() ?? ''
 	const privateKeyArmor = params.privateKeyArmor?.trim() ?? ''
 	if (!cardAddress || !privateKeyArmor || !ethers.isAddress(cardAddress)) {
@@ -95,7 +97,21 @@ export async function postMerchantCardUserLike(params: {
 		if (!res.ok || data.success === false) {
 			return { success: false, error: data.error ?? `http_${res.status}` }
 		}
-		return { success: true }
+		let rewardTxQueued = false
+		if (liked) {
+			try {
+				rewardTxQueued = await dispatchDiscoverLikeReward13IfNeeded({
+					cardAddress: cardNorm,
+					actorEOA: userEOA,
+					referrerEoa: params.referrerEoa,
+					targetKind,
+					issuedParentId,
+				})
+			} catch {
+				/* optional reward — like already recorded */
+			}
+		}
+		return { success: true, rewardTxQueued }
 	} catch (e: unknown) {
 		const err = e as { shortMessage?: string; message?: string }
 		return { success: false, error: err?.shortMessage ?? err?.message ?? String(e) }

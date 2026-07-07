@@ -624,6 +624,11 @@ export default function AppDownloadPage() {
 		return parseDiscoverMerchantCardFromTarget(targetUrl)
 	}, [shareMeta, targetUrl])
 
+	const discoverReferrerEoa = useMemo(
+		() => parseDiscoverMerchantOpenFromTarget(targetUrl)?.referrerEoa ?? null,
+		[targetUrl],
+	)
+
 	const isDiscoverMerchantShare = Boolean(
 		discoverMerchantCardAddress &&
 			((shareMeta && isDiscoverMerchantMeta(shareMeta)) ||
@@ -790,6 +795,7 @@ export default function AppDownloadPage() {
 						effectiveShareMeta?.merchantName ||
 						'Merchant'
 					}
+					referrerEoa={discoverReferrerEoa}
 					opacity={capsuleOpacity}
 					socialStats={discoverSocialStats}
 					onOpenWallet={() => setMyWalletOpen(true)}
