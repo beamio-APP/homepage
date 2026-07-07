@@ -403,41 +403,136 @@ export function visitWalletProfileFromBlob(
 }
 
 /** Reuse PWA / silent web_ visit wallet for app-download capsule + myWallet panel. */
+const BEAMIO_API = '/api'
+const CONET_RPC_URL = 'https://publicrpc.conet.network'
 const CONET_AA_FACTORY = '0x869B31C87ABd9bFB858F5183Ef6021b28ED225E2'
+
+const aaFactoryAbi = [
+	'function beamioAccountOf(address) view returns (address)',
+	'function primaryAccountOf(address) view returns (address)',
+] as const
+
+function isNetworkOrRpcError(err: unknown): boolean {
+	const msg = String((err as { message?: string })?.message ?? '').toLowerCase()
+	return (
+		msg.includes('network') ||
+		msg.includes('timeout') ||
+		msg.includes('abort') ||
+		msg.includes('fetch') ||
+		msg.includes('quota') ||
+		msg.includes('rate limit') ||
+		msg.includes('bad response') ||
+		msg.includes('server error') ||
+		msg.includes('socket') ||
+		msg.includes('econn')
+	)
+}
+
+async function aaFromFactory(provider: ethers.Provider, eoa: string, factoryAddr: string): Promise<string | null> {
+	try {
+		const eoaAddr = ethers.getAddress(eoa)
+		const f = new ethers.Contract(factoryAddr, aaFactoryAbi, provider)
+		let a = await f.beamioAccountOf(eoaAddr).catch((err: unknown) => {
+			if (isNetworkOrRpcError(err)) throw err
+			return ethers.ZeroAddress
+		})
+		if (!a || a === ethers.ZeroAddress) {
+			a = await f.primaryAccountOf(eoaAddr).catch((err: unknown) => {
+				if (isNetworkOrRpcError(err)) throw err
+				return ethers.ZeroAddress
+			})
+		}
+		if (!a || a === ethers.ZeroAddress) return null
+		const code = await provider.getCode(a).catch((err: unknown) => {
+			if (isNetworkOrRpcError(err)) throw err
+			return '0x'
+		})
+		return code && code !== '0x' && code.length > 2 ? ethers.getAddress(a) : null
+	} catch (err: unknown) {
+		if (isNetworkOrRpcError(err)) throw err
+		return null
+	}
+}
 
 async function resolveAaOnChain(eoa: string): Promise<string | null> {
 	try {
-		const provider = new ethers.JsonRpcProvider('https://rpc1.conet.network', 224422)
-		const f = new ethers.Contract(CONET_AA_FACTORY, [
-			'function beamioAccountOf(address) view returns (address)',
-			'function primaryAccountOf(address) view returns (address)'
-		], provider)
-		const eoaAddr = ethers.getAddress(eoa)
-		let a = await f.beamioAccountOf(eoaAddr).catch(() => ethers.ZeroAddress)
-		if (!a || a === ethers.ZeroAddress) {
-			a = await f.primaryAccountOf(eoaAddr).catch(() => ethers.ZeroAddress)
-		}
-		if (!a || a === ethers.ZeroAddress) return null
-		const code = await provider.getCode(a).catch(() => '0x')
-		if (code && code !== '0x' && code.length > 2) {
-			return ethers.getAddress(a)
-		}
+		const provider = new ethers.JsonRpcProvider(CONET_RPC_URL, 224422)
+		return await aaFromFactory(provider, eoa, CONET_AA_FACTORY)
 	} catch (err) {
 		console.warn('[resolveAaOnChain] failed:', err)
+		return null
 	}
-	return null
+}
+
+async function fetchAaFromApi(eoa: string): Promise<string | null> {
+	try {
+		const res = await fetch(`${BEAMIO_API}/getAAAccount?eoa=${encodeURIComponent(eoa)}`)
+		if (!res.ok) return null
+		const data = (await res.json().catch(() => null)) as { account?: string | null } | null
+		const aa = typeof data?.account === 'string' ? data.account.trim() : ''
+		return aa && ethers.isAddress(aa) ? ethers.getAddress(aa) : null
+	} catch {
+		return null
+	}
+}
+
+/** Master relay: deploy AA on CoNET when missing (same as SilentPassUI ensureConetAa). */
+async function fetchEnsureAaFromApi(eoa: string): Promise<string | null> {
+	try {
+		const res = await fetch(`${BEAMIO_API}/ensureAAForEOAOnConet?eoa=${encodeURIComponent(eoa)}`)
+		if (!res.ok) return null
+		const data = (await res.json().catch(() => null)) as { aa?: string } | null
+		const aa = typeof data?.aa === 'string' ? data.aa.trim() : ''
+		return aa && ethers.isAddress(aa) ? ethers.getAddress(aa) : null
+	} catch {
+		return null
+	}
+}
+
+async function ensureVisitWalletAaOnConet(eoa: string): Promise<string | null> {
+	const norm = ethers.getAddress(eoa)
+	const existing = await resolveAaOnChain(norm).catch(() => null)
+	if (existing) return existing
+
+	const fromApi = await fetchAaFromApi(norm)
+	if (fromApi) {
+		try {
+			const provider = new ethers.JsonRpcProvider(CONET_RPC_URL, 224422)
+			const code = await provider.getCode(fromApi).catch(() => '0x')
+			if (code && code !== '0x' && code.length > 2) return fromApi
+		} catch {
+			/* fall through to ensure */
+		}
+	}
+
+	return fetchEnsureAaFromApi(norm)
+}
+
+async function persistAaToVisitWalletProfile(aa: string): Promise<void> {
+	if (!CoNET_Data?.profiles?.[0]) return
+	if (CoNET_Data.profiles[0].aaAccount?.toLowerCase() === aa.toLowerCase()) return
+	CoNET_Data.profiles[0].aaAccount = aa
+	await flushStoreSystemData().catch(() => {})
+}
+
+async function hydrateVisitWalletAa(profile: AppDownloadVisitWalletProfile): Promise<AppDownloadVisitWalletProfile> {
+	if (profile.aaAddress) return profile
+	const aa = await ensureVisitWalletAaOnConet(profile.eoaAddress)
+	if (!aa) return profile
+	await persistAaToVisitWalletProfile(aa)
+	return visitWalletProfileFromBlob(CoNET_Data) ?? { ...profile, aaAddress: aa }
 }
 
 export async function loadAppDownloadVisitWalletProfile(): Promise<AppDownloadVisitWalletProfile | null> {
 	const blob = await provisionWebShareVisitWallet()
 	const profile = visitWalletProfileFromBlob(blob)
-	if (profile && !profile.aaAddress && CoNET_Data?.profiles?.[0]) {
-		const aaOnChain = await resolveAaOnChain(profile.eoaAddress)
-		if (aaOnChain) {
-			CoNET_Data.profiles[0].aaAccount = aaOnChain
-			await flushStoreSystemData().catch(() => {})
-			return visitWalletProfileFromBlob(CoNET_Data)
-		}
-	}
-	return profile
+	if (!profile) return null
+	return hydrateVisitWalletAa(profile)
+}
+
+/** Re-fetch AA when opening myWallet (ensure may still be in flight from initial load). */
+export async function refreshVisitWalletAaProfile(
+	profile: AppDownloadVisitWalletProfile,
+): Promise<AppDownloadVisitWalletProfile> {
+	return hydrateVisitWalletAa(profile)
 }

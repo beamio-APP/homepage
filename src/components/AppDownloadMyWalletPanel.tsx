@@ -3,6 +3,7 @@ import { Check, Copy, ExternalLink, Hexagon, Wallet, X } from 'lucide-react'
 import { beamioWalletAccent, type BeamioWalletKind } from '../utils/beamioWalletAccent'
 import { fetchUsdcBalanceOnBase } from '../utils/beamioUsdcBalance'
 import type { AppDownloadVisitWalletProfile } from '../utils/beamioWebShareWallet'
+import { refreshVisitWalletAaProfile } from '../utils/beamioWebShareWallet'
 
 const fmtAddr = (a = '') => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '—')
 const basescanAddressUrl = (address: string) => `https://basescan.org/address/${address}`
@@ -154,6 +155,7 @@ type AppDownloadMyWalletPanelProps = {
 	profile: AppDownloadVisitWalletProfile
 	onClose: () => void
 	openInAppUrl?: string
+	onProfileRefresh?: (profile: AppDownloadVisitWalletProfile) => void
 }
 
 /** Simplified SilentPassUI `/myWallet` profile for app-download share landing. */
@@ -161,25 +163,46 @@ export default function AppDownloadMyWalletPanel({
 	profile,
 	onClose,
 	openInAppUrl,
+	onProfileRefresh,
 }: AppDownloadMyWalletPanelProps) {
 	const [copiedUsername, setCopiedUsername] = useState(false)
 	const [eoaBalanceUsdc, setEoaBalanceUsdc] = useState<number | null>(null)
 	const [aaBalanceUsdc, setAaBalanceUsdc] = useState<number | null>(null)
+	const [aaAddress, setAaAddress] = useState(profile.aaAddress)
+
+	useEffect(() => {
+		setAaAddress(profile.aaAddress)
+	}, [profile.aaAddress])
+
+	useEffect(() => {
+		if (aaAddress) return
+		let cancelled = false
+		void refreshVisitWalletAaProfile(profile).then((next) => {
+			if (cancelled) return
+			if (next.aaAddress) {
+				setAaAddress(next.aaAddress)
+				onProfileRefresh?.(next)
+			}
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [aaAddress, onProfileRefresh, profile.eoaAddress])
 
 	useEffect(() => {
 		let cancelled = false
 		void (async () => {
 			const eoaBal = await fetchUsdcBalanceOnBase(profile.eoaAddress)
 			if (!cancelled && eoaBal != null) setEoaBalanceUsdc(eoaBal)
-			if (profile.aaAddress) {
-				const aaBal = await fetchUsdcBalanceOnBase(profile.aaAddress)
+			if (aaAddress) {
+				const aaBal = await fetchUsdcBalanceOnBase(aaAddress)
 				if (!cancelled && aaBal != null) setAaBalanceUsdc(aaBal)
 			}
 		})()
 		return () => {
 			cancelled = true
 		}
-	}, [profile.aaAddress, profile.eoaAddress])
+	}, [aaAddress, profile.eoaAddress])
 
 	const handleCopyUsername = useCallback(async () => {
 		try {
@@ -259,7 +282,7 @@ export default function AppDownloadMyWalletPanel({
 				<div className="mb-5 flex flex-col gap-4">
 					<ProfileWalletPanelCard
 						kind="aa"
-						address={profile.aaAddress}
+						address={aaAddress}
 						balanceUsdc={aaBalanceUsdc}
 					/>
 					<ProfileWalletPanelCard

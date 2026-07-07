@@ -805,6 +805,7 @@ export default function AppDownloadPage() {
 					profile={visitWalletProfile}
 					onClose={() => setMyWalletOpen(false)}
 					openInAppUrl={targetUrl || undefined}
+					onProfileRefresh={setVisitWalletProfile}
 				/>
 			) : null}
 			<main
