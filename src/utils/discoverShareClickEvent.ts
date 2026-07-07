@@ -9,7 +9,8 @@ import { providerForBeamioUserCard } from './beamioUserCardChain'
 const BEAMIO_API = '/api'
 const UC_USER_CLICK = 3
 const UC_TARGET_MERCHANT_CARD = 1
-const SESSION_KEY_PREFIX = 'beamio:discover-share-click:v1:'
+const SESSION_CLICK_KEY_PREFIX = 'beamio:discover-share-click:v1:'
+const SESSION_REWARD_KEY_PREFIX = 'beamio:discover-share-reward13:v1:'
 
 const REWARD_RULE_ABI = [
 	'function getRewardRule(uint256 ruleId) view returns (bool active, uint8 eventKind, uint8 targetKind, uint256 issuedParentId, uint256 actorMint13, uint256 refMint13)',
@@ -56,13 +57,25 @@ function resolveShareClickRefWallet(actorEOA: string, referrerEoa?: string | nul
 	}
 }
 
-function sessionDedupeKey(cardAddress: string, actorEOA: string): string {
-	return `${SESSION_KEY_PREFIX}${cardAddress.toLowerCase()}:${actorEOA.toLowerCase()}`
+function sessionClickDedupeKey(cardAddress: string, actorEOA: string): string {
+	return `${SESSION_CLICK_KEY_PREFIX}${cardAddress.toLowerCase()}:${actorEOA.toLowerCase()}`
+}
+
+function sessionRewardDedupeKey(cardAddress: string, actorEOA: string): string {
+	return `${SESSION_REWARD_KEY_PREFIX}${cardAddress.toLowerCase()}:${actorEOA.toLowerCase()}`
 }
 
 function wasShareClickRecordedThisSession(cardAddress: string, actorEOA: string): boolean {
 	try {
-		return sessionStorage.getItem(sessionDedupeKey(cardAddress, actorEOA)) === '1'
+		return sessionStorage.getItem(sessionClickDedupeKey(cardAddress, actorEOA)) === '1'
+	} catch {
+		return false
+	}
+}
+
+function wasReward13DispatchedThisSession(cardAddress: string, actorEOA: string): boolean {
+	try {
+		return sessionStorage.getItem(sessionRewardDedupeKey(cardAddress, actorEOA)) === '1'
 	} catch {
 		return false
 	}
@@ -70,10 +83,49 @@ function wasShareClickRecordedThisSession(cardAddress: string, actorEOA: string)
 
 function markShareClickRecordedThisSession(cardAddress: string, actorEOA: string): void {
 	try {
-		sessionStorage.setItem(sessionDedupeKey(cardAddress, actorEOA), '1')
+		sessionStorage.setItem(sessionClickDedupeKey(cardAddress, actorEOA), '1')
 	} catch {
 		/* ignore quota / private mode */
 	}
+}
+
+function markReward13DispatchedThisSession(cardAddress: string, actorEOA: string): void {
+	try {
+		sessionStorage.setItem(sessionRewardDedupeKey(cardAddress, actorEOA), '1')
+	} catch {
+		/* ignore quota / private mode */
+	}
+}
+
+async function dispatchDiscoverShareReward13IfNeeded(params: {
+	cardAddress: string
+	actorEOA: string
+	refWallet?: string
+	clickAttestation: string
+	attestationTs: number
+}): Promise<boolean> {
+	if (wasReward13DispatchedThisSession(params.cardAddress, params.actorEOA)) return false
+	const ruleId = await resolveRewardDispatchRuleId(params.cardAddress)
+	if (ruleId == null) return false
+	const rewardRes = await fetch(`${BEAMIO_API}/cardDispatchEventReward13`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			cardAddress: params.cardAddress,
+			ruleId,
+			actorWallet: params.actorEOA,
+			...(params.refWallet ? { refWallet: params.refWallet } : {}),
+			cumulativeTargetKind: UC_TARGET_MERCHANT_CARD,
+			cumulativeIssuedParentId: '0',
+			cumulativeDelta: '0',
+			clickAttestation: params.clickAttestation,
+			attestationTs: params.attestationTs,
+		}),
+	})
+	const rewardJson = (await rewardRes.json().catch(() => null)) as { success?: boolean } | null
+	const rewardTxQueued = Boolean(rewardRes.ok && rewardJson?.success)
+	if (rewardTxQueued) markReward13DispatchedThisSession(params.cardAddress, params.actorEOA)
+	return rewardTxQueued
 }
 
 /** Optional #13 voucher rewards when merchant configured an active USER_CLICK rule. */
@@ -144,12 +196,23 @@ export async function recordDiscoverShareClickIfNeeded(
 	if (!wallet) return { ok: false, reason: 'wallet_unavailable' }
 
 	const actorEOA = wallet.address
-	if (wasShareClickRecordedThisSession(card, actorEOA)) {
-		return { ok: true, actorEOA, txQueued: false, skipped: 'session' }
-	}
-
 	const { clickAttestation, attestationTs } = await signShareClickAttestation(wallet, card)
 	const refWallet = resolveShareClickRefWallet(actorEOA, opts?.referrerEoa)
+
+	if (wasShareClickRecordedThisSession(card, actorEOA)) {
+		try {
+			const rewardTxQueued = await dispatchDiscoverShareReward13IfNeeded({
+				cardAddress: card,
+				actorEOA,
+				refWallet,
+				clickAttestation,
+				attestationTs,
+			})
+			return { ok: true, actorEOA, txQueued: false, skipped: 'session', rewardTxQueued }
+		} catch {
+			return { ok: false, reason: 'network' }
+		}
+	}
 
 	try {
 		const res = await fetch(`${BEAMIO_API}/cardRecordDiscoverShareClick`, {
@@ -171,29 +234,14 @@ export async function recordDiscoverShareClickIfNeeded(
 			return { ok: false, reason: json?.error ?? `http_${res.status}` }
 		}
 
-		let rewardTxQueued = false
-		const ruleId = await resolveRewardDispatchRuleId(card)
-		if (ruleId != null) {
-			const rewardRes = await fetch(`${BEAMIO_API}/cardDispatchEventReward13`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					cardAddress: card,
-					ruleId,
-					actorWallet: actorEOA,
-					...(refWallet ? { refWallet } : {}),
-					cumulativeTargetKind: UC_TARGET_MERCHANT_CARD,
-					cumulativeIssuedParentId: '0',
-					cumulativeDelta: '0',
-					clickAttestation,
-					attestationTs,
-				}),
-			})
-			const rewardJson = (await rewardRes.json().catch(() => null)) as { success?: boolean } | null
-			rewardTxQueued = Boolean(rewardRes.ok && rewardJson?.success)
-		}
-
 		markShareClickRecordedThisSession(card, actorEOA)
+		const rewardTxQueued = await dispatchDiscoverShareReward13IfNeeded({
+			cardAddress: card,
+			actorEOA,
+			refWallet,
+			clickAttestation,
+			attestationTs,
+		})
 		return { ok: true, actorEOA, txQueued: true, rewardTxQueued }
 	} catch {
 		return { ok: false, reason: 'network' }
