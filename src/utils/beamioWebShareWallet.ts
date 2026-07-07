@@ -403,7 +403,41 @@ export function visitWalletProfileFromBlob(
 }
 
 /** Reuse PWA / silent web_ visit wallet for app-download capsule + myWallet panel. */
+const CONET_AA_FACTORY = '0x869B31C87ABd9bFB858F5183Ef6021b28ED225E2'
+
+async function resolveAaOnChain(eoa: string): Promise<string | null> {
+	try {
+		const provider = new ethers.JsonRpcProvider('https://rpc1.conet.network', 224422)
+		const f = new ethers.Contract(CONET_AA_FACTORY, [
+			'function beamioAccountOf(address) view returns (address)',
+			'function primaryAccountOf(address) view returns (address)'
+		], provider)
+		const eoaAddr = ethers.getAddress(eoa)
+		let a = await f.beamioAccountOf(eoaAddr).catch(() => ethers.ZeroAddress)
+		if (!a || a === ethers.ZeroAddress) {
+			a = await f.primaryAccountOf(eoaAddr).catch(() => ethers.ZeroAddress)
+		}
+		if (!a || a === ethers.ZeroAddress) return null
+		const code = await provider.getCode(a).catch(() => '0x')
+		if (code && code !== '0x' && code.length > 2) {
+			return ethers.getAddress(a)
+		}
+	} catch (err) {
+		console.warn('[resolveAaOnChain] failed:', err)
+	}
+	return null
+}
+
 export async function loadAppDownloadVisitWalletProfile(): Promise<AppDownloadVisitWalletProfile | null> {
 	const blob = await provisionWebShareVisitWallet()
-	return visitWalletProfileFromBlob(blob)
+	const profile = visitWalletProfileFromBlob(blob)
+	if (profile && !profile.aaAddress && CoNET_Data?.profiles?.[0]) {
+		const aaOnChain = await resolveAaOnChain(profile.eoaAddress)
+		if (aaOnChain) {
+			CoNET_Data.profiles[0].aaAccount = aaOnChain
+			await flushStoreSystemData().catch(() => {})
+			return visitWalletProfileFromBlob(CoNET_Data)
+		}
+	}
+	return profile
 }
