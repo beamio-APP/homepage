@@ -27,6 +27,7 @@ import {
 	CATALOG_VIDEO_OG_BELOW_BANNER_ROW_OG_PREVIEW_CLASSNAME,
 } from '../utils/catalogProductionVideoOg'
 import {
+	parseCouponOpenClaimFromTarget,
 	parseDiscoverMerchantCardFromTarget,
 	parseDiscoverMerchantOpenFromTarget,
 	recordDiscoverShareClickIfNeeded,
@@ -545,12 +546,17 @@ export default function AppDownloadPage() {
 
 	useLayoutEffect(() => {
 		if (!shareClickStartedRef.current) {
+			const couponOpen = parseCouponOpenClaimFromTarget(targetUrl)
 			const openFromTarget = parseDiscoverMerchantOpenFromTarget(targetUrl)
-			const cardFromTarget = openFromTarget?.cardAddress ?? parseDiscoverMerchantCardFromTarget(targetUrl)
+			const cardFromTarget =
+				couponOpen?.cardAddress ??
+				openFromTarget?.cardAddress ??
+				parseDiscoverMerchantCardFromTarget(targetUrl)
 			if (cardFromTarget) {
 				shareClickStartedRef.current = true
 				void recordDiscoverShareClickIfNeeded(cardFromTarget, {
-					referrerEoa: openFromTarget?.referrerEoa ?? null,
+					referrerEoa: couponOpen?.referrerEoa ?? openFromTarget?.referrerEoa ?? null,
+					...(couponOpen ? { couponId: couponOpen.couponId } : {}),
 				}).then((result) => {
 					if (!result.ok) return
 					void fetchCardProgramSocialSummary(cardFromTarget).then((summary) => {
