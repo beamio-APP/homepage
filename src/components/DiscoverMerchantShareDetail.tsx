@@ -44,6 +44,7 @@ import {
 } from '../utils/discoverMerchantLandingData'
 import { buildDiscoverActivePromotionsPanelModel } from '../utils/discoverMerchantPromotions'
 import { readCardSocialPromotionFromChain } from '../utils/discoverMerchantSocialPromotionChain'
+import { readUserSocialPoints13BalanceOnCard } from '../utils/discoverUserSocialPoints13'
 import {
 	fetchDiscoverIssuerProfile,
 	formatBeamioTagDisplayLine,
@@ -51,6 +52,7 @@ import {
 	type DiscoverIssuerProfile,
 } from '../utils/discoverIssuerProfile'
 import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
+import { DiscoverMerchantSocialPointsCard } from './DiscoverMerchantSocialPointsCard'
 
 const TIER_MEDALS = ['🥉', '🥈', '🥇', '💎'] as const
 
@@ -409,12 +411,15 @@ type DiscoverMerchantShareDetailProps = {
 	cardAddress: string
 	shareMeta: CouponClaimShareMeta
 	socialStats?: CardProgramSocialSummary | null
+	/** Visitor EOA from app-download wallet (shared IndexedDB with PWA). */
+	userEoa?: string | null
 }
 
 export function DiscoverMerchantShareDetail({
 	cardAddress,
 	shareMeta,
 	socialStats,
+	userEoa = null,
 }: DiscoverMerchantShareDetailProps) {
 	const [model, setModel] = useState<DiscoverMerchantLandingModel | null>(null)
 	const [loading, setLoading] = useState(true)
@@ -423,6 +428,8 @@ export function DiscoverMerchantShareDetail({
 	const [chainCardSocialPromotion, setChainCardSocialPromotion] = useState<
 		Awaited<ReturnType<typeof readCardSocialPromotionFromChain>> | undefined
 	>(undefined)
+	const [userSocialPoints13, setUserSocialPoints13] = useState<number | null>(null)
+	const [userSocialPointsLoading, setUserSocialPointsLoading] = useState(false)
 
 	useEffect(() => {
 		let cancelled = false
@@ -451,6 +458,28 @@ export function DiscoverMerchantShareDetail({
 			cancelled = true
 		}
 	}, [cardAddress])
+
+	useEffect(() => {
+		if (!cardAddress || !userEoa) {
+			setUserSocialPoints13(null)
+			setUserSocialPointsLoading(false)
+			return
+		}
+		let cancelled = false
+		setUserSocialPointsLoading(true)
+		void readUserSocialPoints13BalanceOnCard(cardAddress, userEoa)
+			.then((bal) => {
+				if (cancelled || bal == null) return
+				const n = Number(bal)
+				if (Number.isFinite(n) && n >= 0) setUserSocialPoints13(Math.trunc(n))
+			})
+			.finally(() => {
+				if (!cancelled) setUserSocialPointsLoading(false)
+			})
+		return () => {
+			cancelled = true
+		}
+	}, [cardAddress, userEoa])
 
 	const view: DiscoverMerchantLandingModel = model ?? {
 		cardAddress,
@@ -604,6 +633,11 @@ export function DiscoverMerchantShareDetail({
 							Open Beamio to view your balance and top up
 						</p>
 					</div>
+
+					<DiscoverMerchantSocialPointsCard
+						points={userSocialPoints13}
+						loading={userSocialPointsLoading}
+					/>
 
 					{showActivePromotionsPanel ? (
 						<DiscoverMerchantActivePromotionsPanel

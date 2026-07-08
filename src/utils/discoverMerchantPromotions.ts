@@ -361,3 +361,9 @@ export function buildDiscoverActivePromotionsPanelModel(params: {
 	model.activeCount = countActivePromotionSurfaces(model)
 	return model
 }
+
+export function formatSocialPoints13Display(value: number | null | undefined): string {
+	if (value == null || !Number.isFinite(value)) return '—'
+	const n = Math.max(0, Math.floor(value))
+	return n.toLocaleString('en-US')
+}
