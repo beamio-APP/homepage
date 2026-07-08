@@ -45,6 +45,7 @@ export default function AppDownloadDiscoverTopBar({
 	const [shared, setShared] = useState(false)
 	const [userLiked, setUserLiked] = useState<boolean | null>(null)
 	const [likeLoading, setLikeLoading] = useState(false)
+	const [likeError, setLikeError] = useState<string | null>(null)
 	const pointer = opacity < 0.05 ? 'none' : 'auto'
 
 	useEffect(() => {
@@ -78,11 +79,15 @@ export default function AppDownloadDiscoverTopBar({
 	const handleLike = useCallback(async () => {
 		if (likeLoading || userLiked) return
 		setLikeLoading(true)
+		setLikeError(null)
 		try {
 			const blob = await provisionWebShareVisitWallet()
 			const wallet = resolveSigningWalletFromBlob(blob)
 			const pk = wallet?.privateKey
-			if (!pk) return
+			if (!pk) {
+				setLikeError('Wallet unavailable')
+				return
+			}
 			const ret = await postMerchantCardUserLike({
 				cardAddress,
 				privateKeyArmor: pk,
@@ -92,6 +97,8 @@ export default function AppDownloadDiscoverTopBar({
 			if (ret.success) {
 				setUserLiked(true)
 				onSocialStatsRefresh?.()
+			} else {
+				setLikeError(ret.error?.trim() || 'Like failed')
 			}
 		} finally {
 			setLikeLoading(false)

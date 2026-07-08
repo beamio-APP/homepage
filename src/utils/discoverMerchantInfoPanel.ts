@@ -10,12 +10,13 @@ export type DiscoverMerchantInfoPanel = {
 	location?: string
 }
 
+const DISCOVER_GENERIC_PROGRAM_SUBTITLE = 'Member benefits and offers'
+
 export function hasDiscoverMerchantAboutPanel(panel: DiscoverMerchantInfoPanel): boolean {
 	return Boolean(
-		panel.aboutTitle?.trim() &&
-			panel.aboutText?.trim() &&
-			panel.openingHours?.trim() &&
-			panel.contact?.trim() &&
+		panel.aboutText?.trim() ||
+			panel.openingHours?.trim() ||
+			panel.contact?.trim() ||
 			panel.location?.trim(),
 	)
 }
@@ -39,4 +40,49 @@ export function resolveDiscoverMerchantInfoPanel(
 		contact,
 		location,
 	}
+}
+
+export function resolveDiscoverWelcomePanelCopy(params: {
+	passTitle: string
+	subtitle: string
+	discoverAbout: DiscoverAboutFields | null
+	merchantInfoPanel: DiscoverMerchantInfoPanel | null
+}): { title: string; body: string } | null {
+	const { passTitle, subtitle, discoverAbout, merchantInfoPanel } = params
+	const title = merchantInfoPanel?.welcomeTitle?.trim() || `Welcome to ${passTitle}`
+	const subtitleTrim = subtitle.trim()
+	const body =
+		merchantInfoPanel?.welcomeText?.trim() ||
+		discoverAbout?.detail?.trim() ||
+		(subtitleTrim && subtitleTrim !== DISCOVER_GENERIC_PROGRAM_SUBTITLE ? subtitleTrim : '') ||
+		''
+	if (!body) return null
+	return { title, body }
+}
+
+/** About / hours block — omit aboutText when it duplicates the welcome panel body. */
+export function discoverMerchantAboutPanelForDisplay(
+	panel: DiscoverMerchantInfoPanel,
+	welcomeBody: string,
+): DiscoverMerchantInfoPanel | null {
+	const welcomeNorm = welcomeBody.trim()
+	const aboutText = panel.aboutText?.trim()
+	const dedupedAbout = aboutText && aboutText !== welcomeNorm ? aboutText : undefined
+	const next: DiscoverMerchantInfoPanel = {
+		...panel,
+		aboutText: dedupedAbout,
+	}
+	return hasDiscoverMerchantAboutPanel(next) ? next : null
+}
+
+function trimDiscoverAboutMultilineField(raw: string): string {
+	return raw.replace(/\r\n/g, '\n').replace(/^\s+|\s+$/g, '')
+}
+
+/** About detail for UI — keep newlines; legacy ".  " breaks become paragraphs. */
+export function discoverAboutDetailForDisplay(raw: string): string {
+	const normalized = trimDiscoverAboutMultilineField(raw)
+	if (!normalized) return ''
+	if (normalized.includes('\n')) return normalized
+	return normalized.replace(/([.!?])\s{2,}/g, '$1\n\n')
 }

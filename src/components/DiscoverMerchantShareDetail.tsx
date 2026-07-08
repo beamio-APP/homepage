@@ -30,7 +30,10 @@ import {
 } from '../utils/cardProgramSocialStats'
 import { resolveBeamioUserCardAddressExplorerUrl } from '../utils/beamioUserCardChain'
 import {
+	discoverAboutDetailForDisplay,
+	discoverMerchantAboutPanelForDisplay,
 	hasDiscoverMerchantAboutPanel,
+	resolveDiscoverWelcomePanelCopy,
 	type DiscoverMerchantInfoPanel,
 } from '../utils/discoverMerchantInfoPanel'
 import {
@@ -39,6 +42,15 @@ import {
 	type DiscoverMerchantLandingModel,
 	type DiscoverMerchantTierPreview,
 } from '../utils/discoverMerchantLandingData'
+import { buildDiscoverActivePromotionsPanelModel } from '../utils/discoverMerchantPromotions'
+import { readCardSocialPromotionFromChain } from '../utils/discoverMerchantSocialPromotionChain'
+import {
+	fetchDiscoverIssuerProfile,
+	formatBeamioTagDisplayLine,
+	issuerAvatarSrc,
+	type DiscoverIssuerProfile,
+} from '../utils/discoverIssuerProfile'
+import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
 
 const TIER_MEDALS = ['🥉', '🥈', '🥇', '💎'] as const
 
@@ -61,6 +73,64 @@ function shortAddress(address: string): string {
 function categoryIconForId(categoryId: string | null): LucideIcon {
 	if (!categoryId) return Building2
 	return CATEGORY_ICONS[categoryId] ?? Building2
+}
+
+function DiscoverMerchantWelcomePanel({ title, body }: { title: string; body: string }) {
+	return (
+		<div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.06)] ring-1 ring-[#e8ecf0]">
+			<h2 className="text-[18px] font-bold leading-snug text-[#1f2328]">{title}</h2>
+			<DiscoverAboutDetailBody text={body} className=" mt-2" />
+		</div>
+	)
+}
+
+function DiscoverAboutDetailBody({ text, className = '' }: { text: string; className?: string }) {
+	const normalized = discoverAboutDetailForDisplay(text)
+	const paragraphs = normalized.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+	if (paragraphs.length <= 1) {
+		return (
+			<p className={`whitespace-pre-line text-[14px] leading-relaxed text-slate-600${className}`}>
+				{normalized}
+			</p>
+		)
+	}
+	return (
+		<div className={`space-y-3${className}`}>
+			{paragraphs.map((paragraph, index) => (
+				<p key={`about-paragraph-${index}`} className="whitespace-pre-line text-[14px] leading-relaxed text-slate-600">
+					{paragraph}
+				</p>
+			))}
+		</div>
+	)
+}
+
+function DiscoverMerchantOwnerTagCapsule({
+	profile,
+	ownerEoa,
+	loading,
+}: {
+	profile: DiscoverIssuerProfile | null
+	ownerEoa: string
+	loading?: boolean
+}) {
+	const tagLine = formatBeamioTagDisplayLine(profile?.username ?? '')
+	const avatarSrc = issuerAvatarSrc(profile, ownerEoa)
+	return (
+		<div
+			className="inline-flex max-w-[min(100%,14rem)] min-w-0 shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 py-1 pl-1 pr-2.5 text-white shadow-sm backdrop-blur-sm"
+			aria-label={`Merchant issuer ${tagLine}`}
+		>
+			<div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-white/30">
+				{loading ? (
+					<Loader2 className="h-4 w-4 animate-spin text-white/90" strokeWidth={2} aria-hidden />
+				) : (
+					<img src={avatarSrc} alt="" className="h-full w-full object-cover" draggable={false} />
+				)}
+			</div>
+			<span className="truncate text-[13px] font-bold leading-none">{tagLine}</span>
+		</div>
+	)
 }
 
 function HeroStatCapsules({ stats }: { stats: CardProgramSocialSummary | null }) {
@@ -292,33 +362,45 @@ function RewardTierRow({
 }
 
 function DiscoverMerchantInfoPanelCard({ panel }: { panel: DiscoverMerchantInfoPanel }) {
-	const rows = [
-		{ label: 'Opening Hours', value: panel.openingHours, Icon: Clock },
-		{ label: 'Contact', value: panel.contact, Icon: Phone },
-		{ label: 'Location', value: panel.location, Icon: MapPin },
-	] as const
+	const aboutTitle = panel.aboutTitle?.trim()
+	const aboutText = panel.aboutText?.trim()
+	const rows = (
+		[
+			{ label: 'Opening Hours', value: panel.openingHours, Icon: Clock },
+			{ label: 'Contact', value: panel.contact, Icon: Phone },
+			{ label: 'Location', value: panel.location, Icon: MapPin },
+		] as const
+	).filter((row) => row.value?.trim())
 
 	return (
 		<div className="rounded-[22px] bg-[#eef1f4] p-4">
-			<h2 className="text-[16px] font-bold text-[#1f2328]">{panel.aboutTitle}</h2>
-			{panel.aboutText?.trim() ? (
-				<p className="mt-2 text-[14px] leading-relaxed text-slate-600">{panel.aboutText}</p>
+			{aboutTitle || aboutText ? (
+				<>
+					{aboutTitle ? (
+						<h2 className="text-[16px] font-bold text-[#1f2328]">{aboutTitle}</h2>
+					) : null}
+					{aboutText ? (
+						<DiscoverAboutDetailBody text={aboutText} className={aboutTitle ? ' mt-2' : ''} />
+					) : null}
+				</>
 			) : null}
-			<div className="mt-5 space-y-4">
-				{rows.map(({ label, value, Icon }) => (
-					<div key={label} className="flex gap-3">
-						<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1562f0]">
-							<Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
-						</span>
-						<div className="min-w-0 flex-1">
-							<p className="text-[14px] font-bold text-[#1f2328]">{label}</p>
-							<p className="mt-0.5 whitespace-pre-line text-[14px] leading-snug text-slate-600">
-								{value?.trim() || '—'}
-							</p>
+			{rows.length > 0 ? (
+				<div className={`space-y-4${aboutTitle || aboutText ? ' mt-5' : ''}`}>
+					{rows.map(({ label, value, Icon }) => (
+						<div key={label} className="flex gap-3">
+							<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1562f0]">
+								<Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
+							</span>
+							<div className="min-w-0 flex-1">
+								<p className="text-[14px] font-bold text-[#1f2328]">{label}</p>
+								<p className="mt-0.5 whitespace-pre-line text-[14px] leading-snug text-slate-600">
+									{value?.trim()}
+								</p>
+							</div>
 						</div>
-					</div>
-				))}
-			</div>
+					))}
+				</div>
+			) : null}
 		</div>
 	)
 }
@@ -336,6 +418,11 @@ export function DiscoverMerchantShareDetail({
 }: DiscoverMerchantShareDetailProps) {
 	const [model, setModel] = useState<DiscoverMerchantLandingModel | null>(null)
 	const [loading, setLoading] = useState(true)
+	const [issuerProfile, setIssuerProfile] = useState<DiscoverIssuerProfile | null>(null)
+	const [issuerProfileLoading, setIssuerProfileLoading] = useState(false)
+	const [chainCardSocialPromotion, setChainCardSocialPromotion] = useState<
+		Awaited<ReturnType<typeof readCardSocialPromotionFromChain>> | undefined
+	>(undefined)
 
 	useEffect(() => {
 		let cancelled = false
@@ -350,6 +437,21 @@ export function DiscoverMerchantShareDetail({
 		}
 	}, [cardAddress, shareMeta])
 
+	useEffect(() => {
+		if (!cardAddress) {
+			setChainCardSocialPromotion(undefined)
+			return
+		}
+		let cancelled = false
+		setChainCardSocialPromotion(undefined)
+		void readCardSocialPromotionFromChain(cardAddress).then((promo) => {
+			if (!cancelled) setChainCardSocialPromotion(promo)
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [cardAddress])
+
 	const view: DiscoverMerchantLandingModel = model ?? {
 		cardAddress,
 		title: shareMeta.title,
@@ -359,16 +461,81 @@ export function DiscoverMerchantShareDetail({
 		logoUrl: shareMeta.iconUrl || null,
 		currency: 'USD',
 		categoryId: null,
+		cardOwner: null,
+		metadataRoot: null,
+		discoverAbout: null,
 		merchantInfoPanel: null,
 		coupons: null,
+		couponSeries: null,
 		rewardTiers: null,
 		socialStats: socialStats ?? null,
 		rechargeBonusPill: null,
 	}
 
+	const issuerOwnerEoa = view.cardOwner
+
+	useEffect(() => {
+		if (!issuerOwnerEoa) {
+			setIssuerProfile(null)
+			return
+		}
+		let cancelled = false
+		setIssuerProfileLoading(true)
+		void fetchDiscoverIssuerProfile(issuerOwnerEoa)
+			.then((profile) => {
+				if (cancelled) return
+				if (profile) setIssuerProfile(profile)
+			})
+			.finally(() => {
+				if (!cancelled) setIssuerProfileLoading(false)
+			})
+		return () => {
+			cancelled = true
+		}
+	}, [issuerOwnerEoa])
+
 	const mergedStats = mergeCardProgramSocialSummary(socialStats, view.socialStats)
 	const MerchantCategoryIcon = categoryIconForId(view.categoryId)
 	const passTitle = view.programName.trim() || view.title
+
+	const discoverWelcomePanel = useMemo(
+		() =>
+			resolveDiscoverWelcomePanelCopy({
+				passTitle,
+				subtitle: view.subtitle,
+				discoverAbout: view.discoverAbout,
+				merchantInfoPanel: view.merchantInfoPanel,
+			}),
+		[passTitle, view.subtitle, view.discoverAbout, view.merchantInfoPanel],
+	)
+
+	const discoverAboutPanel = useMemo(
+		() =>
+			view.merchantInfoPanel && discoverWelcomePanel
+				? discoverMerchantAboutPanelForDisplay(view.merchantInfoPanel, discoverWelcomePanel.body)
+				: view.merchantInfoPanel && hasDiscoverMerchantAboutPanel(view.merchantInfoPanel)
+					? view.merchantInfoPanel
+					: null,
+		[view.merchantInfoPanel, discoverWelcomePanel],
+	)
+
+	const promotionsLoaded = view.metadataRoot != null || view.coupons != null
+	const activePromotionsPanel = useMemo(
+		() =>
+			buildDiscoverActivePromotionsPanelModel({
+				metadataRoot: view.metadataRoot,
+				chainCardSocialPromotion,
+				couponSeries: view.couponSeries?.map((row) => ({
+					title: row.title,
+					metadata: row.metadata,
+					tokenId: row.tokenId,
+				})),
+			}),
+		[view.metadataRoot, chainCardSocialPromotion, view.couponSeries],
+	)
+
+	const showActivePromotionsPanel =
+		(promotionsLoaded && activePromotionsPanel != null) || (loading && !promotionsLoaded)
 
 	return (
 		<div className="w-full min-w-0 text-left text-[#1f2328]">
@@ -394,8 +561,16 @@ export function DiscoverMerchantShareDetail({
 								<MerchantCategoryIcon className="h-5 w-5" strokeWidth={2} aria-hidden />
 							</span>
 						</div>
-						<h1 className="text-2xl font-bold leading-tight text-white drop-shadow-sm">{view.title}</h1>
-						<p className="mt-1 block w-full line-clamp-2 text-[15px] font-medium text-white/90">{view.subtitle}</p>
+						<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+							<h1 className="text-2xl font-bold leading-tight text-white drop-shadow-sm">{view.title}</h1>
+							{issuerOwnerEoa ? (
+								<DiscoverMerchantOwnerTagCapsule
+									profile={issuerProfile}
+									ownerEoa={issuerOwnerEoa}
+									loading={issuerProfileLoading}
+								/>
+							) : null}
+						</div>
 						<HeroStatCapsules stats={mergedStats} />
 						<DiscoverMerchantCardAddressCapsule address={view.cardAddress} />
 					</div>
@@ -404,17 +579,11 @@ export function DiscoverMerchantShareDetail({
 
 			<div className="mx-auto max-w-lg px-4 pb-8 pt-4">
 				<div className="space-y-4">
-					{view.merchantInfoPanel ? (
-						<div className="rounded-[22px] bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.06)] ring-1 ring-[#e8ecf0]">
-							<h2 className="text-[18px] font-bold leading-snug text-[#1f2328]">
-								{view.merchantInfoPanel.welcomeTitle}
-							</h2>
-							{view.merchantInfoPanel.welcomeText?.trim() ? (
-								<p className="mt-2 text-[14px] leading-relaxed text-slate-600">
-									{view.merchantInfoPanel.welcomeText}
-								</p>
-							) : null}
-						</div>
+					{discoverWelcomePanel ? (
+						<DiscoverMerchantWelcomePanel
+							title={discoverWelcomePanel.title}
+							body={discoverWelcomePanel.body}
+						/>
 					) : null}
 
 					<div className="rounded-[22px] bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.06)] ring-1 ring-[#e8ecf0]">
@@ -435,6 +604,13 @@ export function DiscoverMerchantShareDetail({
 							Open Beamio to view your balance and top up
 						</p>
 					</div>
+
+					{showActivePromotionsPanel ? (
+						<DiscoverMerchantActivePromotionsPanel
+							model={promotionsLoaded ? activePromotionsPanel : null}
+							loading={loading && !promotionsLoaded}
+						/>
+					) : null}
 
 					<div className="space-y-4">
 						<h2 className="text-lg font-bold text-[#1f2328]">Available Offers</h2>
@@ -499,30 +675,8 @@ export function DiscoverMerchantShareDetail({
 						</div>
 					</div>
 
-					{view.merchantInfoPanel && hasDiscoverMerchantAboutPanel(view.merchantInfoPanel) ? (
-						<DiscoverMerchantInfoPanelCard panel={view.merchantInfoPanel} />
-					) : view.merchantInfoPanel?.aboutText?.trim() ? (
-						<div className="rounded-[22px] bg-[#eef1f4] p-4">
-							<h2 className="text-[16px] font-bold text-[#1f2328]">
-								{view.merchantInfoPanel.aboutTitle}
-							</h2>
-							<p className="mt-2 text-[14px] leading-relaxed text-slate-600">
-								{view.merchantInfoPanel.aboutText}
-							</p>
-							{view.merchantInfoPanel.location?.trim() ? (
-								<div className="mt-4 flex gap-3">
-									<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#1562f0]">
-										<MapPin className="h-5 w-5" strokeWidth={2} aria-hidden />
-									</span>
-									<div className="min-w-0 flex-1">
-										<p className="text-[14px] font-bold text-[#1f2328]">Location</p>
-										<p className="mt-0.5 whitespace-pre-line text-[14px] leading-snug text-slate-600">
-											{view.merchantInfoPanel.location}
-										</p>
-									</div>
-								</div>
-							) : null}
-						</div>
+					{discoverAboutPanel ? (
+						<DiscoverMerchantInfoPanelCard panel={discoverAboutPanel} />
 					) : null}
 				</div>
 			</div>

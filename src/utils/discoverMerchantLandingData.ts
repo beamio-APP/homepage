@@ -38,6 +38,12 @@ export type DiscoverMerchantTierPreview = {
 	discountLabel: string
 }
 
+export type DiscoverMerchantCouponSeriesRow = {
+	title: string
+	tokenId: string
+	metadata: Record<string, unknown> | null
+}
+
 export type DiscoverMerchantLandingModel = {
 	cardAddress: string
 	title: string
@@ -47,8 +53,12 @@ export type DiscoverMerchantLandingModel = {
 	logoUrl: string | null
 	currency: string
 	categoryId: string | null
+	cardOwner: string | null
+	metadataRoot: Record<string, unknown> | null
+	discoverAbout: DiscoverAboutFields | null
 	merchantInfoPanel: DiscoverMerchantInfoPanel | null
 	coupons: DiscoverMerchantCouponPreview[] | null
+	couponSeries: DiscoverMerchantCouponSeriesRow[] | null
 	rewardTiers: DiscoverMerchantTierPreview[] | null
 	socialStats: CardProgramSocialSummary | null
 	rechargeBonusPill: string | null
@@ -318,22 +328,33 @@ function formatSupplySummary(row: Record<string, unknown>): string | null {
 async function fetchCardMetadata(cardAddress: string): Promise<{
 	metadata: Record<string, unknown> | null
 	currency: string
+	cardOwner: string | null
 }> {
 	try {
 		const res = await fetch(
 			`${BEAMIO_API}/cardMetadata?cardAddress=${encodeURIComponent(cardAddress)}`,
 		)
-		if (!res.ok) return { metadata: null, currency: 'USD' }
+		if (!res.ok) return { metadata: null, currency: 'USD', cardOwner: null }
 		const json = (await res.json()) as {
 			metadata?: unknown
 			currency?: string
 			cardCurrency?: string
+			cardOwner?: string
 		}
 		const currency =
 			readString(json.cardCurrency) || readString(json.currency) || 'USD'
-		return { metadata: asRecord(json.metadata), currency }
+		let cardOwner: string | null = null
+		const ownerRaw = readString(json.cardOwner)
+		if (ownerRaw && ethers.isAddress(ownerRaw)) {
+			try {
+				cardOwner = ethers.getAddress(ownerRaw)
+			} catch {
+				cardOwner = null
+			}
+		}
+		return { metadata: asRecord(json.metadata), currency, cardOwner }
 	} catch {
-		return { metadata: null, currency: 'USD' }
+		return { metadata: null, currency: 'USD', cardOwner: null }
 	}
 }
 
@@ -377,16 +398,22 @@ function parseCouponMetadata(raw: unknown): Record<string, unknown> | null {
 	return asRecord(raw)
 }
 
+type MerchantCouponsFetchResult = {
+	coupons: DiscoverMerchantCouponPreview[] | null
+	series: DiscoverMerchantCouponSeriesRow[] | null
+}
+
 /** Align SilentPassUI `mapActiveCouponRow` + Discover merchant coupon list. */
-async function fetchMerchantCoupons(cardAddress: string): Promise<DiscoverMerchantCouponPreview[] | null> {
+async function fetchMerchantCoupons(cardAddress: string): Promise<MerchantCouponsFetchResult> {
 	try {
 		const res = await fetch(
 			`${BEAMIO_API}/cardActiveIssuedCouponSeries?card=${encodeURIComponent(cardAddress)}&limit=50`,
 		)
-		if (!res.ok) return null
+		if (!res.ok) return { coupons: null, series: null }
 		const json = (await res.json()) as { items?: unknown[] }
 		const items = Array.isArray(json.items) ? json.items : []
 		const mapped: DiscoverMerchantCouponPreview[] = []
+		const series: DiscoverMerchantCouponSeriesRow[] = []
 		for (const raw of items) {
 			const row = asRecord(raw)
 			if (!row) continue
@@ -398,11 +425,12 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<DiscoverMercha
 			const validBeforeSec =
 				Number.isFinite(validBeforeNum) && validBeforeNum > 0 ? validBeforeNum : null
 			const idKey = tokenId || couponId
+			const title = readMetadataTitle(meta) || 'Coupon'
 			mapped.push({
 				id: `${cardAddress.toLowerCase()}:${idKey}`,
 				couponId: couponId || idKey,
 				tokenId,
-				title: readMetadataTitle(meta) || 'Coupon',
+				title,
 				subtitle: readMetadataSubtitle(meta),
 				backgroundImage: readMetadataBackgroundImage(meta),
 				backgroundColorHex: readMetadataBackgroundColor(meta),
@@ -410,10 +438,11 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<DiscoverMercha
 				expiresLabel: formatCouponExpiryFromSec(validBeforeSec),
 				supplySummary: formatSupplySummary(row),
 			})
+			series.push({ title, tokenId, metadata: meta })
 		}
-		return mapped
+		return { coupons: mapped, series }
 	} catch {
-		return null
+		return { coupons: null, series: null }
 	}
 }
 
@@ -428,7 +457,7 @@ export async function loadDiscoverMerchantLanding(
 		return null
 	}
 
-	const [latestRow, cardMetaRow, coupons, socialStats] = await Promise.all([
+	const [latestRow, cardMetaRow, couponRows, socialStats] = await Promise.all([
 		fetchLatestCardsMetadata(addr),
 		fetchCardMetadata(addr),
 		fetchMerchantCoupons(addr),
@@ -437,6 +466,8 @@ export async function loadDiscoverMerchantLanding(
 
 	const metadata = cardMetaRow.metadata ?? latestRow.metadata
 	const currency = cardMetaRow.currency || latestRow.currency || 'USD'
+	const coupons = couponRows.coupons
+	const couponSeries = couponRows.series
 
 	const businessName = readBusinessName(metadata)
 	const programName = readProgramName(metadata)
@@ -468,8 +499,12 @@ export async function loadDiscoverMerchantLanding(
 		logoUrl,
 		currency,
 		categoryId,
+		cardOwner: cardMetaRow.cardOwner,
+		metadataRoot: metadata,
+		discoverAbout,
 		merchantInfoPanel,
 		coupons,
+		couponSeries,
 		rewardTiers: rewardTiers.length > 0 ? rewardTiers : null,
 		socialStats,
 		rechargeBonusPill: null,
