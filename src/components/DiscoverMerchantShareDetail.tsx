@@ -42,7 +42,12 @@ import {
 	type DiscoverMerchantLandingModel,
 	type DiscoverMerchantTierPreview,
 } from '../utils/discoverMerchantLandingData'
-import { buildDiscoverActivePromotionsPanelModel } from '../utils/discoverMerchantPromotions'
+import { buildDiscoverActivePromotionsPanelModel, resolveCouponSocialMissionBlockForSeries } from '../utils/discoverMerchantPromotions'
+import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
+import {
+	DiscoverCouponL2RuleIdsFootnote,
+	DiscoverOfferSocialMissionTrigger,
+} from './DiscoverOfferSocialMissionTrigger'
 import { readCardSocialPromotionFromChain } from '../utils/discoverMerchantSocialPromotionChain'
 import { readUserSocialPoints13BalanceOnCard } from '../utils/discoverUserSocialPoints13'
 import {
@@ -51,7 +56,6 @@ import {
 	issuerAvatarSrc,
 	type DiscoverIssuerProfile,
 } from '../utils/discoverIssuerProfile'
-import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
 import { DiscoverMerchantSocialPointsCard } from './DiscoverMerchantSocialPointsCard'
 
 const TIER_MEDALS = ['🥉', '🥈', '🥇', '💎'] as const
@@ -324,6 +328,43 @@ function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponP
 	)
 }
 
+function DiscoverShareCouponOfferRow({
+	coupon,
+	metadata,
+}: {
+	coupon: DiscoverMerchantCouponPreview
+	metadata: Record<string, unknown> | null
+}) {
+	const socialMissionBlock = useMemo(
+		() =>
+			resolveCouponSocialMissionBlockForSeries({
+				title: coupon.title,
+				metadata,
+				tokenId: coupon.tokenId,
+			}),
+		[coupon.title, coupon.tokenId, metadata],
+	)
+	const showSocialMission = Boolean(socialMissionBlock?.user || socialMissionBlock?.referrer)
+
+	return (
+		<div className="space-y-1">
+			<DiscoverShareCouponTicket coupon={coupon} />
+			{showSocialMission ? (
+				<div className="flex flex-wrap items-center gap-2 px-1">
+					<DiscoverOfferSocialMissionTrigger
+						user={socialMissionBlock!.user}
+						referrer={socialMissionBlock!.referrer}
+						l2RuleIds={socialMissionBlock!.l2RuleIds}
+					/>
+				</div>
+			) : null}
+			{socialMissionBlock?.l2RuleIds && Object.keys(socialMissionBlock.l2RuleIds).length > 0 ? (
+				<DiscoverCouponL2RuleIdsFootnote ruleIds={socialMissionBlock.l2RuleIds} />
+			) : null}
+		</div>
+	)
+}
+
 function RewardTierRow({
 	tier,
 	index,
@@ -554,14 +595,18 @@ export function DiscoverMerchantShareDetail({
 			buildDiscoverActivePromotionsPanelModel({
 				metadataRoot: view.metadataRoot,
 				chainCardSocialPromotion,
-				couponSeries: view.couponSeries?.map((row) => ({
-					title: row.title,
-					metadata: row.metadata,
-					tokenId: row.tokenId,
-				})),
 			}),
-		[view.metadataRoot, chainCardSocialPromotion, view.couponSeries],
+		[view.metadataRoot, chainCardSocialPromotion],
 	)
+
+	const couponSeriesMetadataByToken = useMemo(() => {
+		const map = new Map<string, Record<string, unknown> | null>()
+		for (const row of view.couponSeries ?? []) {
+			const tokenId = String(row.tokenId ?? '').trim()
+			if (tokenId) map.set(tokenId, row.metadata)
+		}
+		return map
+	}, [view.couponSeries])
 
 	const showActivePromotionsPanel =
 		(promotionsLoaded && activePromotionsPanel != null) || (loading && !promotionsLoaded)
@@ -666,7 +711,11 @@ export function DiscoverMerchantShareDetail({
 							) : view.coupons != null && view.coupons.length > 0 ? (
 								<div className="space-y-4">
 									{view.coupons.map((coupon) => (
-										<DiscoverShareCouponTicket key={coupon.id} coupon={coupon} />
+										<DiscoverShareCouponOfferRow
+											key={coupon.id}
+											coupon={coupon}
+											metadata={couponSeriesMetadataByToken.get(coupon.tokenId) ?? null}
+										/>
 									))}
 								</div>
 							) : (
