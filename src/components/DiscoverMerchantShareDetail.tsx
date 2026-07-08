@@ -44,10 +44,7 @@ import {
 } from '../utils/discoverMerchantLandingData'
 import { buildDiscoverActivePromotionsPanelModel, resolveCouponSocialMissionBlockForSeries } from '../utils/discoverMerchantPromotions'
 import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
-import {
-	DiscoverCouponL2RuleIdsFootnote,
-	DiscoverOfferSocialMissionTrigger,
-} from './DiscoverOfferSocialMissionTrigger'
+import { DiscoverOfferSocialMissionTrigger } from './DiscoverOfferSocialMissionTrigger'
 import { readCardSocialPromotionFromChain } from '../utils/discoverMerchantSocialPromotionChain'
 import { readUserSocialPoints13BalanceOnCard } from '../utils/discoverUserSocialPoints13'
 import {
@@ -354,12 +351,8 @@ function DiscoverShareCouponOfferRow({
 					<DiscoverOfferSocialMissionTrigger
 						user={socialMissionBlock!.user}
 						referrer={socialMissionBlock!.referrer}
-						l2RuleIds={socialMissionBlock!.l2RuleIds}
 					/>
 				</div>
-			) : null}
-			{socialMissionBlock?.l2RuleIds && Object.keys(socialMissionBlock.l2RuleIds).length > 0 ? (
-				<DiscoverCouponL2RuleIdsFootnote ruleIds={socialMissionBlock.l2RuleIds} />
 			) : null}
 		</div>
 	)
