@@ -39,6 +39,7 @@ import {
 import { DiscoverMerchantShareDetail } from '../components/DiscoverMerchantShareDetail'
 import AppDownloadDiscoverTopBar from '../components/AppDownloadDiscoverTopBar'
 import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
+import AppDownloadPayCodeSheet from '../components/AppDownloadPayCodeSheet'
 import {
 	loadAppDownloadVisitWalletProfile,
 	type AppDownloadVisitWalletProfile,
@@ -540,6 +541,7 @@ export default function AppDownloadPage() {
 	const [discoverSocialStats, setDiscoverSocialStats] = useState<CardProgramSocialSummary | null>(null)
 	const [visitWalletProfile, setVisitWalletProfile] = useState<AppDownloadVisitWalletProfile | null>(null)
 	const [myWalletOpen, setMyWalletOpen] = useState(false)
+	const [payCodeOpen, setPayCodeOpen] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 	const shareClickStartedRef = useRef(false)
 	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
@@ -791,7 +793,6 @@ export default function AppDownloadPage() {
 				/>
 			) : null}
 			{isDiscoverMerchantShare &&
-			visitWalletProfile &&
 			discoverMerchantCardAddress &&
 			!myWalletOpen ? (
 				<AppDownloadDiscoverTopBar
@@ -806,6 +807,7 @@ export default function AppDownloadPage() {
 					opacity={capsuleOpacity}
 					socialStats={discoverSocialStats}
 					onOpenWallet={() => setMyWalletOpen(true)}
+					onOpenPayCode={() => setPayCodeOpen(true)}
 					onSocialStatsRefresh={() => {
 						void fetchCardProgramSocialSummary(discoverMerchantCardAddress).then((summary) => {
 							if (summary) setDiscoverSocialStats(summary)
@@ -813,6 +815,12 @@ export default function AppDownloadPage() {
 					}}
 				/>
 			) : null}
+			<AppDownloadPayCodeSheet
+				isOpen={payCodeOpen}
+				onClose={() => setPayCodeOpen(false)}
+				profile={visitWalletProfile}
+				onProfileRefresh={setVisitWalletProfile}
+			/>
 			{myWalletOpen && visitWalletProfile ? (
 				<AppDownloadMyWalletPanel
 					profile={visitWalletProfile}

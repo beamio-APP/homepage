@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Check, Heart, Loader2, Share2 } from 'lucide-react'
+import { Check, Heart, Loader2, QrCode, Share2 } from 'lucide-react'
 import { beamioFixedCapsuleTopStyle } from '../utils/beamioFixedTopCapsuleLayout'
 import type { AppDownloadVisitWalletProfile } from '../utils/beamioWebShareWallet'
 import {
@@ -18,13 +18,14 @@ import type { CardProgramSocialSummary } from '../utils/cardProgramSocialStats'
 import { formatProgramSocialStatCount } from '../utils/cardProgramSocialStats'
 
 type AppDownloadDiscoverTopBarProps = {
-	profile: AppDownloadVisitWalletProfile
+	profile: AppDownloadVisitWalletProfile | null
 	cardAddress: string
 	merchantTitle: string
 	referrerEoa?: string | null
 	opacity?: number
 	socialStats?: CardProgramSocialSummary | null
 	onOpenWallet: () => void
+	onOpenPayCode: () => void
 	onSocialStatsRefresh?: () => void
 }
 
@@ -40,6 +41,7 @@ export default function AppDownloadDiscoverTopBar({
 	opacity = 1,
 	socialStats,
 	onOpenWallet,
+	onOpenPayCode,
 	onSocialStatsRefresh,
 }: AppDownloadDiscoverTopBarProps) {
 	const [shared, setShared] = useState(false)
@@ -49,6 +51,7 @@ export default function AppDownloadDiscoverTopBar({
 	const pointer = opacity < 0.05 ? 'none' : 'auto'
 
 	useEffect(() => {
+		if (!cardAddress || !profile?.eoaAddress) return
 		let cancelled = false
 		void fetchUserHasLikedMerchantCard(cardAddress, profile.eoaAddress).then((liked) => {
 			if (!cancelled && liked != null) setUserLiked(liked)
@@ -56,11 +59,12 @@ export default function AppDownloadDiscoverTopBar({
 		return () => {
 			cancelled = true
 		}
-	}, [cardAddress, profile.eoaAddress])
+	}, [cardAddress, profile?.eoaAddress])
 
 	const handleShare = useCallback(
 		async (e: React.MouseEvent) => {
 			e.stopPropagation()
+			if (!profile?.eoaAddress) return
 			const shareUrl = buildDiscoverMerchantShareUrl(cardAddress, profile.eoaAddress)
 			if (!shareUrl) return
 			const outcome = await shareDiscoverMerchantUrl(shareUrl, {
@@ -73,11 +77,11 @@ export default function AppDownloadDiscoverTopBar({
 				window.setTimeout(() => setShared(false), 2000)
 			}
 		},
-		[cardAddress, merchantTitle, profile.eoaAddress],
+		[cardAddress, merchantTitle, profile?.eoaAddress],
 	)
 
 	const handleLike = useCallback(async () => {
-		if (likeLoading || userLiked) return
+		if (likeLoading || userLiked || !profile?.eoaAddress) return
 		setLikeLoading(true)
 		setLikeError(null)
 		try {
@@ -103,7 +107,7 @@ export default function AppDownloadDiscoverTopBar({
 		} finally {
 			setLikeLoading(false)
 		}
-	}, [cardAddress, likeLoading, onSocialStatsRefresh, referrerEoa, userLiked])
+	}, [cardAddress, likeLoading, onSocialStatsRefresh, profile?.eoaAddress, referrerEoa, userLiked])
 
 	const likeCount = socialStats?.likeCount ?? null
 	const shareClickCount = socialStats?.shareClickCount ?? null
@@ -116,27 +120,44 @@ export default function AppDownloadDiscoverTopBar({
 				opacity,
 			}}
 		>
-			<button
-				type="button"
-				onClick={onOpenWallet}
-				className="flex min-w-0 items-center justify-self-start"
-				style={{ pointerEvents: pointer }}
-				aria-label="Open wallet"
-			>
-				<div className="flex min-w-0 max-w-[min(52vw,14rem)] items-center gap-2.5 rounded-full border border-slate-100/90 bg-white py-2 pl-2 pr-4 shadow-[0_4px_24px_rgba(15,23,42,0.08)] transition-transform active:scale-[0.98]">
-					<div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/80">
-						<img
-							src={profile.avatarSrc}
-							alt=""
-							className="h-full w-full object-cover"
-							draggable={false}
-						/>
-					</div>
-					<span className="min-w-0 truncate text-[15px] font-bold tracking-tight text-[#0F172A]">
-						{profile.tagLabel}
-					</span>
-				</div>
-			</button>
+			<div className="flex min-w-0 items-center gap-2 justify-self-start" style={{ pointerEvents: pointer }}>
+				<button
+					type="button"
+					onClick={onOpenPayCode}
+					className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-800/85 text-white shadow-lg ring-1 ring-white/10 transition active:scale-95"
+					aria-label="Show pay code"
+					title="Show pay code"
+				>
+					<QrCode className="h-5 w-5" strokeWidth={2.2} aria-hidden />
+				</button>
+				<button
+					type="button"
+					onClick={onOpenWallet}
+					disabled={!profile}
+					className="flex min-w-0 items-center disabled:opacity-50"
+					aria-label="Open wallet"
+				>
+					{profile ? (
+						<div className="flex min-w-0 max-w-[min(44vw,12rem)] items-center gap-2.5 rounded-full border border-slate-100/90 bg-white py-2 pl-2 pr-4 shadow-[0_4px_24px_rgba(15,23,42,0.08)] transition-transform active:scale-[0.98] sm:max-w-[min(52vw,14rem)]">
+							<div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/80">
+								<img
+									src={profile.avatarSrc}
+									alt=""
+									className="h-full w-full object-cover"
+									draggable={false}
+								/>
+							</div>
+							<span className="min-w-0 truncate text-[15px] font-bold tracking-tight text-[#0F172A]">
+								{profile.tagLabel}
+							</span>
+						</div>
+					) : (
+						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-100/90 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.08)]">
+							<Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden />
+						</div>
+					)}
+				</button>
+			</div>
 
 			<div className="flex shrink-0 items-center gap-2" style={{ pointerEvents: pointer }}>
 				<button
