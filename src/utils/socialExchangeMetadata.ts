@@ -1,0 +1,64 @@
+/** Social points (#13) exchange on issued coupon metadata — mirror SilentPassUI / x402sdk. */
+
+export type SocialExchangeKind = 'coupon' | 'usdc'
+
+export type SocialExchangeConfig = {
+	enabled: boolean
+	kind: SocialExchangeKind
+	pointsCost: number
+	usdcReward6: bigint
+}
+
+function parsePositiveInt(raw: unknown): number | null {
+	if (raw == null || raw === '') return null
+	const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw).trim(), 10)
+	if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) return null
+	return n
+}
+
+function normalizeSocialExchangePayload(raw: Record<string, unknown>): SocialExchangeConfig | null {
+	const points = parsePositiveInt(raw.pointsCost ?? raw.points_cost ?? raw.points13)
+	if (points == null) return null
+	const kindRaw = String(raw.kind ?? raw.exchangeKind ?? 'coupon').trim().toLowerCase()
+	const kind: SocialExchangeKind = kindRaw === 'usdc' ? 'usdc' : 'coupon'
+	let usdcReward6 = 0n
+	if (kind === 'usdc') {
+		const raw6 = raw.usdcReward6 ?? raw.usdc_reward6 ?? raw.usdcAmount6
+		try {
+			usdcReward6 = BigInt(String(raw6 ?? '').trim())
+			if (usdcReward6 <= 0n) return null
+		} catch {
+			return null
+		}
+	}
+	if (raw.enabled === false) return null
+	return { enabled: true, kind, pointsCost: points, usdcReward6 }
+}
+
+export function readSocialExchangeFromMetadata(
+	meta: Record<string, unknown> | null | undefined,
+): SocialExchangeConfig | null {
+	if (!meta) return null
+	const direct = meta.socialExchange
+	if (direct && typeof direct === 'object') {
+		return normalizeSocialExchangePayload(direct as Record<string, unknown>)
+	}
+	const beamioCoupon = meta.beamioCoupon
+	if (beamioCoupon && typeof beamioCoupon === 'object') {
+		const nested = (beamioCoupon as Record<string, unknown>).socialExchange
+		if (nested && typeof nested === 'object') {
+			return normalizeSocialExchangePayload(nested as Record<string, unknown>)
+		}
+	}
+	const props = meta.properties
+	if (props && typeof props === 'object') {
+		const bc = (props as Record<string, unknown>).beamioCoupon
+		if (bc && typeof bc === 'object') {
+			const nested = (bc as Record<string, unknown>).socialExchange
+			if (nested && typeof nested === 'object') {
+				return normalizeSocialExchangePayload(nested as Record<string, unknown>)
+			}
+		}
+	}
+	return null
+}

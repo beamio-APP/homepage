@@ -1,11 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+	AlertTriangle,
 	Building2,
 	Calendar,
+	Check,
 	Clock,
 	Clapperboard,
 	Dumbbell,
 	ExternalLink,
+	Gift,
 	GraduationCap,
 	Heart,
 	HeartPulse,
@@ -39,9 +42,19 @@ import {
 import {
 	loadDiscoverMerchantLanding,
 	type DiscoverMerchantCouponPreview,
+	type DiscoverMerchantCouponSeriesRow,
 	type DiscoverMerchantLandingModel,
 	type DiscoverMerchantTierPreview,
 } from '../utils/discoverMerchantLandingData'
+import {
+	type CouponOpenClaimEligibility,
+	postCardCouponOpenClaimWithWallet,
+	resolveCouponOpenClaimEligibility,
+} from '../utils/discoverCouponOpenClaim'
+import {
+	provisionWebShareVisitWallet,
+	resolveSigningWalletFromBlob,
+} from '../utils/beamioWebShareWallet'
 import { buildDiscoverActivePromotionsPanelModel, resolveCouponSocialMissionBlockForSeries } from '../utils/discoverMerchantPromotions'
 import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
 import { DiscoverOfferSocialMissionTrigger } from './DiscoverOfferSocialMissionTrigger'
@@ -56,6 +69,12 @@ import {
 import { DiscoverMerchantSocialPointsCard } from './DiscoverMerchantSocialPointsCard'
 
 const TIER_MEDALS = ['🥉', '🥈', '🥇', '💎'] as const
+
+/** POS Claim button — orange→red gradient + white gift icon (SilentPassUI parity). */
+const POS_CLAIM_GRADIENT =
+	'linear-gradient(to bottom right, rgb(255,132,36), rgb(255,71,87))'
+
+type DiscoverCouponClaimButtonStatus = 'idle' | 'loading' | 'success' | 'error'
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
 	'food-beverage': UtensilsCrossed,
@@ -201,7 +220,21 @@ function CouponBannerImage({ src }: { src: string }) {
  * - With banner: image only in ticket; title / subtitle / expiry below.
  * - Without banner: icon + title + subtitle + expiry inside ticket (white text).
  */
-function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponPreview }) {
+function DiscoverShareCouponTicket({
+	coupon,
+	showActionButton = false,
+	actionStatus = 'idle',
+	actionError,
+	actionDisabled = false,
+	onAction,
+}: {
+	coupon: DiscoverMerchantCouponPreview
+	showActionButton?: boolean
+	actionStatus?: DiscoverCouponClaimButtonStatus
+	actionError?: string
+	actionDisabled?: boolean
+	onAction?: () => void
+}) {
 	const hasBanner = Boolean(coupon.backgroundImage?.trim())
 	const showExpiry = shouldShowCouponExpiryPill(coupon.expiresLabel)
 	const expiryUrgent = couponExpiryUsesUrgentVariant(coupon.expiresLabel)
@@ -233,9 +266,52 @@ function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponP
 			}`}
 		>
 			<ExpiryIcon className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-			<span className="truncate">{coupon.expiresLabel}</span>
+			<span className="truncate">
+				{actionStatus === 'loading' ? 'CLAIMING…' : coupon.expiresLabel}
+			</span>
 		</div>
 	)
+
+	const claimActionAriaLabel =
+		actionStatus === 'success'
+			? 'Coupon claimed'
+			: actionStatus === 'error'
+				? actionError ?? 'Coupon claim failed'
+				: 'Claim'
+
+	const claimButton = showActionButton ? (
+		<div className="pointer-events-auto absolute right-6 top-1/2 z-[2] -translate-y-1/2 sm:right-8">
+			{actionStatus === 'success' ? (
+				<span
+					className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-2.5 py-1.5"
+					aria-label={claimActionAriaLabel}
+				>
+					<Check className="h-4 w-4 text-white" strokeWidth={2.4} aria-hidden />
+				</span>
+			) : (
+				<button
+					type="button"
+					disabled={actionDisabled}
+					onClick={(e) => {
+						e.stopPropagation()
+						onAction?.()
+					}}
+					className="inline-flex items-center justify-center rounded-full px-2.5 py-1.5 transition-opacity active:scale-95 disabled:cursor-not-allowed disabled:opacity-55"
+					style={{ background: POS_CLAIM_GRADIENT }}
+					title={actionStatus === 'error' ? actionError : undefined}
+					aria-label={claimActionAriaLabel}
+				>
+					{actionStatus === 'loading' ? (
+						<Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden />
+					) : actionStatus === 'error' ? (
+						<AlertTriangle className="h-4 w-4 text-white" strokeWidth={2.4} aria-hidden />
+					) : (
+						<Gift className="h-4 w-4 text-white" strokeWidth={2} aria-hidden />
+					)}
+				</button>
+			)}
+		</div>
+	) : null
 
 	const ticketShell = (
 		<div className="relative w-full min-w-0 rounded-[1.75rem]">
@@ -272,7 +348,12 @@ function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponP
 				)}
 
 				{!copyBelowBanner ? (
-					<div className="relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5">
+					<div
+						className={[
+							'relative z-[1] flex min-h-[7.5rem] items-center gap-3 px-7 py-4 sm:gap-4 sm:px-8 sm:py-5',
+							showActionButton ? 'pr-[6.25rem] sm:pr-[6.75rem]' : 'pr-7 sm:pr-8',
+						].join(' ')}
+					>
 						{iconUrl ? (
 							<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
 								<img
@@ -292,8 +373,13 @@ function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponP
 									{subtitle}
 								</p>
 							) : null}
-							{showExpiry ? <div className="mt-2">{expiryPillInner}</div> : null}
+							{showExpiry && !copyBelowBanner ? <div className="mt-2">{expiryPillInner}</div> : null}
 						</div>
+						{claimButton}
+					</div>
+				) : showActionButton ? (
+					<div className="relative z-[1] flex min-h-[7.5rem] items-center pr-[6.25rem] sm:pr-[6.75rem]">
+						{claimButton}
 					</div>
 				) : null}
 			</div>
@@ -327,25 +413,59 @@ function DiscoverShareCouponTicket({ coupon }: { coupon: DiscoverMerchantCouponP
 
 function DiscoverShareCouponOfferRow({
 	coupon,
-	metadata,
+	seriesRow,
+	claimEligibility,
+	claimStatus = 'idle',
+	claimError,
+	onClaim,
 }: {
 	coupon: DiscoverMerchantCouponPreview
-	metadata: Record<string, unknown> | null
+	seriesRow: DiscoverMerchantCouponSeriesRow | null
+	claimEligibility: CouponOpenClaimEligibility | undefined
+	claimStatus?: DiscoverCouponClaimButtonStatus
+	claimError?: string
+	onClaim?: () => void
 }) {
+	const showClaimButton = claimEligibility != null && claimEligibility !== 'not_open_claim'
+	const isAlreadyClaimed = claimEligibility === 'already_claimed'
+	const insufficientSocialPoints = claimEligibility === 'insufficient_social_points'
+	const canClaim =
+		claimEligibility === 'claimable' || claimEligibility === 'unknown'
+	const claimDisabled =
+		isAlreadyClaimed || insufficientSocialPoints || !canClaim || claimStatus !== 'idle'
+	const ticketActionStatus: DiscoverCouponClaimButtonStatus =
+		claimStatus !== 'idle'
+			? claimStatus
+			: isAlreadyClaimed
+				? 'success'
+				: 'idle'
+
 	const socialMissionBlock = useMemo(
 		() =>
 			resolveCouponSocialMissionBlockForSeries({
 				title: coupon.title,
-				metadata,
+				metadata: seriesRow?.metadata ?? null,
 				tokenId: coupon.tokenId,
 			}),
-		[coupon.title, coupon.tokenId, metadata],
+		[coupon.title, coupon.tokenId, seriesRow?.metadata],
 	)
 	const showSocialMission = Boolean(socialMissionBlock?.user || socialMissionBlock?.referrer)
 
 	return (
-		<div className="space-y-1">
-			<DiscoverShareCouponTicket coupon={coupon} />
+		<div className="space-y-1.5">
+			<DiscoverShareCouponTicket
+				coupon={coupon}
+				showActionButton={showClaimButton}
+				actionStatus={ticketActionStatus}
+				actionError={claimError}
+				actionDisabled={claimDisabled}
+				onAction={canClaim && !isAlreadyClaimed ? onClaim : undefined}
+			/>
+			{insufficientSocialPoints ? (
+				<p className="px-1 text-[11px] font-semibold text-amber-600">
+					Not enough social points for this exchange.
+				</p>
+			) : null}
 			{showSocialMission ? (
 				<div className="flex flex-wrap items-center gap-2 px-1">
 					<DiscoverOfferSocialMissionTrigger
@@ -447,6 +567,8 @@ type DiscoverMerchantShareDetailProps = {
 	socialStats?: CardProgramSocialSummary | null
 	/** Visitor EOA from app-download wallet (shared IndexedDB with PWA). */
 	userEoa?: string | null
+	/** Sharer EOA from deep link `ref=`. */
+	referrerEoa?: string | null
 }
 
 export function DiscoverMerchantShareDetail({
@@ -454,6 +576,7 @@ export function DiscoverMerchantShareDetail({
 	shareMeta,
 	socialStats,
 	userEoa = null,
+	referrerEoa = null,
 }: DiscoverMerchantShareDetailProps) {
 	const [model, setModel] = useState<DiscoverMerchantLandingModel | null>(null)
 	const [loading, setLoading] = useState(true)
@@ -464,6 +587,15 @@ export function DiscoverMerchantShareDetail({
 	>(undefined)
 	const [userSocialPoints13, setUserSocialPoints13] = useState<number | null>(null)
 	const [userSocialPointsLoading, setUserSocialPointsLoading] = useState(false)
+	const [couponClaimEligibilityById, setCouponClaimEligibilityById] = useState<
+		Record<string, CouponOpenClaimEligibility>
+	>({})
+	const [couponClaimStatusById, setCouponClaimStatusById] = useState<
+		Record<string, DiscoverCouponClaimButtonStatus>
+	>({})
+	const [couponClaimErrorById, setCouponClaimErrorById] = useState<Record<string, string>>({})
+	const walletBlobRef = useRef<encrypt_keys_object | null>(null)
+	const couponClaimStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
 	useEffect(() => {
 		let cancelled = false
@@ -514,6 +646,134 @@ export function DiscoverMerchantShareDetail({
 			cancelled = true
 		}
 	}, [cardAddress, userEoa])
+
+	useEffect(() => {
+		let cancelled = false
+		void provisionWebShareVisitWallet().then((blob) => {
+			if (!cancelled) walletBlobRef.current = blob
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [])
+
+	const couponSeriesByTokenId = useMemo(() => {
+		const map = new Map<string, DiscoverMerchantCouponSeriesRow>()
+		for (const row of model?.couponSeries ?? []) {
+			const tokenId = String(row.tokenId ?? '').trim()
+			if (tokenId) map.set(tokenId, row)
+		}
+		return map
+	}, [model?.couponSeries])
+
+	useEffect(() => {
+		const coupons = model?.coupons
+		if (!coupons?.length) {
+			setCouponClaimEligibilityById({})
+			return
+		}
+		let cancelled = false
+		void (async () => {
+			const entries = await Promise.all(
+				coupons.map(async (coupon) => {
+					const seriesRow = couponSeriesByTokenId.get(coupon.tokenId) ?? null
+					if (!seriesRow) {
+						return [coupon.id, 'not_open_claim' as const] as const
+					}
+					const eligibility = await resolveCouponOpenClaimEligibility(seriesRow, userEoa)
+					return [coupon.id, eligibility] as const
+				}),
+			)
+			if (!cancelled) setCouponClaimEligibilityById(Object.fromEntries(entries))
+		})()
+		return () => {
+			cancelled = true
+		}
+	}, [model?.coupons, couponSeriesByTokenId, userEoa])
+
+	useEffect(
+		() => () => {
+			for (const t of couponClaimStatusTimersRef.current.values()) clearTimeout(t)
+			couponClaimStatusTimersRef.current.clear()
+		},
+		[],
+	)
+
+	const scheduleCouponClaimStatusReset = useCallback((rowId: string) => {
+		const prev = couponClaimStatusTimersRef.current.get(rowId)
+		if (prev) clearTimeout(prev)
+		const timer = setTimeout(() => {
+			setCouponClaimStatusById((s) => {
+				if (s[rowId] !== 'success' && s[rowId] !== 'error') return s
+				const next = { ...s }
+				delete next[rowId]
+				return next
+			})
+			setCouponClaimErrorById((s) => {
+				if (!s[rowId]) return s
+				const next = { ...s }
+				delete next[rowId]
+				return next
+			})
+			couponClaimStatusTimersRef.current.delete(rowId)
+		}, 3000)
+		couponClaimStatusTimersRef.current.set(rowId, timer)
+	}, [])
+
+	const handleDiscoverCouponClaim = useCallback(
+		async (coupon: DiscoverMerchantCouponPreview) => {
+			const currentStatus = couponClaimStatusById[coupon.id] ?? 'idle'
+			if (currentStatus !== 'idle') return
+
+			let blob = walletBlobRef.current
+			if (!blob) {
+				blob = await provisionWebShareVisitWallet()
+				walletBlobRef.current = blob
+			}
+			const wallet = resolveSigningWalletFromBlob(blob)
+			const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
+			if (!privateKeyArmor) return
+
+			setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'loading' }))
+			setCouponClaimErrorById((s) => {
+				if (!s[coupon.id]) return s
+				const next = { ...s }
+				delete next[coupon.id]
+				return next
+			})
+
+			try {
+				const ret = await postCardCouponOpenClaimWithWallet({
+					cardAddress: coupon.cardAddress,
+					couponId: coupon.couponId,
+					tokenId: coupon.tokenId,
+					privateKeyArmor,
+					referrerEoa,
+				})
+				if (ret.success) {
+					setCouponClaimEligibilityById((s) => ({ ...s, [coupon.id]: 'already_claimed' }))
+					setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'success' }))
+					scheduleCouponClaimStatusReset(coupon.id)
+				} else {
+					const err = ret.error ?? 'Coupon claim failed'
+					if (/already claimed/i.test(err)) {
+						setCouponClaimEligibilityById((s) => ({ ...s, [coupon.id]: 'already_claimed' }))
+						setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'idle' }))
+					} else {
+						setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'error' }))
+						setCouponClaimErrorById((s) => ({ ...s, [coupon.id]: err }))
+						scheduleCouponClaimStatusReset(coupon.id)
+					}
+				}
+			} catch (e: unknown) {
+				const err = e instanceof Error ? e.message : 'Coupon claim failed'
+				setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'error' }))
+				setCouponClaimErrorById((s) => ({ ...s, [coupon.id]: err }))
+				scheduleCouponClaimStatusReset(coupon.id)
+			}
+		},
+		[couponClaimStatusById, referrerEoa, scheduleCouponClaimStatusReset],
+	)
 
 	const view: DiscoverMerchantLandingModel = model ?? {
 		cardAddress,
@@ -590,15 +850,6 @@ export function DiscoverMerchantShareDetail({
 			}),
 		[view.metadataRoot, chainCardSocialPromotion],
 	)
-
-	const couponSeriesMetadataByToken = useMemo(() => {
-		const map = new Map<string, Record<string, unknown> | null>()
-		for (const row of view.couponSeries ?? []) {
-			const tokenId = String(row.tokenId ?? '').trim()
-			if (tokenId) map.set(tokenId, row.metadata)
-		}
-		return map
-	}, [view.couponSeries])
 
 	const showActivePromotionsPanel =
 		(promotionsLoaded && activePromotionsPanel != null) || (loading && !promotionsLoaded)
@@ -706,7 +957,11 @@ export function DiscoverMerchantShareDetail({
 										<DiscoverShareCouponOfferRow
 											key={coupon.id}
 											coupon={coupon}
-											metadata={couponSeriesMetadataByToken.get(coupon.tokenId) ?? null}
+											seriesRow={couponSeriesByTokenId.get(coupon.tokenId) ?? null}
+											claimEligibility={couponClaimEligibilityById[coupon.id]}
+											claimStatus={couponClaimStatusById[coupon.id] ?? 'idle'}
+											claimError={couponClaimErrorById[coupon.id]}
+											onClaim={() => void handleDiscoverCouponClaim(coupon)}
 										/>
 									))}
 								</div>

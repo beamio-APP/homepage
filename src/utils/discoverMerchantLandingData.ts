@@ -21,6 +21,7 @@ export type DiscoverAboutFields = {
 
 export type DiscoverMerchantCouponPreview = {
 	id: string
+	cardAddress: string
 	couponId: string
 	tokenId: string
 	title: string
@@ -39,9 +40,13 @@ export type DiscoverMerchantTierPreview = {
 }
 
 export type DiscoverMerchantCouponSeriesRow = {
+	cardAddress: string
 	title: string
 	tokenId: string
 	metadata: Record<string, unknown> | null
+	issuedNftValidBefore?: string
+	issuedNftMaxSupply?: string
+	issuedNftRemainingSupply?: string
 }
 
 export type DiscoverMerchantLandingModel = {
@@ -428,6 +433,7 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<MerchantCoupon
 			const title = readMetadataTitle(meta) || 'Coupon'
 			mapped.push({
 				id: `${cardAddress.toLowerCase()}:${idKey}`,
+				cardAddress,
 				couponId: couponId || idKey,
 				tokenId,
 				title,
@@ -438,7 +444,18 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<MerchantCoupon
 				expiresLabel: formatCouponExpiryFromSec(validBeforeSec),
 				supplySummary: formatSupplySummary(row),
 			})
-			series.push({ title, tokenId, metadata: meta })
+			series.push({
+				cardAddress,
+				title,
+				tokenId,
+				metadata: meta,
+				issuedNftValidBefore:
+					row.issuedNftValidBefore != null ? String(row.issuedNftValidBefore) : undefined,
+				issuedNftMaxSupply:
+					row.issuedNftMaxSupply != null ? String(row.issuedNftMaxSupply) : undefined,
+				issuedNftRemainingSupply:
+					row.issuedNftRemainingSupply != null ? String(row.issuedNftRemainingSupply) : undefined,
+			})
 		}
 		return { coupons: mapped, series }
 	} catch {

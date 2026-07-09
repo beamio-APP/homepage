@@ -760,6 +760,7 @@ export default function AppDownloadPage() {
 					shareMeta={effectiveShareMeta}
 					socialStats={discoverSocialStats}
 					userEoa={visitWalletProfile?.eoaAddress ?? null}
+					referrerEoa={discoverReferrerEoa}
 				/>
 			) : !isDiscoverMerchantShare ? (
 				<CouponSharePreview meta={effectiveShareMeta} />
