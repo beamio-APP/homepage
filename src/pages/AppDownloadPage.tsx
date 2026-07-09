@@ -494,17 +494,21 @@ function CouponShareClaimActions({
 		}
 	}, [claimInAppBusy, onIosNativeProbeResult, search])
 
+	if (isDiscoverMerchant && !showClaimInApp) return null
+
 	return (
 		<div className="mx-auto mt-6 flex w-full max-w-xs flex-col items-stretch gap-3">
-			<button
-				type="button"
-				onClick={handleClaimInWeb}
-				className="inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98]"
-				style={{ background: CLAIM_GRADIENT }}
-			>
-				<Gift className="h-4 w-4 shrink-0" aria-hidden />
-				{actionLabel}
-			</button>
+			{!isDiscoverMerchant ? (
+				<button
+					type="button"
+					onClick={handleClaimInWeb}
+					className="inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98]"
+					style={{ background: CLAIM_GRADIENT }}
+				>
+					<Gift className="h-4 w-4 shrink-0" aria-hidden />
+					{actionLabel}
+				</button>
+			) : null}
 			{showClaimInApp ? (
 				<button
 					type="button"
@@ -762,11 +766,15 @@ export default function AppDownloadPage() {
 			) : null
 		) : null
 
-	const couponClaimActions =
+	const showCouponClaimActions =
 		effectiveShareMeta &&
 		targetUrl &&
 		isCouponShareMeta(effectiveShareMeta) &&
-		phase !== 'checking' ? (
+		phase !== 'checking' &&
+		/** Discover merchant landing 已在页内展示详情，桌面端无需底部 CTA。 */
+		(!isDiscoverMerchantShare || isMobileDevice())
+
+	const couponClaimActions = showCouponClaimActions ? (
 			<CouponShareClaimActions
 				targetUrl={targetUrl}
 				search={location.search}
