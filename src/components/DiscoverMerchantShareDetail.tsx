@@ -566,10 +566,9 @@ export function DiscoverMerchantShareDetail({
 			resolveDiscoverWelcomePanelCopy({
 				passTitle,
 				subtitle: view.subtitle,
-				discoverAbout: view.discoverAbout,
 				merchantInfoPanel: view.merchantInfoPanel,
 			}),
-		[passTitle, view.subtitle, view.discoverAbout, view.merchantInfoPanel],
+		[passTitle, view.subtitle, view.merchantInfoPanel],
 	)
 
 	const discoverAboutPanel = useMemo(

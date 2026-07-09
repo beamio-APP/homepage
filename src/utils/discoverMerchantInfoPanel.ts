@@ -42,25 +42,27 @@ export function resolveDiscoverMerchantInfoPanel(
 	}
 }
 
+/**
+ * Welcome panel body = short card detail (programDescription / subtitle, ≤200 chars).
+ * Do not use discoverAbout.detail here — that belongs on the About panel (≤2000 chars).
+ */
 export function resolveDiscoverWelcomePanelCopy(params: {
 	passTitle: string
 	subtitle: string
-	discoverAbout: DiscoverAboutFields | null
 	merchantInfoPanel: DiscoverMerchantInfoPanel | null
 }): { title: string; body: string } | null {
-	const { passTitle, subtitle, discoverAbout, merchantInfoPanel } = params
+	const { passTitle, subtitle, merchantInfoPanel } = params
 	const title = merchantInfoPanel?.welcomeTitle?.trim() || `Welcome to ${passTitle}`
 	const subtitleTrim = subtitle.trim()
 	const body =
 		merchantInfoPanel?.welcomeText?.trim() ||
-		discoverAbout?.detail?.trim() ||
 		(subtitleTrim && subtitleTrim !== DISCOVER_GENERIC_PROGRAM_SUBTITLE ? subtitleTrim : '') ||
 		''
 	if (!body) return null
 	return { title, body }
 }
 
-/** About / hours block — omit aboutText when it duplicates the welcome panel body. */
+/** About panel keeps discoverAbout.detail (long-form); omit only if identical to welcome short detail. */
 export function discoverMerchantAboutPanelForDisplay(
 	panel: DiscoverMerchantInfoPanel,
 	welcomeBody: string,
