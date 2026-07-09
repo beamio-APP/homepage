@@ -8,6 +8,7 @@ import {
 	resolveDiscoverMerchantInfoPanel,
 	type DiscoverMerchantInfoPanel,
 } from './discoverMerchantInfoPanel'
+import { readCouponDisabledFromMetadata } from './couponListedMetadata'
 
 const BEAMIO_API = '/api'
 
@@ -423,6 +424,7 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<MerchantCoupon
 			const row = asRecord(raw)
 			if (!row) continue
 			const meta = parseCouponMetadata(row.metadata)
+			if (readCouponDisabledFromMetadata(meta)) continue
 			const tokenId = String(row.tokenId ?? '').trim()
 			const couponId = readMetadataCouponId(meta) || tokenId
 			if (!couponId && !tokenId) continue

@@ -7,6 +7,7 @@ import {
 import { readUserSocialPoints13BalanceOnCard } from './discoverUserSocialPoints13'
 import type { DiscoverMerchantCouponSeriesRow } from './discoverMerchantLandingData'
 import { readSocialExchangeFromMetadata } from './socialExchangeMetadata'
+import { readCouponDisabledFromMetadata, filterListedCouponSeriesRows } from './couponListedMetadata'
 
 const BEAMIO_API = '/api'
 
@@ -88,6 +89,7 @@ export async function resolveCouponOpenClaimEligibility(
 	userEOA: string | null | undefined,
 ): Promise<CouponOpenClaimEligibility> {
 	const item = seriesRowToEligibilityInput(row)
+	if (readCouponDisabledFromMetadata(item.metadata ?? null)) return 'not_open_claim'
 	if (readCouponRequiresRedeemCode(item.metadata ?? null)) return 'not_open_claim'
 	if (!readCouponIdFromMetadata(item.metadata ?? null)) return 'not_open_claim'
 	let tokenIdN: bigint
@@ -152,6 +154,9 @@ function mapCouponOpenClaimApiError(raw: string | undefined): string {
 	if (/redeemCode|open claim is disabled/i.test(msg)) {
 		return 'This coupon requires a redeem code.'
 	}
+	if (/delisted|coupon is delisted|disable.*true/i.test(msg)) {
+		return 'This coupon is no longer available.'
+	}
 	if (/inactive|expired|InvalidTimeWindow/i.test(msg)) {
 		return 'This coupon is inactive or expired.'
 	}
@@ -175,10 +180,12 @@ async function fetchCardActiveIssuedCouponSeries(
 		if (!res.ok) return []
 		const json = (await res.json().catch(() => ({}))) as { items?: CardActiveIssuedCouponSeriesItem[] }
 		if (!Array.isArray(json.items)) return []
-		return json.items.map((row) => ({
-			...row,
-			cardAddress: ethers.getAddress(cardAddress),
-		}))
+		return filterListedCouponSeriesRows(
+			json.items.map((row) => ({
+				...row,
+				cardAddress: ethers.getAddress(cardAddress),
+			})),
+		)
 	} catch {
 		return []
 	}
@@ -187,6 +194,7 @@ async function fetchCardActiveIssuedCouponSeries(
 async function resolveOpenClaimTokenIdByCouponId(cardAddress: string, couponId: string): Promise<string | null> {
 	const rows = await fetchCardActiveIssuedCouponSeries(cardAddress)
 	for (const row of rows) {
+		if (readCouponDisabledFromMetadata(row.metadata ?? null)) continue
 		const id = readCouponIdFromMetadata(row.metadata ?? null)
 		if (id && id === couponId) return String(row.tokenId)
 	}
@@ -228,6 +236,9 @@ export async function postCardCouponOpenClaimWithWallet(params: {
 				String(seriesRow.tokenId) === tokenId ||
 				readCouponIdFromMetadata(seriesRow.metadata ?? null) === couponId
 			) {
+				if (readCouponDisabledFromMetadata(seriesRow.metadata ?? null)) {
+					return { success: false, error: 'This coupon is no longer available.' }
+				}
 				socialExchange = readSocialExchangeFromMetadata(seriesRow.metadata ?? null)
 				break
 			}

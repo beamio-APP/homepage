@@ -9,6 +9,7 @@ import {
 	getCardFactoryGatewayForEip712,
 	providerForBeamioUserCard,
 } from './beamioUserCardChain'
+import { readCouponDisabledFromMetadata } from './couponListedMetadata'
 
 const BEAMIO_API = '/api'
 const UC_USER_CLICK = 3
@@ -110,6 +111,7 @@ export async function resolveIssuedTokenIdByCouponId(
 					meta = null
 				}
 			}
+			if (readCouponDisabledFromMetadata(meta)) continue
 			const seriesCouponId = readMetadataCouponId(meta) || tokenId
 			if (seriesCouponId === wanted || tokenId === wanted) return tokenId || null
 		}
