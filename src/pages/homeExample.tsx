@@ -193,6 +193,9 @@ export default function App() {
                   <a href="https://play.google.com/store/apps/details?id=com.beamio.app&pcampaignid=web_share" target="_blank" rel="noreferrer" className="flex justify-center transition-opacity hover:opacity-80">
                     <img src="/google-play-badge.png" alt="Get it on Google Play" className="h-12 w-auto max-w-full" />
                   </a>
+                  <a href="/beamio-android.apk" download className="w-full py-3 bg-purple-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-purple-700 font-bold text-sm shadow-md transition-all">
+                    Download Android APK <ArrowRight className="w-4 h-4" />
+                  </a>
                 </div>
               </div>
             </div>
