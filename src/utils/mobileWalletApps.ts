@@ -39,16 +39,100 @@ function writeCache(id: MobileWalletId, installed: boolean) {
 	}
 }
 
-function getEthereumProvidersList(): NonNullable<typeof window.ethereum>[] {
+/** Minimal EIP-1193 provider used by usdc-topup / wallet picker. */
+export type Eip1193Provider = {
+	request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>
+	on?: (eventName: string, listener: (...args: unknown[]) => void) => void
+	removeListener?: (eventName: string, listener: (...args: unknown[]) => void) => void
+	isMetaMask?: boolean
+	isCoinbaseWallet?: boolean
+	isOkxWallet?: boolean
+	isOKExWallet?: boolean
+	isTokenPocket?: boolean
+	isTP?: boolean
+	isTokenPocketProvider?: boolean
+	isRabby?: boolean
+	isBraveWallet?: boolean
+	providers?: Eip1193Provider[]
+}
+
+function getEthereumProvidersList(): Eip1193Provider[] {
 	try {
-		const eth = typeof window !== 'undefined' ? window.ethereum : undefined
+		const eth = typeof window !== 'undefined' ? (window.ethereum as Eip1193Provider | undefined) : undefined
 		if (!eth) return []
-		const multi = (eth as unknown as { providers?: NonNullable<typeof window.ethereum>[] }).providers
+		const multi = eth.providers
 		if (Array.isArray(multi) && multi.length > 0) return multi.filter(Boolean)
 		return [eth]
 	} catch {
 		return []
 	}
+}
+
+export type InjectedWalletChoiceId = MobileWalletId | 'other'
+
+export type InjectedWalletChoice = {
+	id: InjectedWalletChoiceId
+	label: string
+	provider: Eip1193Provider
+}
+
+function classifyInjectedProvider(p: Eip1193Provider): InjectedWalletChoice {
+	// Prefer brand flags that MetaMask forks often also set before treating as MetaMask.
+	if (p.isCoinbaseWallet) {
+		return { id: 'base', label: 'Base / Coinbase Wallet', provider: p }
+	}
+	if (p.isOkxWallet || p.isOKExWallet) {
+		return { id: 'okx', label: 'OKX Wallet', provider: p }
+	}
+	if (p.isTokenPocket || p.isTP || p.isTokenPocketProvider) {
+		return { id: 'tp', label: 'TokenPocket', provider: p }
+	}
+	if (p.isRabby) {
+		return { id: 'other', label: 'Rabby Wallet', provider: p }
+	}
+	if (p.isBraveWallet) {
+		return { id: 'other', label: 'Brave Wallet', provider: p }
+	}
+	if (p.isMetaMask) {
+		return { id: 'metamask', label: 'MetaMask', provider: p }
+	}
+	return { id: 'other', label: 'Browser wallet', provider: p }
+}
+
+/**
+ * Enumerate injected EIP-1193 providers already present in this browser tab
+ * (desktop extensions / wallet in-app browsers). Used to let the user pick
+ * which installed wallet to connect before eth_requestAccounts.
+ */
+export function listInstalledInjectedWallets(): InjectedWalletChoice[] {
+	const raw = getEthereumProvidersList()
+	if (raw.length === 0) return []
+
+	const byId = new Map<string, InjectedWalletChoice>()
+	const others: InjectedWalletChoice[] = []
+	for (const p of raw) {
+		const choice = classifyInjectedProvider(p)
+		if (choice.id === 'other') {
+			others.push(choice)
+			continue
+		}
+		if (!byId.has(choice.id)) byId.set(choice.id, choice)
+	}
+
+	const order: InjectedWalletChoiceId[] = ['metamask', 'base', 'okx', 'tp']
+	const out: InjectedWalletChoice[] = []
+	for (const id of order) {
+		const hit = byId.get(id)
+		if (hit) out.push(hit)
+	}
+	// Deduplicate generic providers by reference; keep at most one anonymous entry.
+	const seenProv = new Set<Eip1193Provider>(out.map((c) => c.provider))
+	for (const o of others) {
+		if (seenProv.has(o.provider)) continue
+		seenProv.add(o.provider)
+		out.push(o)
+	}
+	return out
 }
 
 export function isMobileDeviceForWalletApps(): boolean {

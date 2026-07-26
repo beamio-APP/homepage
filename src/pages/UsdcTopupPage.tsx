@@ -2,19 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem'
 import { base } from 'viem/chains'
+import { InstalledInjectedWalletPicker } from '../components/InstalledInjectedWalletPicker'
 import { MobileWalletPayPanel } from '../components/MobileWalletPayPanel'
 import { UsdcTopupSiteHeader } from '../components/UsdcTopupSiteHeader'
 import { WalletAppDappIconButtons } from '../components/WalletAppDappIconButtons'
-import { isMobileDeviceForWalletApps } from '../utils/mobileWalletApps'
+import {
+	isMobileDeviceForWalletApps,
+	listInstalledInjectedWallets,
+	type Eip1193Provider,
+	type InjectedWalletChoice,
+} from '../utils/mobileWalletApps'
 
 declare global {
 	interface Window {
-		ethereum?: {
-			request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>
-			on?: (eventName: string, listener: (...args: unknown[]) => void) => void
-			removeListener?: (eventName: string, listener: (...args: unknown[]) => void) => void
-			isMetaMask?: boolean
-		}
+		ethereum?: Eip1193Provider
 	}
 }
 
@@ -291,6 +292,8 @@ export default function UsdcTopupPage() {
 	const [quote, setQuote] = useState<QuoteResponse | null>(null)
 	const [status, setStatus] = useState<Status>('idle')
 	const [error, setError] = useState<string | null>(null)
+	const [activeProvider, setActiveProvider] = useState<Eip1193Provider | null>(null)
+	const [installedWallets, setInstalledWallets] = useState<InjectedWalletChoice[]>([])
 	const [result, setResult] = useState<{
 		usdcTx?: string
 		topupTx?: string
@@ -301,32 +304,72 @@ export default function UsdcTopupPage() {
 		awaitingBeneficiaryTap?: boolean
 	} | null>(null)
 
-	const eth = typeof window !== 'undefined' ? window.ethereum : undefined
+	const eth = activeProvider ?? (typeof window !== 'undefined' ? window.ethereum : undefined)
 
 	useEffect(() => {
-		if (!parsed.ok || !eth) return
+		if (!parsed.ok || typeof window === 'undefined') return
+		const refresh = () => setInstalledWallets(listInstalledInjectedWallets())
+		refresh()
+		// Some extensions inject after first paint.
+		const t1 = window.setTimeout(refresh, 400)
+		const t2 = window.setTimeout(refresh, 1500)
+		return () => {
+			window.clearTimeout(t1)
+			window.clearTimeout(t2)
+		}
+	}, [parsed.ok])
+
+	useEffect(() => {
+		if (!parsed.ok) return
+		const providers =
+			installedWallets.length > 0
+				? installedWallets.map((w) => w.provider)
+				: typeof window !== 'undefined' && window.ethereum
+					? [window.ethereum]
+					: []
+		if (providers.length === 0) return
+
+		let cancelled = false
 		;(async () => {
-			try {
-				const chain = (await eth.request({ method: 'eth_chainId' })) as string
-				setChainIdHex(chain)
-				const accounts = (await eth.request({ method: 'eth_accounts' })) as string[]
-				if (accounts && accounts[0]) setAccount(accounts[0] as Address)
-			} catch {
-				/* ignore */
+			for (const provider of providers) {
+				try {
+					const accounts = (await provider.request({ method: 'eth_accounts' })) as string[]
+					if (cancelled) return
+					if (accounts && accounts[0]) {
+						setActiveProvider(provider)
+						setAccount(accounts[0] as Address)
+						try {
+							const chain = (await provider.request({ method: 'eth_chainId' })) as string
+							if (!cancelled) setChainIdHex(chain)
+						} catch {
+							/* ignore */
+						}
+						return
+					}
+				} catch {
+					/* try next */
+				}
 			}
 		})()
+		return () => {
+			cancelled = true
+		}
+	}, [parsed.ok, installedWallets])
+
+	useEffect(() => {
+		if (!activeProvider) return
 		const onAccounts = (accs: unknown) => {
 			const list = accs as string[] | undefined
 			setAccount(list && list[0] ? (list[0] as Address) : null)
 		}
 		const onChain = (chain: unknown) => setChainIdHex(typeof chain === 'string' ? chain : null)
-		eth.on?.('accountsChanged', onAccounts as (...args: unknown[]) => void)
-		eth.on?.('chainChanged', onChain as (...args: unknown[]) => void)
+		activeProvider.on?.('accountsChanged', onAccounts as (...args: unknown[]) => void)
+		activeProvider.on?.('chainChanged', onChain as (...args: unknown[]) => void)
 		return () => {
-			eth.removeListener?.('accountsChanged', onAccounts as (...args: unknown[]) => void)
-			eth.removeListener?.('chainChanged', onChain as (...args: unknown[]) => void)
+			activeProvider.removeListener?.('accountsChanged', onAccounts as (...args: unknown[]) => void)
+			activeProvider.removeListener?.('chainChanged', onChain as (...args: unknown[]) => void)
 		}
-	}, [eth, parsed.ok])
+	}, [activeProvider])
 
 	useEffect(() => {
 		if (!parsed.ok) return
@@ -350,14 +393,16 @@ export default function UsdcTopupPage() {
 			})
 	}, [parsed.ok ? parsed.params.cardAddress : '', parsed.ok ? parsed.params.cardOwner : '', parsed.ok ? parsed.params.amount : '', parsed.ok ? parsed.params.currency : ''])
 
-	const connectWallet = async () => {
-		if (!eth) return
+	const connectWallet = async (choice?: InjectedWalletChoice) => {
+		const provider = choice?.provider ?? eth
+		if (!provider) return
 		setError(null)
 		setStatus('connecting')
+		setActiveProvider(provider)
 		try {
-			const accounts = (await eth.request({ method: 'eth_requestAccounts' })) as string[]
+			const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[]
 			setAccount(accounts[0] as Address)
-			const chain = (await eth.request({ method: 'eth_chainId' })) as string
+			const chain = (await provider.request({ method: 'eth_chainId' })) as string
 			setChainIdHex(chain)
 			setStatus('idle')
 		} catch (e: unknown) {
@@ -665,8 +710,8 @@ export default function UsdcTopupPage() {
 	const isGenesisSeat = topupWorkflow === 'genesisNodeSeat' && Boolean(topupBeneficiary) && topupQty > 0
 	const showNfcTagRow = Boolean(uid && uid.length >= 6)
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
-	const hasWallet = !!eth
-	const ready = hasWallet && !!account && onBase
+	const hasInjectedWallet = installedWallets.length > 0 || !!eth
+	const ready = hasInjectedWallet && !!account && onBase
 
 	const quotedUsdcLabel = formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
 
@@ -731,21 +776,29 @@ export default function UsdcTopupPage() {
 					</section>
 
 					<section className="mt-6">
-						{!hasWallet ? (
+						{!hasInjectedWallet ? (
 							isMobileDeviceForWalletApps() ? (
 								<MobileWalletPayPanel />
 							) : (
 								<NoWalletPanel />
 							)
 						) : !account ? (
-							<button
-								type="button"
-								onClick={connectWallet}
-								disabled={status === 'connecting'}
-								className="w-full rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-							>
-								{status === 'connecting' ? 'Connecting…' : 'Connect wallet'}
-							</button>
+							installedWallets.length > 0 ? (
+								<InstalledInjectedWalletPicker
+									wallets={installedWallets}
+									connecting={status === 'connecting'}
+									onSelect={(w) => void connectWallet(w)}
+								/>
+							) : (
+								<button
+									type="button"
+									onClick={() => void connectWallet()}
+									disabled={status === 'connecting'}
+									className="w-full rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+								>
+									{status === 'connecting' ? 'Connecting…' : 'Connect wallet'}
+								</button>
+							)
 						) : !onBase ? (
 							<button
 								type="button"
