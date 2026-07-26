@@ -46,7 +46,8 @@ export function InstalledInjectedWalletPicker({ wallets, connecting, onSelect, c
 			<ul className="mt-5 flex flex-col gap-3">
 				{wallets.map((w) => {
 					const file = walletIconFile(w.id)
-					const key = `${w.id}-${w.label}`
+					const img = w.iconUrl || (file ? iconSrc(file) : null)
+					const key = `${w.rdns || w.id}-${w.label}`
 					return (
 						<li key={key}>
 							<button
@@ -56,9 +57,9 @@ export function InstalledInjectedWalletPicker({ wallets, connecting, onSelect, c
 								className="flex w-full items-center gap-3 rounded-2xl border border-outline-variant/30 bg-white px-4 py-3 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-900 dark:hover:bg-slate-800"
 								aria-label={`Connect ${w.label}`}
 							>
-								{file ? (
+								{img ? (
 									<img
-										src={iconSrc(file)}
+										src={img}
 										alt=""
 										className="h-10 w-10 shrink-0 rounded-xl object-contain"
 										width={40}

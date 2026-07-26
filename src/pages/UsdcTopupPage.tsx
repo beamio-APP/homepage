@@ -8,7 +8,7 @@ import { UsdcTopupSiteHeader } from '../components/UsdcTopupSiteHeader'
 import { WalletAppDappIconButtons } from '../components/WalletAppDappIconButtons'
 import {
 	isMobileDeviceForWalletApps,
-	listInstalledInjectedWallets,
+	subscribeInstalledInjectedWallets,
 	type Eip1193Provider,
 	type InjectedWalletChoice,
 } from '../utils/mobileWalletApps'
@@ -308,53 +308,10 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok || typeof window === 'undefined') return
-		const refresh = () => setInstalledWallets(listInstalledInjectedWallets())
-		refresh()
-		// Some extensions inject after first paint.
-		const t1 = window.setTimeout(refresh, 400)
-		const t2 = window.setTimeout(refresh, 1500)
-		return () => {
-			window.clearTimeout(t1)
-			window.clearTimeout(t2)
-		}
+		// EIP-6963 + legacy namespaces. Do not call eth_accounts here — probing every
+		// injected provider on load opens Phantom/OKX login UIs without user intent.
+		return subscribeInstalledInjectedWallets(setInstalledWallets)
 	}, [parsed.ok])
-
-	useEffect(() => {
-		if (!parsed.ok) return
-		const providers =
-			installedWallets.length > 0
-				? installedWallets.map((w) => w.provider)
-				: typeof window !== 'undefined' && window.ethereum
-					? [window.ethereum]
-					: []
-		if (providers.length === 0) return
-
-		let cancelled = false
-		;(async () => {
-			for (const provider of providers) {
-				try {
-					const accounts = (await provider.request({ method: 'eth_accounts' })) as string[]
-					if (cancelled) return
-					if (accounts && accounts[0]) {
-						setActiveProvider(provider)
-						setAccount(accounts[0] as Address)
-						try {
-							const chain = (await provider.request({ method: 'eth_chainId' })) as string
-							if (!cancelled) setChainIdHex(chain)
-						} catch {
-							/* ignore */
-						}
-						return
-					}
-				} catch {
-					/* try next */
-				}
-			}
-		})()
-		return () => {
-			cancelled = true
-		}
-	}, [parsed.ok, installedWallets])
 
 	useEffect(() => {
 		if (!activeProvider) return
