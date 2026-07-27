@@ -3,13 +3,13 @@
 import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import AppDownloadPage from './pages/AppDownloadPage'
+import UsdcTopupPage from './pages/UsdcTopupPage'
 
 const BeamioProtocolPage = lazy(() => import('./pages/BeamioProtocolPage'))
 const HomeExample = lazy(() => import('./pages/homeExample'))
 const TermsPage = lazy(() => import('./TermsPage'))
 const PrivacyPage = lazy(() => import('./PrivacyPage'))
 const ContactPage = lazy(() => import('./pages/ContactPage'))
-const UsdcTopupPage = lazy(() => import('./pages/UsdcTopupPage'))
 
 
 

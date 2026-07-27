@@ -352,22 +352,56 @@ export default function UsdcTopupPage() {
 		const { cardAddress, cardOwner, amount, currency } = parsed.params
 		setStatus((s) => (s === 'idle' ? 'quoting' : s))
 		const url = `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(amount)}&currency=${currency}`
+		let cancelled = false
 		fetch(url)
 			.then(async (r) => {
 				const json = (await r.json().catch(() => ({}))) as QuoteResponse
+				if (cancelled) return
 				if (!r.ok || json.success === false) {
 					setError(json.error ?? 'Failed to fetch quote')
-					setStatus('error')
+					setStatus((s) => (s === 'quoting' || s === 'idle' ? 'error' : s))
 					return
 				}
 				setQuote(json)
-				setStatus('idle')
+				// Never clobber an in-flight payment or success (mobile wallet return / remount races).
+				setStatus((s) => (s === 'quoting' || s === 'idle' ? 'idle' : s))
 			})
 			.catch((e) => {
+				if (cancelled) return
 				setError(e?.message ?? String(e))
-				setStatus('error')
+				setStatus((s) => (s === 'quoting' || s === 'idle' ? 'error' : s))
 			})
+		return () => {
+			cancelled = true
+		}
 	}, [parsed.ok ? parsed.params.cardAddress : '', parsed.ok ? parsed.params.cardOwner : '', parsed.ok ? parsed.params.amount : '', parsed.ok ? parsed.params.currency : ''])
+
+	// Mobile in-app browsers (Base / MetaMask) often suspend the WebView during signing.
+	// Re-sync account/chain when the page becomes visible again so we do not drop to a blank shell.
+	useEffect(() => {
+		if (!eth) return
+		const resync = () => {
+			void (async () => {
+				try {
+					const accounts = (await eth.request({ method: 'eth_accounts' })) as string[]
+					if (accounts?.[0]) setAccount(accounts[0] as Address)
+					const chain = (await eth.request({ method: 'eth_chainId' })) as string
+					if (chain) setChainIdHex(chain)
+				} catch {
+					/* ignore */
+				}
+			})()
+		}
+		const onVis = () => {
+			if (document.visibilityState === 'visible') resync()
+		}
+		window.addEventListener('pageshow', resync)
+		document.addEventListener('visibilitychange', onVis)
+		return () => {
+			window.removeEventListener('pageshow', resync)
+			document.removeEventListener('visibilitychange', onVis)
+		}
+	}, [eth])
 
 	const connectWallet = async (choice?: InjectedWalletChoice) => {
 		const provider = choice?.provider ?? eth
@@ -584,10 +618,11 @@ export default function UsdcTopupPage() {
 				setStatus('success')
 				return
 			}
-			const { wrapFetchWithPayment, decodeXPaymentResponse } = await import('x402-fetch')
+			const { createPaymentHeader, selectPaymentRequirements } = await import('x402/client')
+			const { PaymentRequirementsSchema } = await import('x402/types')
+			const { decodeXPaymentResponse } = await import('x402-fetch')
 			const p = parsed.params
 			const genesisTest = p.workflow === 'genesisNodeSeat' && p.testCode === GENESIS_NODE_SEAT_TEST_CODE
-			// x402-fetch defaults maxValue to 0.1 USDC. Cap = this settle quote (atomic6).
 			const amountAtomic6 = decimalToAtomic6(p.amount)
 			let x402MaxValue =
 				amountAtomic6 && BigInt(amountAtomic6) > 0n ? BigInt(amountAtomic6) : 1_000_000_000n
@@ -597,12 +632,6 @@ export default function UsdcTopupPage() {
 				const genesisFloor = BigInt(p.qty) * GENESIS_NODE_SEAT_USDC_PER_NODE6
 				if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
 			}
-			const fetchWithPay = wrapFetchWithPayment(
-				fetch,
-				// viem walletClient satisfies x402 SignerWallet shape
-				walletClient as unknown as Parameters<typeof wrapFetchWithPayment>[1],
-				x402MaxValue
-			)
 			const bodyObj: Record<string, string> = {
 				cardAddress: p.cardAddress,
 				cardOwner: p.cardOwner,
@@ -631,12 +660,67 @@ export default function UsdcTopupPage() {
 				}
 			}
 			const body = JSON.stringify(bodyObj)
-			const response = await fetchWithPay(`${BEAMIO_API}/api/nfcUsdcTopup`, {
+			const topupUrl = `${BEAMIO_API}/api/nfcUsdcTopup`
+			// Two-phase x402 (not wrapFetchWithPayment): update UI to "settling" right after
+			// the wallet returns from signTypedData — critical for Base/MetaMask in-app browsers.
+			const firstRes = await fetch(topupUrl, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body,
 			})
+			if (firstRes.status !== 402) {
+				setStatus('settling')
+				const json = (await firstRes.json().catch(() => ({}))) as {
+					success?: boolean
+					error?: string
+					USDC_tx?: string
+					executeForAdmin_tx?: string
+					claimTx?: string
+					awaitingPosAuthorization?: boolean
+					awaitingBeneficiaryTap?: boolean
+				}
+				if (!firstRes.ok || json.success === false) {
+					setError(json.error ?? `Topup failed (HTTP ${firstRes.status})`)
+					setStatus('error')
+					return
+				}
+				setResult({
+					usdcTx: json.USDC_tx,
+					topupTx: json.executeForAdmin_tx ?? json.claimTx,
+					awaitingPosAuthorization: json.awaitingPosAuthorization === true,
+					awaitingBeneficiaryTap: json.awaitingBeneficiaryTap === true,
+				})
+				setStatus('success')
+				return
+			}
+			const challenge = (await firstRes.json()) as { x402Version: number; accepts: unknown[] }
+			const parsedReqs = (challenge.accepts ?? []).map((x) => PaymentRequirementsSchema.parse(x))
+			const selected = selectPaymentRequirements(parsedReqs, 'base', 'exact')
+			if (!selected) {
+				setError('No compatible payment requirement from server.')
+				setStatus('error')
+				return
+			}
+			if (BigInt(selected.maxAmountRequired) > x402MaxValue) {
+				setError('Payment amount exceeds maximum allowed')
+				setStatus('error')
+				return
+			}
+			const paymentHeader = await createPaymentHeader(
+				walletClient as unknown as Parameters<typeof createPaymentHeader>[0],
+				challenge.x402Version,
+				selected,
+			)
 			setStatus('settling')
+			const response = await fetch(topupUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-PAYMENT': paymentHeader,
+					'Access-Control-Expose-Headers': 'X-PAYMENT-RESPONSE',
+				},
+				body,
+			})
 			const json = (await response.json().catch(() => ({}))) as {
 				success?: boolean
 				error?: string
@@ -646,8 +730,13 @@ export default function UsdcTopupPage() {
 				awaitingPosAuthorization?: boolean
 				awaitingBeneficiaryTap?: boolean
 			}
-			const xPayResp = response.headers.get('x-payment-response')
-			const decoded = xPayResp ? decodeXPaymentResponse(xPayResp) : null
+			let decoded: unknown = null
+			try {
+				const xPayResp = response.headers.get('x-payment-response')
+				decoded = xPayResp ? decodeXPaymentResponse(xPayResp) : null
+			} catch {
+				decoded = null
+			}
 			if (!response.ok || json.success === false) {
 				setError(json.error ?? `Topup failed (HTTP ${response.status})`)
 				setStatus('error')
@@ -707,6 +796,27 @@ export default function UsdcTopupPage() {
 	return (
 		<div className="min-h-dvh bg-background text-on-surface antialiased">
 			<UsdcTopupSiteHeader />
+			{(status === 'awaiting-signature' || status === 'settling') && (
+				<div
+					className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#f9f9fe]/95 px-6 text-center backdrop-blur-sm"
+					role="status"
+					aria-live="polite"
+					aria-busy="true"
+				>
+					<div
+						className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600/20 border-t-blue-600"
+						aria-hidden
+					/>
+					<p className="text-lg font-bold text-[#1a1c1f]">
+						{status === 'awaiting-signature' ? 'Waiting for wallet signature…' : 'Confirming payment…'}
+					</p>
+					<p className="max-w-sm text-sm text-slate-500">
+						{status === 'awaiting-signature'
+							? 'Approve the USDC payment in your wallet. This page will update when you return.'
+							: 'Settling on Base. Keep this page open.'}
+					</p>
+				</div>
+			)}
 			<main className="pt-24 pb-12">
 				<div className="mx-auto max-w-xl px-6">
 					<header className="mb-8 text-center">
