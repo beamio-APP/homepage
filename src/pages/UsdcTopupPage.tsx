@@ -68,8 +68,8 @@ type TopupParams = {
 	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat'
 	paymentToken: 'USDC' | 'CADD'
 	/**
-	 * When `test=332266` on genesisNodeSeat links: pay 1.00 USDC via x402,
-	 * then server still runs full createRedeemFor + claimRedeemFor.
+	 * Opaque gate for genesisNodeSeat E2E (`test` query). Not shown in UI —
+	 * display still uses product amount; x402 settle uses 1 USDC when matched.
 	 */
 	testCode: string
 }
@@ -692,20 +692,17 @@ export default function UsdcTopupPage() {
 		)
 	}
 
-	const { cardAddress, cardOwner, uid, amount, currency, sid: topupSid, beneficiary: topupBeneficiary, aa: topupAa, qty: topupQty, workflow: topupWorkflow, testCode: topupTestCode } =
+	const { cardAddress, cardOwner, uid, amount, currency, sid: topupSid, beneficiary: topupBeneficiary, aa: topupAa, qty: topupQty, workflow: topupWorkflow } =
 		parsed.params
 	const isTreasuryBridge = topupWorkflow === 'treasuryBridge' && Boolean(topupAa)
 	const isClientTopup = topupWorkflow === 'clientTopup' && Boolean(topupBeneficiary)
 	const isGenesisSeat = topupWorkflow === 'genesisNodeSeat' && Boolean(topupBeneficiary) && topupQty > 0
-	const isGenesisTest = isGenesisSeat && topupTestCode === GENESIS_NODE_SEAT_TEST_CODE
 	const showNfcTagRow = Boolean(uid && uid.length >= 6)
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
 	const hasInjectedWallet = installedWallets.length > 0 || !!eth
 	const ready = hasInjectedWallet && !!account && onBase
 
-	const quotedUsdcLabel = isGenesisTest
-		? 'USDC 1.00 (E2E test)'
-		: formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
+	const quotedUsdcLabel = formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
 
 	return (
 		<div className="min-h-dvh bg-background text-on-surface antialiased">
@@ -718,17 +715,15 @@ export default function UsdcTopupPage() {
 						</h1>
 						<p className="mt-2 text-on-surface-variant">
 							Pay with {parsed.params.paymentToken} on Base from your own wallet.
-							{isGenesisTest
-								? ' Test mode: you pay USDC 1.00; after settle, create+claim redeem still runs for the full seat workflow.'
-								: isGenesisSeat
-									? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
-									: isTreasuryBridge
-										? ' USDC settles to the Beamio treasury; card points credit to your Smart Wallet. The merchant receives CoNET-USDC separately.'
-										: isClientTopup
-											? ' USDC is sent to the beneficiary wallet; complete the merchant top-up in the Beamio app.'
-											: topupSid
-												? ' After payment, tap your Beamio card on the merchant terminal to receive the credit.'
-												: ' Your NFC card will be credited automatically.'}
+							{isGenesisSeat
+								? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
+								: isTreasuryBridge
+									? ' USDC settles to the Beamio treasury; card points credit to your Smart Wallet. The merchant receives CoNET-USDC separately.'
+									: isClientTopup
+										? ' USDC is sent to the beneficiary wallet; complete the merchant top-up in the Beamio app.'
+										: topupSid
+											? ' After payment, tap your Beamio card on the merchant terminal to receive the credit.'
+											: ' Your NFC card will be credited automatically.'}
 						</p>
 					</header>
 
@@ -736,16 +731,13 @@ export default function UsdcTopupPage() {
 						<div className="grid grid-cols-1 gap-3 text-sm">
 							{isGenesisSeat ? (
 								<>
-									{isGenesisTest ? (
-										<Row label="Mode" value="E2E test (pay 1.00 USDC)" mono={false} bold />
-									) : null}
 									<Row
 										label="Nodes"
 										value={`${topupQty} Genesis Node${topupQty > 1 ? 's' : ''} (Cloud Included)`}
 										mono={false}
 										bold
 									/>
-									<Row label="You pay" value={status === 'quoting' && !isGenesisTest ? 'Quoting…' : quotedUsdcLabel} mono bold />
+									<Row label="You pay" value={status === 'quoting' ? 'Quoting…' : quotedUsdcLabel} mono bold />
 									<Divider />
 									<Row label="Buyer (beneficiary)" value={truncate(topupBeneficiary, 8, 6)} mono />
 									<Row label="Program card" value={truncate(cardAddress, 8, 6)} mono />
