@@ -67,6 +67,11 @@ type TopupParams = {
 	qty: number
 	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat'
 	paymentToken: 'USDC' | 'CADD'
+	/**
+	 * When `test=332266` on genesisNodeSeat links: pay 1.00 USDC via x402,
+	 * then server still runs full createRedeemFor + claimRedeemFor.
+	 */
+	testCode: string
 }
 
 const truncate = (s: string, head = 6, tail = 4): string =>
@@ -78,6 +83,10 @@ const isHex = (s: string, len?: number): boolean =>
 const isEthAddress = (s: string): boolean => typeof s === 'string' && /^0x[0-9a-fA-F]{40}$/.test(s)
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+/** Must match x402sdk `GENESIS_NODE_SEAT_TEST_CODE` — E2E settle 1 USDC then full fulfill */
+const GENESIS_NODE_SEAT_TEST_CODE = '332266'
+const GENESIS_NODE_SEAT_TEST_USDC6 = 1_000_000n
+const GENESIS_NODE_SEAT_USDC_PER_NODE6 = 1_370_000_000n
 const isUuidV4 = (s: string): boolean => typeof s === 'string' && UUID_V4_RE.test(s)
 
 function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | { ok: false; error: string } {
@@ -107,6 +116,7 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const beneficiary = (sp.get('beneficiary') ?? '').trim()
 	const aa = (queryGetCI('aa', 'recipientAA') || '').trim()
 	const qtyRaw = (queryGetCI('qty', 'quantity') || '').trim()
+	const testCode = (sp.get('test') ?? '').trim()
 	const workflowRaw = queryGetCI('workflow').trim().toLowerCase()
 	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' =
 		workflowRaw === 'treasurybridge'
@@ -146,6 +156,12 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 		if (currency !== 'USDC' && paymentToken !== 'USDC') {
 			return { ok: false, error: 'genesisNodeSeat requires currency/paymentToken USDC' }
 		}
+		if (testCode && testCode !== GENESIS_NODE_SEAT_TEST_CODE) {
+			return { ok: false, error: 'Invalid `test` code for genesisNodeSeat' }
+		}
+		if (testCode === GENESIS_NODE_SEAT_TEST_CODE && qtyNum !== 1) {
+			return { ok: false, error: 'genesisNodeSeat test mode allows qty=1 only' }
+		}
 	} else {
 		if (sid && !isUuidV4(sid)) return { ok: false, error: 'Invalid `sid` (expect UUID v4)' }
 		if (sid && !isEthAddress(pos)) return { ok: false, error: 'Missing or invalid `pos` when `sid` is set (POS terminal EOA)' }
@@ -156,6 +172,8 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const clientTopupPath = workflow === 'clientTopup' && isEthAddress(beneficiary)
 	const genesisSeatPath = workflow === 'genesisNodeSeat' && isEthAddress(beneficiary)
 	const genesisQty = genesisSeatPath ? Number(qtyRaw) : 0
+	const genesisTestCode =
+		genesisSeatPath && testCode === GENESIS_NODE_SEAT_TEST_CODE ? GENESIS_NODE_SEAT_TEST_CODE : ''
 	if (!hasSidPos && !clientTopupPath && !treasuryBridgePath && !genesisSeatPath) {
 		if (!uid || !isHex(uid, 14)) return { ok: false, error: 'Missing or invalid `uid` (NFC UID, 14 hex chars)' }
 		if (!isHex(e, 64)) return { ok: false, error: 'Missing or invalid SUN `e` (64 hex chars)' }
@@ -195,6 +213,7 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 						? 'genesisNodeSeat'
 						: '',
 			paymentToken: genesisSeatPath ? 'USDC' : paymentToken,
+			testCode: genesisTestCode,
 		},
 	}
 }
@@ -522,6 +541,7 @@ export default function UsdcTopupPage() {
 					bodyObj.beneficiary = p.beneficiary
 					bodyObj.qty = String(p.qty)
 					bodyObj.workflow = 'genesisNodeSeat'
+					if (p.testCode) bodyObj.test = p.testCode
 				} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 					bodyObj.beneficiary = p.beneficiary
 					bodyObj.workflow = 'clientTopup'
@@ -565,13 +585,24 @@ export default function UsdcTopupPage() {
 				return
 			}
 			const { wrapFetchWithPayment, decodeXPaymentResponse } = await import('x402-fetch')
+			const p = parsed.params
+			const genesisTest = p.workflow === 'genesisNodeSeat' && p.testCode === GENESIS_NODE_SEAT_TEST_CODE
+			// x402-fetch defaults maxValue to 0.1 USDC. Cap = this settle quote (atomic6).
+			const amountAtomic6 = decimalToAtomic6(p.amount)
+			let x402MaxValue =
+				amountAtomic6 && BigInt(amountAtomic6) > 0n ? BigInt(amountAtomic6) : 1_000_000_000n
+			if (genesisTest) {
+				x402MaxValue = GENESIS_NODE_SEAT_TEST_USDC6
+			} else if (p.workflow === 'genesisNodeSeat' && p.qty > 0) {
+				const genesisFloor = BigInt(p.qty) * GENESIS_NODE_SEAT_USDC_PER_NODE6
+				if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
+			}
 			const fetchWithPay = wrapFetchWithPayment(
 				fetch,
 				// viem walletClient satisfies x402 SignerWallet shape
 				walletClient as unknown as Parameters<typeof wrapFetchWithPayment>[1],
-				BigInt(1_000_000_000) // 1000 USDC max guard, server enforces real price
+				x402MaxValue
 			)
-			const p = parsed.params
 			const bodyObj: Record<string, string> = {
 				cardAddress: p.cardAddress,
 				cardOwner: p.cardOwner,
@@ -585,6 +616,7 @@ export default function UsdcTopupPage() {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.qty = String(p.qty)
 				bodyObj.workflow = 'genesisNodeSeat'
+				if (p.testCode) bodyObj.test = p.testCode
 			} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.workflow = 'clientTopup'
@@ -660,17 +692,20 @@ export default function UsdcTopupPage() {
 		)
 	}
 
-	const { cardAddress, cardOwner, uid, amount, currency, sid: topupSid, beneficiary: topupBeneficiary, aa: topupAa, qty: topupQty, workflow: topupWorkflow } =
+	const { cardAddress, cardOwner, uid, amount, currency, sid: topupSid, beneficiary: topupBeneficiary, aa: topupAa, qty: topupQty, workflow: topupWorkflow, testCode: topupTestCode } =
 		parsed.params
 	const isTreasuryBridge = topupWorkflow === 'treasuryBridge' && Boolean(topupAa)
 	const isClientTopup = topupWorkflow === 'clientTopup' && Boolean(topupBeneficiary)
 	const isGenesisSeat = topupWorkflow === 'genesisNodeSeat' && Boolean(topupBeneficiary) && topupQty > 0
+	const isGenesisTest = isGenesisSeat && topupTestCode === GENESIS_NODE_SEAT_TEST_CODE
 	const showNfcTagRow = Boolean(uid && uid.length >= 6)
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
 	const hasInjectedWallet = installedWallets.length > 0 || !!eth
 	const ready = hasInjectedWallet && !!account && onBase
 
-	const quotedUsdcLabel = formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
+	const quotedUsdcLabel = isGenesisTest
+		? 'USDC 1.00 (E2E test)'
+		: formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
 
 	return (
 		<div className="min-h-dvh bg-background text-on-surface antialiased">
@@ -683,15 +718,17 @@ export default function UsdcTopupPage() {
 						</h1>
 						<p className="mt-2 text-on-surface-variant">
 							Pay with {parsed.params.paymentToken} on Base from your own wallet.
-							{isGenesisSeat
-								? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
-								: isTreasuryBridge
-									? ' USDC settles to the Beamio treasury; card points credit to your Smart Wallet. The merchant receives CoNET-USDC separately.'
-									: isClientTopup
-										? ' USDC is sent to the beneficiary wallet; complete the merchant top-up in the Beamio app.'
-										: topupSid
-											? ' After payment, tap your Beamio card on the merchant terminal to receive the credit.'
-											: ' Your NFC card will be credited automatically.'}
+							{isGenesisTest
+								? ' Test mode: you pay USDC 1.00; after settle, create+claim redeem still runs for the full seat workflow.'
+								: isGenesisSeat
+									? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
+									: isTreasuryBridge
+										? ' USDC settles to the Beamio treasury; card points credit to your Smart Wallet. The merchant receives CoNET-USDC separately.'
+										: isClientTopup
+											? ' USDC is sent to the beneficiary wallet; complete the merchant top-up in the Beamio app.'
+											: topupSid
+												? ' After payment, tap your Beamio card on the merchant terminal to receive the credit.'
+												: ' Your NFC card will be credited automatically.'}
 						</p>
 					</header>
 
@@ -699,13 +736,16 @@ export default function UsdcTopupPage() {
 						<div className="grid grid-cols-1 gap-3 text-sm">
 							{isGenesisSeat ? (
 								<>
+									{isGenesisTest ? (
+										<Row label="Mode" value="E2E test (pay 1.00 USDC)" mono={false} bold />
+									) : null}
 									<Row
 										label="Nodes"
 										value={`${topupQty} Genesis Node${topupQty > 1 ? 's' : ''} (Cloud Included)`}
 										mono={false}
 										bold
 									/>
-									<Row label="You pay" value={status === 'quoting' ? 'Quoting…' : quotedUsdcLabel} mono bold />
+									<Row label="You pay" value={status === 'quoting' && !isGenesisTest ? 'Quoting…' : quotedUsdcLabel} mono bold />
 									<Divider />
 									<Row label="Buyer (beneficiary)" value={truncate(topupBeneficiary, 8, 6)} mono />
 									<Row label="Program card" value={truncate(cardAddress, 8, 6)} mono />
