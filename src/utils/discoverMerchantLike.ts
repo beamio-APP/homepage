@@ -93,25 +93,26 @@ export async function postMerchantCardUserLike(params: {
 				userSignature,
 			}),
 		})
-		const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string }
+		const data = (await res.json().catch(() => ({}))) as {
+			success?: boolean
+			error?: string
+			queued?: boolean
+		}
 		if (!res.ok || data.success === false) {
 			return { success: false, error: data.error ?? `http_${res.status}` }
 		}
-		let rewardTxQueued = false
 		if (liked) {
-			try {
-				rewardTxQueued = await dispatchDiscoverLikeReward13IfNeeded({
-					cardAddress: cardNorm,
-					actorEOA: userEOA,
-					referrerEoa: params.referrerEoa,
-					targetKind,
-					issuedParentId,
-				})
-			} catch {
-				/* optional reward — like already recorded */
-			}
+			void dispatchDiscoverLikeReward13IfNeeded({
+				cardAddress: cardNorm,
+				actorEOA: userEOA,
+				referrerEoa: params.referrerEoa,
+				targetKind,
+				issuedParentId,
+			}).catch(() => {
+				/* optional reward — like already queued */
+			})
 		}
-		return { success: true, rewardTxQueued }
+		return { success: true, queued: data.queued === true, rewardTxQueued: false }
 	} catch (e: unknown) {
 		const err = e as { shortMessage?: string; message?: string }
 		return { success: false, error: err?.shortMessage ?? err?.message ?? String(e) }
