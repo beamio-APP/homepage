@@ -69,9 +69,11 @@ type TopupParams = {
 	paymentToken: 'USDC' | 'CADD'
 	/**
 	 * Opaque gate for genesisNodeSeat E2E (`test` query). Not shown in UI —
-	 * display still uses product amount; x402 settle uses 1 USDC when matched.
+	 * product amount stays on the link; x402 settle uses 1.37 USDC when matched.
 	 */
 	testCode: string
+	/** Evangelist L0 EOA (optional Genesis share attribution). */
+	referrerL0: string
 }
 
 const truncate = (s: string, head = 6, tail = 4): string =>
@@ -83,9 +85,9 @@ const isHex = (s: string, len?: number): boolean =>
 const isEthAddress = (s: string): boolean => typeof s === 'string' && /^0x[0-9a-fA-F]{40}$/.test(s)
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-/** Must match x402sdk `GENESIS_NODE_SEAT_TEST_CODE` — E2E settle 1 USDC then full fulfill */
+/** Must match x402sdk `GENESIS_NODE_SEAT_TEST_CODE` — third-party E2E settle 1.37 USDC (code gate; no buyer whitelist) */
 const GENESIS_NODE_SEAT_TEST_CODE = '332266'
-const GENESIS_NODE_SEAT_TEST_USDC6 = 1_000_000n
+const GENESIS_NODE_SEAT_TEST_USDC6 = 1_370_000n
 const GENESIS_NODE_SEAT_USDC_PER_NODE6 = 1_370_000_000n
 const isUuidV4 = (s: string): boolean => typeof s === 'string' && UUID_V4_RE.test(s)
 
@@ -117,6 +119,7 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const aa = (queryGetCI('aa', 'recipientAA') || '').trim()
 	const qtyRaw = (queryGetCI('qty', 'quantity') || '').trim()
 	const testCode = (sp.get('test') ?? '').trim()
+	const referrerL0Raw = (queryGetCI('referrerL0', 'referrer') || '').trim()
 	const workflowRaw = queryGetCI('workflow').trim().toLowerCase()
 	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' =
 		workflowRaw === 'treasurybridge'
@@ -161,6 +164,9 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 		}
 		if (testCode === GENESIS_NODE_SEAT_TEST_CODE && qtyNum !== 1) {
 			return { ok: false, error: 'genesisNodeSeat test mode allows qty=1 only' }
+		}
+		if (referrerL0Raw && !isEthAddress(referrerL0Raw)) {
+			return { ok: false, error: 'Invalid `referrerL0` (expect EOA address)' }
 		}
 	} else {
 		if (sid && !isUuidV4(sid)) return { ok: false, error: 'Invalid `sid` (expect UUID v4)' }
@@ -214,6 +220,7 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 						: '',
 			paymentToken: genesisSeatPath ? 'USDC' : paymentToken,
 			testCode: genesisTestCode,
+			referrerL0: genesisSeatPath && isEthAddress(referrerL0Raw) ? referrerL0Raw : '',
 		},
 	}
 }
@@ -349,9 +356,14 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok) return
-		const { cardAddress, cardOwner, amount, currency } = parsed.params
+		const { cardAddress, cardOwner, amount, currency, workflow, testCode } = parsed.params
 		setStatus((s) => (s === 'idle' ? 'quoting' : s))
-		const url = `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(amount)}&currency=${currency}`
+		// Test gate settles 1.37 USDC; do not quote the product list price (e.g. 1370).
+		const quoteAmount =
+			workflow === 'genesisNodeSeat' && testCode === GENESIS_NODE_SEAT_TEST_CODE
+				? (Number(GENESIS_NODE_SEAT_TEST_USDC6) / 1_000_000).toFixed(2)
+				: amount
+		const url = `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(quoteAmount)}&currency=${currency}`
 		let cancelled = false
 		fetch(url)
 			.then(async (r) => {
@@ -374,7 +386,14 @@ export default function UsdcTopupPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [parsed.ok ? parsed.params.cardAddress : '', parsed.ok ? parsed.params.cardOwner : '', parsed.ok ? parsed.params.amount : '', parsed.ok ? parsed.params.currency : ''])
+	}, [
+		parsed.ok ? parsed.params.cardAddress : '',
+		parsed.ok ? parsed.params.cardOwner : '',
+		parsed.ok ? parsed.params.amount : '',
+		parsed.ok ? parsed.params.currency : '',
+		parsed.ok ? parsed.params.workflow : '',
+		parsed.ok ? parsed.params.testCode : '',
+	])
 
 	// Mobile in-app browsers (Base / MetaMask) often suspend the WebView during signing.
 	// Re-sync account/chain when the page becomes visible again so we do not drop to a blank shell.
@@ -576,6 +595,7 @@ export default function UsdcTopupPage() {
 					bodyObj.qty = String(p.qty)
 					bodyObj.workflow = 'genesisNodeSeat'
 					if (p.testCode) bodyObj.test = p.testCode
+					if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
 				} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 					bodyObj.beneficiary = p.beneficiary
 					bodyObj.workflow = 'clientTopup'
@@ -646,6 +666,7 @@ export default function UsdcTopupPage() {
 				bodyObj.qty = String(p.qty)
 				bodyObj.workflow = 'genesisNodeSeat'
 				if (p.testCode) bodyObj.test = p.testCode
+				if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
 			} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.workflow = 'clientTopup'
@@ -702,7 +723,7 @@ export default function UsdcTopupPage() {
 				return
 			}
 			if (BigInt(selected.maxAmountRequired) > x402MaxValue) {
-				setError('Payment amount exceeds maximum allowed')
+				setError('Payment amount exceeds maximum allowed. Hard-refresh this page and try again.')
 				setStatus('error')
 				return
 			}
