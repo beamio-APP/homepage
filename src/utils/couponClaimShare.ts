@@ -23,6 +23,10 @@ export type CouponClaimShareMeta = {
 	expiresLabel: string
 	shareUrl: string
 	ogImageUrl: string
+	/** Issued NFT series tokenId — NFT capsule (last 3 digits). */
+	tokenId?: string
+	/** e.g. `TOTAL 100 · LEFT 42` — same row as NFT capsule. */
+	supplySummary?: string | null
 }
 
 const BEAMIO_API = '/api'

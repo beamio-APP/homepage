@@ -13,9 +13,14 @@ const BEAMIO_API = '/api'
 
 export type CouponOpenClaimEligibility =
 	| 'claimable'
+	/** User still holds the coupon NFT (claimed, not burned). */
 	| 'already_claimed'
+	/** User already used claim sig and no longer holds the NFT (redeemed / burned). */
+	| 'already_redeemed'
 	| 'not_open_claim'
 	| 'insufficient_social_points'
+	| 'sold_out'
+	| 'expired'
 	| 'unknown'
 
 export type CardActiveIssuedCouponSeriesItem = {
@@ -34,6 +39,15 @@ const OPEN_CLAIM_ONCHAIN_READ_ABI = [
 	'function issuedNftMintedCount(uint256 tokenId) view returns (uint256)',
 ] as const
 
+const BALANCE_OF_ABI = ['function balanceOf(address account, uint256 id) view returns (uint256)'] as const
+
+const AA_FACTORY_ABI = [
+	'function beamioAccountOf(address) view returns (address)',
+	'function primaryAccountOf(address) view returns (address)',
+] as const
+
+const CONET_AA_FACTORY = '0x869B31C87ABd9bFB858F5183Ef6021b28ED225E2'
+
 const openClaimCardReadContracts = new Map<string, ethers.Contract>()
 
 async function openClaimCardReadContract(cardAddress: string): Promise<ethers.Contract> {
@@ -46,6 +60,48 @@ async function openClaimCardReadContract(cardAddress: string): Promise<ethers.Co
 		openClaimCardReadContracts.set(key, c)
 	}
 	return c
+}
+
+async function resolveBeamioAaOnConet(provider: ethers.Provider, eoa: string): Promise<string | null> {
+	try {
+		const eoaAddr = ethers.getAddress(eoa)
+		const f = new ethers.Contract(CONET_AA_FACTORY, AA_FACTORY_ABI, provider)
+		let a = await f.beamioAccountOf(eoaAddr).catch(() => ethers.ZeroAddress)
+		if (!a || a === ethers.ZeroAddress) {
+			a = await f.primaryAccountOf(eoaAddr).catch(() => ethers.ZeroAddress)
+		}
+		if (!a || a === ethers.ZeroAddress) return null
+		const code = await provider.getCode(a).catch(() => '0x')
+		return code && code !== '0x' && code.length > 2 ? ethers.getAddress(a) : null
+	} catch {
+		return null
+	}
+}
+
+/** True if EOA or linked AA still holds this issued coupon NFT. */
+async function userHoldsIssuedCouponNft(
+	cardAddress: string,
+	userNorm: string,
+	tokenIdN: bigint,
+): Promise<boolean | null> {
+	try {
+		const card = ethers.getAddress(cardAddress)
+		const { provider } = await providerForBeamioUserCard(card)
+		const cardContract = new ethers.Contract(card, BALANCE_OF_ABI, provider)
+		let total = 0n
+		total += (await cardContract.balanceOf(userNorm, tokenIdN)) as bigint
+		const aa = await resolveBeamioAaOnConet(provider, userNorm).catch(() => null)
+		if (aa) {
+			try {
+				total += (await cardContract.balanceOf(aa, tokenIdN)) as bigint
+			} catch {
+				/* keep EOA portion */
+			}
+		}
+		return total > 0n
+	} catch {
+		return null
+	}
 }
 
 export function readCouponIdFromMetadata(meta: Record<string, unknown> | null | undefined): string {
@@ -84,11 +140,14 @@ function seriesRowToEligibilityInput(row: DiscoverMerchantCouponSeriesRow): Card
 	}
 }
 
-export async function resolveCouponOpenClaimEligibility(
-	row: DiscoverMerchantCouponSeriesRow,
+/**
+ * Whether the wallet may open-claim this series row.
+ * Distinguishes still-held NFT (`already_claimed`) vs claim-used-then-burned (`already_redeemed`).
+ */
+export async function resolveCouponOpenClaimEligibilityForItem(
+	item: CardActiveIssuedCouponSeriesItem,
 	userEOA: string | null | undefined,
 ): Promise<CouponOpenClaimEligibility> {
-	const item = seriesRowToEligibilityInput(row)
 	if (readCouponDisabledFromMetadata(item.metadata ?? null)) return 'not_open_claim'
 	if (readCouponRequiresRedeemCode(item.metadata ?? null)) return 'not_open_claim'
 	if (!readCouponIdFromMetadata(item.metadata ?? null)) return 'not_open_claim'
@@ -102,21 +161,23 @@ export async function resolveCouponOpenClaimEligibility(
 	if (!item.cardAddress || !ethers.isAddress(item.cardAddress)) return 'not_open_claim'
 	const validBeforeNum = Number(item.issuedNftValidBefore ?? 0)
 	if (Number.isFinite(validBeforeNum) && validBeforeNum > 0 && validBeforeNum <= Math.floor(Date.now() / 1000)) {
-		return 'already_claimed'
+		return 'expired'
 	}
 	if (!userEOA || !ethers.isAddress(userEOA)) return 'unknown'
 	try {
 		const cardRead = await openClaimCardReadContract(item.cardAddress)
 		const userNorm = ethers.getAddress(userEOA)
-		const [priceInCurrency6, alreadyClaimed, maxSupply, mintedCount] = await Promise.all([
+		const [priceInCurrency6, alreadyClaimed, maxSupply, mintedCount, holdsNft] = await Promise.all([
 			cardRead.issuedNftPriceInCurrency6(tokenIdN) as Promise<bigint>,
 			cardRead.issuedNftUserSigClaimUsed(userNorm, tokenIdN) as Promise<boolean>,
 			cardRead.issuedNftMaxSupply(tokenIdN) as Promise<bigint>,
 			cardRead.issuedNftMintedCount(tokenIdN) as Promise<bigint>,
+			userHoldsIssuedCouponNft(item.cardAddress, userNorm, tokenIdN),
 		])
-		if (alreadyClaimed) return 'already_claimed'
+		if (holdsNft === true) return 'already_claimed'
+		if (alreadyClaimed) return 'already_redeemed'
 		if (priceInCurrency6 !== 0n) return 'not_open_claim'
-		if (maxSupply > 0n && mintedCount >= maxSupply) return 'already_claimed'
+		if (maxSupply > 0n && mintedCount >= maxSupply) return 'sold_out'
 		const socialExchange = readSocialExchangeFromMetadata(item.metadata ?? null)
 		if (socialExchange) {
 			const pointsBal = await readUserSocialPoints13BalanceOnCard(item.cardAddress, userNorm)
@@ -127,6 +188,13 @@ export async function resolveCouponOpenClaimEligibility(
 	} catch {
 		return 'unknown'
 	}
+}
+
+export async function resolveCouponOpenClaimEligibility(
+	row: DiscoverMerchantCouponSeriesRow,
+	userEOA: string | null | undefined,
+): Promise<CouponOpenClaimEligibility> {
+	return resolveCouponOpenClaimEligibilityForItem(seriesRowToEligibilityInput(row), userEOA)
 }
 
 const stripHash13UserCopy = (text: string): string =>

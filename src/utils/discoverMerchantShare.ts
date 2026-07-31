@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import { appendAppDownloadShareCacheBust } from '@/utils/appDownloadShareCacheBust'
+import { appendAppDownloadShareCacheBust } from './appDownloadShareCacheBust'
 
 /** Outer app-download share URL with optional `ref=` referrer (sharer EOA) + `v=` OG cache bust. */
 export function buildDiscoverMerchantShareUrl(

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ethers } from 'ethers'
 import { useLocation } from 'react-router-dom'
-import { Calendar, Clock, Download, Gift, Loader2, Smartphone } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, Clock, Download, Gift, Loader2, Lock, Smartphone, Ticket } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -21,6 +21,8 @@ import {
 	fetchCouponClaimShareMeta,
 	type CouponClaimShareMeta,
 } from '../utils/couponClaimShare'
+import { fetchCouponShareSeriesExtras } from '../utils/fetchCouponShareSeriesExtras'
+import { CouponTicketAddressMetaRow } from '../components/CouponTicketAddressMetaRow'
 import { CatalogVideoOgBannerMedia } from '../components/CatalogVideoOgBannerMedia'
 import {
 	CATALOG_VIDEO_OG_APP_DOWNLOAD_BANNER_HEIGHT_PX,
@@ -34,6 +36,7 @@ import {
 } from '../utils/discoverShareClickEvent'
 import {
 	fetchCardProgramSocialSummary,
+	fetchCouponProgramSocialSummary,
 	type CardProgramSocialSummary,
 } from '../utils/cardProgramSocialStats'
 import { DiscoverMerchantShareDetail } from '../components/DiscoverMerchantShareDetail'
@@ -42,9 +45,14 @@ import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
 import AppDownloadPayCodeSheet from '../components/AppDownloadPayCodeSheet'
 import {
 	loadAppDownloadVisitWalletProfile,
+	provisionWebShareVisitWallet,
+	resolveSigningWalletFromBlob,
 	type AppDownloadVisitWalletProfile,
 } from '../utils/beamioWebShareWallet'
+import { postCardCouponOpenClaimWithWallet, resolveCouponOpenClaimEligibilityForItem, type CardActiveIssuedCouponSeriesItem, type CouponOpenClaimEligibility } from '../utils/discoverCouponOpenClaim'
 import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
+
+type CouponTempClaimStatus = 'idle' | 'loading' | 'success' | 'error'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
 type IosNativeProbeResult = 'pending' | NativeAppOpenResult
@@ -158,6 +166,10 @@ function CatalogShareMetadataBlock({
 	showExpiryPill,
 	renderExpiryPill,
 	descriptionViewportScroll = false,
+	tokenId = null,
+	supplySummary = null,
+	likeCount = null,
+	shareClickCount = null,
 }: {
 	meta: CouponClaimShareMeta
 	tone: 'inner' | 'external'
@@ -165,6 +177,11 @@ function CatalogShareMetadataBlock({
 	renderExpiryPill: (placement: 'inner' | 'external') => React.ReactNode
 	/** Catalog videoOg — description fills remaining card height and scrolls (no line clamp). */
 	descriptionViewportScroll?: boolean
+	/** Coupon NFT capsule — issued series tokenId. */
+	tokenId?: string | null
+	supplySummary?: string | null
+	likeCount?: number | null
+	shareClickCount?: number | null
 }) {
 	const isCatalog = meta.distributionKind === 'catalog'
 	const isDiscoverMerchant =
@@ -179,6 +196,18 @@ function CatalogShareMetadataBlock({
 		tone === 'inner'
 			? 'break-words font-manrope text-sm font-semibold leading-snug text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]'
 			: 'break-words font-manrope text-sm font-semibold leading-snug text-[#595c5e]'
+
+	const resolvedTokenId = tokenId?.trim() || meta.tokenId?.trim() || null
+	const resolvedSupply = supplySummary?.trim() || meta.supplySummary?.trim() || null
+	const showCouponAddressMeta =
+		!isCatalog &&
+		!isDiscoverMerchant &&
+		(Boolean(resolvedTokenId) ||
+			Boolean(meta.shareUrl?.trim()) ||
+			Boolean(resolvedSupply) ||
+			likeCount != null ||
+			shareClickCount != null)
+	const addressMetaVariant = tone === 'inner' ? 'onDark' : 'light'
 
 	if (isCatalog) {
 		const global = meta.globalCategory?.trim() ?? ''
@@ -290,7 +319,24 @@ function CatalogShareMetadataBlock({
 					{subtitle}
 				</p>
 			) : null}
-			{showExpiryPill ? <div className={title || subtitle ? 'mt-2' : ''}>{renderExpiryPill(tone)}</div> : null}
+			{showCouponAddressMeta ? (
+				<CouponTicketAddressMetaRow
+					cardAddress={meta.cardAddress}
+					tokenId={resolvedTokenId}
+					shareUrl={meta.shareUrl}
+					shareTitle={meta.title}
+					supplySummary={resolvedSupply}
+					likeCount={likeCount}
+					shareClickCount={shareClickCount}
+					variant={addressMetaVariant}
+					className={title || subtitle ? 'mt-1.5' : 'mt-0.5'}
+				/>
+			) : null}
+			{showExpiryPill ? (
+				<div className={title || subtitle || showCouponAddressMeta ? 'mt-2' : ''}>
+					{renderExpiryPill(tone)}
+				</div>
+			) : null}
 		</div>
 	)
 }
@@ -301,8 +347,13 @@ function isDiscoverMerchantMeta(meta: CouponClaimShareMeta): boolean {
 
 function CouponSharePreview({
 	meta,
+	referrerEoa = null,
+	enableTempWalletClaim = false,
 }: {
 	meta: CouponClaimShareMeta
+	referrerEoa?: string | null
+	/** Open-claim: Gift icon on ticket right uses visit/temp wallet. */
+	enableTempWalletClaim?: boolean
 }) {
 	const catalogVideoOgCardRef = React.useRef<HTMLDivElement>(null)
 	const catalogVideoOgCardMaxHeightPx = useCatalogVideoOgShareCardMaxHeight(catalogVideoOgCardRef)
@@ -311,6 +362,186 @@ function CouponSharePreview({
 	const ExpiryIcon = expiryUrgent ? Clock : Calendar
 	const hasBanner = Boolean(meta.backgroundImage?.trim())
 	const isCatalogVideoOg = meta.distributionKind === 'catalog' && meta.catalogLayout === 'videoOg'
+	const isCouponTicket =
+		meta.distributionKind !== 'catalog' &&
+		meta.shareKind !== 'discover_merchant' &&
+		meta.distributionKind !== 'merchant'
+	const showTempClaim =
+		enableTempWalletClaim &&
+		isCouponTicket &&
+		meta.shareKind !== 'redeem' &&
+		Boolean(meta.cardAddress?.trim() && meta.couponId?.trim())
+
+	const [seriesExtras, setSeriesExtras] = useState<{
+		tokenId: string | null
+		supplySummary: string | null
+		seriesItem: CardActiveIssuedCouponSeriesItem | null
+	}>({
+		tokenId: meta.tokenId ?? null,
+		supplySummary: meta.supplySummary ?? null,
+		seriesItem: null,
+	})
+	const [socialStats, setSocialStats] = useState<CardProgramSocialSummary | null>(null)
+	const [claimStatus, setClaimStatus] = useState<CouponTempClaimStatus>('idle')
+	const [claimError, setClaimError] = useState<string | undefined>()
+	const [eligibility, setEligibility] = useState<CouponOpenClaimEligibility | null>(null)
+	const walletBlobRef = useRef<Awaited<ReturnType<typeof provisionWebShareVisitWallet>>>(null)
+	const claimStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+	useEffect(() => {
+		if (!isCouponTicket) return
+		const card = meta.cardAddress?.trim() ?? ''
+		const couponId = meta.couponId?.trim() ?? ''
+		if (!card || !couponId) return
+		let cancelled = false
+		void fetchCouponShareSeriesExtras(card, couponId).then((extras) => {
+			if (cancelled) return
+			setSeriesExtras((prev) => ({
+				tokenId: extras.tokenId || prev.tokenId,
+				supplySummary: extras.supplySummary || prev.supplySummary,
+				seriesItem: extras.seriesItem ?? prev.seriesItem,
+			}))
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [isCouponTicket, meta.cardAddress, meta.couponId])
+
+	useEffect(() => {
+		if (!isCouponTicket) return
+		const card = meta.cardAddress?.trim() ?? ''
+		const tokenId = (seriesExtras.tokenId || meta.tokenId || '').trim()
+		if (!card || !tokenId) return
+		let cancelled = false
+		void fetchCouponProgramSocialSummary(card, tokenId).then((summary) => {
+			if (cancelled || !summary) return
+			setSocialStats(summary)
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [isCouponTicket, meta.cardAddress, meta.tokenId, seriesExtras.tokenId])
+
+	useEffect(() => {
+		if (!showTempClaim) return
+		let cancelled = false
+		void provisionWebShareVisitWallet().then((blob) => {
+			if (!cancelled) walletBlobRef.current = blob
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [showTempClaim])
+
+	// Temp-wallet claimed / redeemed status (local-first visit wallet → chain).
+	useEffect(() => {
+		if (!showTempClaim || !seriesExtras.seriesItem) {
+			setEligibility(null)
+			return
+		}
+		let cancelled = false
+		void (async () => {
+			let blob = walletBlobRef.current
+			if (!blob) {
+				blob = await provisionWebShareVisitWallet()
+				walletBlobRef.current = blob
+			}
+			const wallet = resolveSigningWalletFromBlob(blob)
+			const userEoa = wallet?.address ?? null
+			const next = await resolveCouponOpenClaimEligibilityForItem(seriesExtras.seriesItem!, userEoa)
+			if (!cancelled) setEligibility(next)
+		})()
+		return () => {
+			cancelled = true
+		}
+	}, [showTempClaim, seriesExtras.seriesItem])
+
+	useEffect(
+		() => () => {
+			if (claimStatusTimerRef.current) clearTimeout(claimStatusTimerRef.current)
+		},
+		[],
+	)
+
+	const scheduleClaimErrorReset = useCallback(() => {
+		if (claimStatusTimerRef.current) clearTimeout(claimStatusTimerRef.current)
+		claimStatusTimerRef.current = setTimeout(() => {
+			setClaimStatus((s) => (s === 'error' ? 'idle' : s))
+			setClaimError(undefined)
+			claimStatusTimerRef.current = null
+		}, 3000)
+	}, [])
+
+	const isAlreadyClaimed = eligibility === 'already_claimed'
+	const isAlreadyRedeemed = eligibility === 'already_redeemed'
+	const claimBlocked =
+		isAlreadyClaimed ||
+		isAlreadyRedeemed ||
+		eligibility === 'sold_out' ||
+		eligibility === 'expired' ||
+		eligibility === 'not_open_claim' ||
+		eligibility === 'insufficient_social_points'
+
+	const handleTempWalletClaim = useCallback(async () => {
+		if (!showTempClaim || claimStatus !== 'idle' || claimBlocked) return
+		let blob = walletBlobRef.current
+		if (!blob) {
+			blob = await provisionWebShareVisitWallet()
+			walletBlobRef.current = blob
+		}
+		const wallet = resolveSigningWalletFromBlob(blob)
+		const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
+		if (!privateKeyArmor) {
+			setClaimStatus('error')
+			setClaimError('Could not prepare a temporary wallet.')
+			scheduleClaimErrorReset()
+			return
+		}
+
+		setClaimStatus('loading')
+		setClaimError(undefined)
+		try {
+			const ret = await postCardCouponOpenClaimWithWallet({
+				cardAddress: meta.cardAddress,
+				couponId: meta.couponId,
+				tokenId: seriesExtras.tokenId ?? meta.tokenId ?? undefined,
+				privateKeyArmor,
+				referrerEoa,
+			})
+			if (ret.success) {
+				setEligibility('already_claimed')
+				setClaimStatus('idle')
+			} else {
+				const err = ret.error ?? 'Coupon claim failed'
+				if (/already claimed/i.test(err)) {
+					setEligibility('already_claimed')
+					setClaimStatus('idle')
+				} else if (/already used|already redeemed|burned/i.test(err)) {
+					setEligibility('already_redeemed')
+					setClaimStatus('idle')
+				} else {
+					setClaimStatus('error')
+					setClaimError(err)
+					scheduleClaimErrorReset()
+				}
+			}
+		} catch (e: unknown) {
+			setClaimStatus('error')
+			setClaimError(e instanceof Error ? e.message : 'Coupon claim failed')
+			scheduleClaimErrorReset()
+		}
+	}, [
+		claimBlocked,
+		claimStatus,
+		meta.cardAddress,
+		meta.couponId,
+		meta.tokenId,
+		referrerEoa,
+		scheduleClaimErrorReset,
+		seriesExtras.tokenId,
+		showTempClaim,
+	])
+
 	const iconUrl = isCatalogVideoOg
 		? meta.iconUrl.trim()
 		: hasBanner
@@ -341,6 +572,65 @@ function CouponSharePreview({
 			<span className="truncate">{meta.expiresLabel}</span>
 		</div>
 	)
+
+	const metadataProps = {
+		tokenId: seriesExtras.tokenId,
+		supplySummary: seriesExtras.supplySummary,
+		likeCount: socialStats?.likeCount ?? null,
+		shareClickCount: socialStats?.shareClickCount ?? null,
+	} as const
+
+	const claimActionAriaLabel = isAlreadyRedeemed
+		? 'Coupon already redeemed'
+		: isAlreadyClaimed
+			? 'Coupon claimed'
+			: claimStatus === 'error'
+				? claimError ?? 'Coupon claim failed'
+				: 'Claim with temporary wallet'
+
+	const claimButton = showTempClaim ? (
+		<div className="pointer-events-auto absolute right-6 top-1/2 z-[2] -translate-y-1/2 sm:right-8">
+			{isAlreadyRedeemed ? (
+				<span
+					className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-400/50 bg-slate-100/90 shadow-sm ring-1 ring-slate-300/40 backdrop-blur-sm"
+					aria-label={claimActionAriaLabel}
+					title="Redeemed"
+				>
+					<Ticket className="h-4 w-4 text-slate-500" strokeWidth={2.25} aria-hidden />
+				</span>
+			) : isAlreadyClaimed ? (
+				<span
+					className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/40 bg-transparent shadow-sm ring-1 ring-emerald-500/15 backdrop-blur-sm"
+					aria-label={claimActionAriaLabel}
+					title="Claimed"
+				>
+					<Check className="h-4 w-4 text-emerald-500" strokeWidth={2.4} aria-hidden />
+				</span>
+			) : (
+				<button
+					type="button"
+					disabled={claimStatus !== 'idle' || claimBlocked}
+					onClick={(e) => {
+						e.stopPropagation()
+						void handleTempWalletClaim()
+					}}
+					className="inline-flex items-center justify-center rounded-full px-2.5 py-1.5 transition-opacity active:scale-95 disabled:cursor-not-allowed disabled:opacity-55"
+					style={{ background: CLAIM_GRADIENT }}
+					title={claimStatus === 'error' ? claimError : 'Claim with temporary wallet'}
+					aria-label={claimActionAriaLabel}
+					aria-busy={claimStatus === 'loading'}
+				>
+					{claimStatus === 'loading' ? (
+						<Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden />
+					) : claimStatus === 'error' ? (
+						<AlertTriangle className="h-4 w-4 text-white" strokeWidth={2.4} aria-hidden />
+					) : (
+						<Gift className="h-4 w-4 text-white" strokeWidth={2} aria-hidden />
+					)}
+				</button>
+			)}
+		</div>
+	) : null
 
 	if (isCatalogVideoOg && hasBanner) {
 		return (
@@ -410,23 +700,33 @@ function CouponSharePreview({
 					</>
 				)}
 
-				<div className="relative z-[1] flex min-h-[7.5rem] min-w-0 items-center gap-3 px-5 py-4 sm:gap-4 sm:px-7 sm:py-5">
-					{iconUrl ? (
-						<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
-							<img src={iconUrl} alt="" className="h-full w-full object-cover" draggable={false} />
-						</div>
-					) : null}
+				{!hasBanner ? (
+					<div
+						className={[
+							'relative z-[1] flex min-h-[7.5rem] min-w-0 items-center gap-3 px-5 py-4 sm:gap-4 sm:px-7 sm:py-5',
+							showTempClaim ? 'pr-[6.25rem] sm:pr-[6.75rem]' : '',
+						].join(' ')}
+					>
+						{iconUrl ? (
+							<div className="relative flex h-[3.35rem] w-[3.35rem] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/95 shadow-md ring-2 ring-black/10 sm:h-14 sm:w-14">
+								<img src={iconUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+							</div>
+						) : null}
 
-					{!hasBanner ? (
 						<CatalogShareMetadataBlock
 							meta={meta}
 							tone="inner"
 							showExpiryPill={showExpiryPill}
 							renderExpiryPill={renderExpiryPill}
+							{...metadataProps}
 						/>
-					) : null}
-
-				</div>
+						{claimButton}
+					</div>
+				) : showTempClaim ? (
+					<div className="relative z-[1] flex min-h-[7.5rem] items-center pr-[6.25rem] sm:pr-[6.75rem]">
+						{claimButton}
+					</div>
+				) : null}
 				</div>
 			</div>
 		</div>
@@ -447,8 +747,37 @@ function CouponSharePreview({
 						tone="external"
 						showExpiryPill={showExpiryPill}
 						renderExpiryPill={renderExpiryPill}
+						{...metadataProps}
 					/>
 				</div>
+			) : null}
+			{claimStatus === 'error' && claimError ? (
+				<p className="mt-2 px-1 text-center text-[11px] font-semibold text-amber-600">{claimError}</p>
+			) : null}
+			{isAlreadyClaimed ? (
+				<p className="mt-2 px-1 text-center text-[12px] font-medium text-emerald-600">
+					You already claimed this coupon.
+				</p>
+			) : null}
+			{isAlreadyRedeemed ? (
+				<p className="mt-2 px-1 text-center text-[12px] font-medium text-slate-500">
+					This temporary wallet already used this coupon.
+				</p>
+			) : null}
+			{eligibility === 'insufficient_social_points' ? (
+				<p className="mt-2 px-1 text-center text-[11px] font-semibold text-amber-600">
+					Not enough social points for this exchange.
+				</p>
+			) : null}
+			{eligibility === 'sold_out' ? (
+				<p className="mt-2 px-1 text-center text-[11px] font-semibold text-amber-600">
+					Coupon supply has been fully claimed.
+				</p>
+			) : null}
+			{eligibility === 'expired' ? (
+				<p className="mt-2 px-1 text-center text-[11px] font-semibold text-amber-600">
+					This coupon is inactive or expired.
+				</p>
 			) : null}
 		</div>
 	)
@@ -459,26 +788,40 @@ function CouponShareClaimActions({
 	search,
 	onIosNativeProbeResult,
 	shareKind,
-	showClaimInApp,
 }: {
 	targetUrl: string
 	search: string
 	onIosNativeProbeResult?: (result: NativeAppOpenResult) => void
 	shareKind?: CouponClaimShareMeta['shareKind']
-	showClaimInApp: boolean
 }) {
-	const [claimInAppBusy, setClaimInAppBusy] = useState(false)
+	const [busy, setBusy] = useState(false)
+	const mobile = isMobileDevice()
 	const isDiscoverMerchant = shareKind === 'discover_merchant'
-	const actionLabel = isDiscoverMerchant ? 'Discover' : shareKind === 'redeem' ? 'Redeem' : 'Claim'
-	const inAppLabel = isDiscoverMerchant ? 'Open in App' : 'Claim in App'
+	const isRedeem = shareKind === 'redeem'
 
-	const handleClaimInWeb = useCallback(() => {
-		window.location.href = targetUrl
-	}, [targetUrl])
+	/**
+	 * One CTA, adaptive workflow:
+	 * - Phone: try native Beamio → App Store if missing
+	 * - Laptop: open web `/app/` claim (or redeem) target
+	 * Discover merchant: phone-only (desktop already has in-page detail).
+	 */
+	const label = mobile
+		? isDiscoverMerchant
+			? 'Open in App'
+			: isRedeem
+				? 'Redeem in App'
+				: 'Unlock Beamio App to claim'
+		: isRedeem
+			? 'Continue to redeem'
+			: 'Continue to claim'
 
-	const handleClaimInApp = useCallback(async () => {
-		if (claimInAppBusy) return
-		setClaimInAppBusy(true)
+	const handlePrimary = useCallback(async () => {
+		if (busy) return
+		if (!mobile) {
+			window.location.href = targetUrl
+			return
+		}
+		setBusy(true)
 		try {
 			// Fresh probe on every tap — never reuse page-load result (user may install App and return).
 			const result = await attemptOpenNativeBeamioApp(search, {
@@ -490,45 +833,39 @@ function CouponShareClaimActions({
 				openBeamioAppStore()
 			}
 		} finally {
-			setClaimInAppBusy(false)
+			setBusy(false)
 		}
-	}, [claimInAppBusy, onIosNativeProbeResult, search])
+	}, [busy, mobile, onIosNativeProbeResult, search, targetUrl])
 
-	if (isDiscoverMerchant && !showClaimInApp) return null
+	if (isDiscoverMerchant && !mobile) return null
 
 	return (
-		<div className="mx-auto mt-6 flex w-full max-w-xs flex-col items-stretch gap-3">
-			{!isDiscoverMerchant ? (
-				<button
-					type="button"
-					onClick={handleClaimInWeb}
-					className="inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98]"
-					style={{ background: CLAIM_GRADIENT }}
-				>
+		<div className="mx-auto mt-6 w-full max-w-xs sm:max-w-sm">
+			<button
+				type="button"
+				onClick={() => void handlePrimary()}
+				disabled={busy}
+				aria-busy={busy}
+				aria-label={busy ? 'Opening Beamio' : label}
+				className="inline-flex w-full items-center justify-center gap-2.5 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 sm:py-4 sm:text-[15px]"
+				style={{ background: CLAIM_GRADIENT }}
+			>
+				{busy ? (
+					<Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+				) : mobile ? (
+					<img
+						src="/open-in-app.png"
+						alt=""
+						className="h-8 w-8 shrink-0 rounded-lg object-contain sm:h-9 sm:w-9"
+						draggable={false}
+					/>
+				) : isRedeem ? (
 					<Gift className="h-4 w-4 shrink-0" aria-hidden />
-					{actionLabel}
-				</button>
-			) : null}
-			{showClaimInApp ? (
-				<button
-					type="button"
-					onClick={() => void handleClaimInApp()}
-					disabled={claimInAppBusy}
-					className="inline-flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm transition-opacity hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{claimInAppBusy ? (
-						<Loader2 className="h-10 w-10 animate-spin text-[#1562f0]" aria-hidden />
-					) : (
-						<img
-							src="/open-in-app.png"
-							alt=""
-							className="h-10 w-10 shrink-0 rounded-xl object-contain"
-							draggable={false}
-						/>
-					)}
-					<span>{claimInAppBusy ? 'Opening Beamio…' : inAppLabel}</span>
-				</button>
-			) : null}
+				) : (
+					<Lock className="h-4 w-4 shrink-0" aria-hidden />
+				)}
+				<span>{busy ? 'Opening Beamio…' : label}</span>
+			</button>
 		</div>
 	)
 }
@@ -752,6 +1089,8 @@ export default function AppDownloadPage() {
 			? BEAMIO_ANDROID_STORE_URL
 			: BEAMIO_ANDROID_STORE_URL
 
+	const couponOpenClaim = useMemo(() => parseCouponOpenClaimFromTarget(targetUrl), [targetUrl])
+
 	const couponPreview =
 		effectiveShareMeta && shareUrl && (phase !== 'checking' || isDiscoverMerchantShare) ? (
 			isDiscoverMerchantShare && discoverMerchantCardAddress ? (
@@ -763,7 +1102,14 @@ export default function AppDownloadPage() {
 					referrerEoa={discoverReferrerEoa}
 				/>
 			) : !isDiscoverMerchantShare ? (
-				<CouponSharePreview meta={effectiveShareMeta} />
+				<CouponSharePreview
+					meta={effectiveShareMeta}
+					referrerEoa={couponOpenClaim?.referrerEoa ?? null}
+					enableTempWalletClaim={
+						effectiveShareMeta.shareKind !== 'redeem' &&
+						effectiveShareMeta.distributionKind !== 'catalog'
+					}
+				/>
 			) : null
 		) : null
 
@@ -781,7 +1127,6 @@ export default function AppDownloadPage() {
 				search={location.search}
 				onIosNativeProbeResult={setIosNativeProbe}
 				shareKind={effectiveShareMeta.shareKind}
-				showClaimInApp={isMobileDevice()}
 			/>
 		) : null
 

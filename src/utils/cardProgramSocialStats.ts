@@ -42,6 +42,27 @@ export function formatProgramSocialStatCount(n: number | null | undefined): stri
 export async function fetchCardProgramSocialSummary(
 	cardAddress: string,
 ): Promise<CardProgramSocialSummary | null> {
+	return fetchProgramSocialSummary(cardAddress, 1, '0')
+}
+
+/**
+ * Coupon (L2 issued NFT) like + share-click aggregates.
+ * `targetKind=2`, `issuedParentId` = series tokenId.
+ */
+export async function fetchCouponProgramSocialSummary(
+	cardAddress: string,
+	tokenId: string | number,
+): Promise<CardProgramSocialSummary | null> {
+	const tid = String(tokenId ?? '').trim().replace(/,/g, '')
+	if (!/^\d+$/.test(tid)) return null
+	return fetchProgramSocialSummary(cardAddress, 2, tid)
+}
+
+async function fetchProgramSocialSummary(
+	cardAddress: string,
+	targetKind: number,
+	issuedParentId: string,
+): Promise<CardProgramSocialSummary | null> {
 	let addr: string
 	try {
 		addr = ethers.getAddress(String(cardAddress ?? '').trim())
@@ -53,8 +74,8 @@ export async function fetchCardProgramSocialSummary(
 			cardAddress: addr,
 			mode: 'summary',
 			limit: '1',
-			targetKind: '1',
-			issuedParentId: '0',
+			targetKind: String(targetKind),
+			issuedParentId,
 		})}`
 		const res = await fetch(url)
 		if (!res.ok) return null
