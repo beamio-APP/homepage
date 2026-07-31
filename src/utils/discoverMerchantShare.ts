@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
+import { appendAppDownloadShareCacheBust } from '@/utils/appDownloadShareCacheBust'
 
-/** Outer app-download share URL with optional `ref=` referrer (sharer EOA). */
+/** Outer app-download share URL with optional `ref=` referrer (sharer EOA) + `v=` OG cache bust. */
 export function buildDiscoverMerchantShareUrl(
 	cardAddress: string,
 	referrerEoa?: string | null,
@@ -13,7 +14,8 @@ export function buildDiscoverMerchantShareUrl(
 	if (refRaw && ethers.isAddress(refRaw)) {
 		discoverUrl += `&ref=${encodeURIComponent(ethers.getAddress(refRaw))}`
 	}
-	return `https://beamio.app/app-download?target=${encodeURIComponent(discoverUrl)}`
+	const base = `https://beamio.app/app-download?target=${encodeURIComponent(discoverUrl)}`
+	return appendAppDownloadShareCacheBust(base)
 }
 
 export async function shareDiscoverMerchantUrl(

@@ -18,6 +18,7 @@ import {
 	Radio,
 	Share2,
 	Store,
+	Ticket,
 	UtensilsCrossed,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -26,8 +27,12 @@ import {
 	couponExpiryUsesUrgentVariant,
 	shouldShowCouponExpiryPill,
 } from '../utils/couponClaimShare'
+import { appendAppDownloadShareCacheBust } from '../utils/appDownloadShareCacheBust'
+import { CouponTicketAddressMetaRow } from './CouponTicketAddressMetaRow'
+import { ethers } from 'ethers'
 import {
 	formatProgramSocialStatCount,
+	fetchCouponProgramSocialSummary,
 	mergeCardProgramSocialSummary,
 	type CardProgramSocialSummary,
 } from '../utils/cardProgramSocialStats'
@@ -217,13 +222,14 @@ function CouponBannerImage({ src }: { src: string }) {
 
 /**
  * Align SilentPassUI Discover `ActiveCouponTicketItem` + `metadataBelowBackgroundImage`:
- * - With banner: image only in ticket; title / subtitle / expiry below.
- * - Without banner: icon + title + subtitle + expiry inside ticket (white text).
+ * - With banner: image only in ticket; title / subtitle / address-meta / expiry below.
+ * - Without banner: icon + title + subtitle + address-meta + expiry inside ticket (white text).
  */
 function DiscoverShareCouponTicket({
 	coupon,
 	showActionButton = false,
 	actionStatus = 'idle',
+	actionKind = 'gift',
 	actionError,
 	actionDisabled = false,
 	onAction,
@@ -231,6 +237,8 @@ function DiscoverShareCouponTicket({
 	coupon: DiscoverMerchantCouponPreview
 	showActionButton?: boolean
 	actionStatus?: DiscoverCouponClaimButtonStatus
+	/** Terminal status chrome when claimed / redeemed. */
+	actionKind?: 'gift' | 'claimed' | 'redeemed'
 	actionError?: string
 	actionDisabled?: boolean
 	onAction?: () => void
@@ -243,6 +251,50 @@ function DiscoverShareCouponTicket({
 	const subtitle = coupon.subtitle.trim()
 	const iconUrl = hasBanner ? '' : coupon.iconUrl.trim()
 	const copyBelowBanner = hasBanner
+
+	const claimShareUrl = useMemo(() => {
+		const addr = coupon.cardAddress?.trim() ?? ''
+		const cid = coupon.couponId?.trim() ?? ''
+		if (!addr || !cid || !ethers.isAddress(addr)) return ''
+		try {
+			const claimUrl = `https://beamio.app/app/?beamiocard=${encodeURIComponent(
+				ethers.getAddress(addr),
+			)}&couponId=${encodeURIComponent(cid)}&claim=open`
+			const base = `https://beamio.app/app-download?target=${encodeURIComponent(claimUrl)}`
+			return appendAppDownloadShareCacheBust(base)
+		} catch {
+			return ''
+		}
+	}, [coupon.cardAddress, coupon.couponId])
+
+	const [socialStats, setSocialStats] = useState<CardProgramSocialSummary | null>(null)
+	useEffect(() => {
+		const card = coupon.cardAddress?.trim() ?? ''
+		const tokenId = coupon.tokenId?.trim() ?? ''
+		if (!card || !tokenId) return
+		let cancelled = false
+		void fetchCouponProgramSocialSummary(card, tokenId).then((summary) => {
+			if (cancelled || !summary) return
+			setSocialStats(summary)
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [coupon.cardAddress, coupon.tokenId])
+
+	const addressMeta = (
+		<CouponTicketAddressMetaRow
+			cardAddress={coupon.cardAddress}
+			tokenId={coupon.tokenId}
+			shareUrl={claimShareUrl}
+			shareTitle={title}
+			supplySummary={coupon.supplySummary}
+			likeCount={socialStats?.likeCount ?? null}
+			shareClickCount={socialStats?.shareClickCount ?? null}
+			variant={copyBelowBanner ? 'light' : 'onDark'}
+			className={title || subtitle ? 'mt-1.5' : 'mt-0.5'}
+		/>
+	)
 
 	const expiryPillInner = (
 		<div
@@ -273,20 +325,31 @@ function DiscoverShareCouponTicket({
 	)
 
 	const claimActionAriaLabel =
-		actionStatus === 'success'
-			? 'Coupon claimed'
-			: actionStatus === 'error'
-				? actionError ?? 'Coupon claim failed'
-				: 'Claim'
+		actionKind === 'redeemed'
+			? 'Coupon already redeemed'
+			: actionKind === 'claimed' || actionStatus === 'success'
+				? 'Coupon claimed'
+				: actionStatus === 'error'
+					? actionError ?? 'Coupon claim failed'
+					: 'Claim'
 
 	const claimButton = showActionButton ? (
 		<div className="pointer-events-auto absolute right-6 top-1/2 z-[2] -translate-y-1/2 sm:right-8">
-			{actionStatus === 'success' ? (
+			{actionKind === 'redeemed' ? (
 				<span
-					className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-2.5 py-1.5"
+					className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-400/50 bg-slate-100/90 shadow-sm ring-1 ring-slate-300/40 backdrop-blur-sm"
 					aria-label={claimActionAriaLabel}
+					title="Redeemed"
 				>
-					<Check className="h-4 w-4 text-white" strokeWidth={2.4} aria-hidden />
+					<Ticket className="h-4 w-4 text-slate-500" strokeWidth={2.25} aria-hidden />
+				</span>
+			) : actionKind === 'claimed' || actionStatus === 'success' ? (
+				<span
+					className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/40 bg-transparent shadow-sm ring-1 ring-emerald-500/15 backdrop-blur-sm"
+					aria-label={claimActionAriaLabel}
+					title="Claimed"
+				>
+					<Check className="h-4 w-4 text-emerald-500" strokeWidth={2.4} aria-hidden />
 				</span>
 			) : (
 				<button
@@ -373,6 +436,7 @@ function DiscoverShareCouponTicket({
 									{subtitle}
 								</p>
 							) : null}
+							{addressMeta}
 							{showExpiry && !copyBelowBanner ? <div className="mt-2">{expiryPillInner}</div> : null}
 						</div>
 						{claimButton}
@@ -399,13 +463,9 @@ function DiscoverShareCouponTicket({
 							{subtitle}
 						</p>
 					) : null}
+					{addressMeta}
 					{showExpiry ? <div className="mt-2">{expiryPillExternal}</div> : null}
 				</div>
-			) : null}
-			{coupon.supplySummary ? (
-				<p className="line-clamp-1 px-1 text-[11px] font-semibold text-slate-500">
-					{coupon.supplySummary}
-				</p>
 			) : null}
 		</div>
 	)
@@ -428,17 +488,27 @@ function DiscoverShareCouponOfferRow({
 }) {
 	const showClaimButton = claimEligibility != null && claimEligibility !== 'not_open_claim'
 	const isAlreadyClaimed = claimEligibility === 'already_claimed'
+	const isAlreadyRedeemed = claimEligibility === 'already_redeemed'
 	const insufficientSocialPoints = claimEligibility === 'insufficient_social_points'
 	const canClaim =
 		claimEligibility === 'claimable' || claimEligibility === 'unknown'
 	const claimDisabled =
-		isAlreadyClaimed || insufficientSocialPoints || !canClaim || claimStatus !== 'idle'
+		isAlreadyClaimed ||
+		isAlreadyRedeemed ||
+		insufficientSocialPoints ||
+		!canClaim ||
+		claimStatus !== 'idle'
 	const ticketActionStatus: DiscoverCouponClaimButtonStatus =
 		claimStatus !== 'idle'
 			? claimStatus
-			: isAlreadyClaimed
+			: isAlreadyClaimed || isAlreadyRedeemed
 				? 'success'
 				: 'idle'
+	const ticketActionKind: 'gift' | 'claimed' | 'redeemed' = isAlreadyRedeemed
+		? 'redeemed'
+		: isAlreadyClaimed
+			? 'claimed'
+			: 'gift'
 
 	const socialMissionBlock = useMemo(
 		() =>
@@ -457,13 +527,24 @@ function DiscoverShareCouponOfferRow({
 				coupon={coupon}
 				showActionButton={showClaimButton}
 				actionStatus={ticketActionStatus}
+				actionKind={ticketActionKind}
 				actionError={claimError}
 				actionDisabled={claimDisabled}
-				onAction={canClaim && !isAlreadyClaimed ? onClaim : undefined}
+				onAction={canClaim && !isAlreadyClaimed && !isAlreadyRedeemed ? onClaim : undefined}
 			/>
 			{insufficientSocialPoints ? (
 				<p className="px-1 text-[11px] font-semibold text-amber-600">
 					Not enough social points for this exchange.
+				</p>
+			) : null}
+			{isAlreadyClaimed ? (
+				<p className="px-1 text-[12px] font-medium text-emerald-600">
+					You already claimed this coupon.
+				</p>
+			) : null}
+			{isAlreadyRedeemed ? (
+				<p className="px-1 text-[12px] font-medium text-slate-500">
+					You already used this coupon.
 				</p>
 			) : null}
 			{showSocialMission ? (
