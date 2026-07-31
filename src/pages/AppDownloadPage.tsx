@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ethers } from 'ethers'
 import { useLocation } from 'react-router-dom'
-import { AlertTriangle, Calendar, Check, Clock, Download, Gift, Loader2, Lock, Smartphone, Ticket } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, Clock, Download, Gift, Loader2, Lock, QrCode, Smartphone, Ticket } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -349,11 +349,14 @@ function CouponSharePreview({
 	meta,
 	referrerEoa = null,
 	enableTempWalletClaim = false,
+	onPayReadyChange,
 }: {
 	meta: CouponClaimShareMeta
 	referrerEoa?: string | null
 	/** Open-claim: Gift icon on ticket right uses visit/temp wallet. */
 	enableTempWalletClaim?: boolean
+	/** True when visit wallet holds this coupon (claimed, not burned) — parent shows Show Pay for POS. */
+	onPayReadyChange?: (ready: boolean) => void
 }) {
 	const catalogVideoOgCardRef = React.useRef<HTMLDivElement>(null)
 	const catalogVideoOgCardMaxHeightPx = useCatalogVideoOgShareCardMaxHeight(catalogVideoOgCardRef)
@@ -481,6 +484,12 @@ function CouponSharePreview({
 		eligibility === 'expired' ||
 		eligibility === 'not_open_claim' ||
 		eligibility === 'insufficient_social_points'
+
+	const payReady = showTempClaim && isAlreadyClaimed && !isAlreadyRedeemed
+	useEffect(() => {
+		onPayReadyChange?.(payReady)
+		return () => onPayReadyChange?.(false)
+	}, [onPayReadyChange, payReady])
 
 	const handleTempWalletClaim = useCallback(async () => {
 		if (!showTempClaim || claimStatus !== 'idle' || claimBlocked) return
@@ -756,7 +765,7 @@ function CouponSharePreview({
 			) : null}
 			{isAlreadyClaimed ? (
 				<p className="mt-2 px-1 text-center text-[12px] font-medium text-emerald-600">
-					You already claimed this coupon.
+					You already claimed this coupon. Show Pay at the merchant POS to redeem.
 				</p>
 			) : null}
 			{isAlreadyRedeemed ? (
@@ -788,35 +797,48 @@ function CouponShareClaimActions({
 	search,
 	onIosNativeProbeResult,
 	shareKind,
+	mode = 'unlock',
+	onShowPay,
 }: {
 	targetUrl: string
 	search: string
 	onIosNativeProbeResult?: (result: NativeAppOpenResult) => void
 	shareKind?: CouponClaimShareMeta['shareKind']
+	/** Claimed coupon on this visit wallet → Show Pay QR for POS 核销. */
+	mode?: 'unlock' | 'show_pay'
+	onShowPay?: () => void
 }) {
 	const [busy, setBusy] = useState(false)
 	const mobile = isMobileDevice()
 	const isDiscoverMerchant = shareKind === 'discover_merchant'
 	const isRedeem = shareKind === 'redeem'
+	const showPay = mode === 'show_pay'
 
 	/**
 	 * One CTA, adaptive workflow:
-	 * - Phone: try native Beamio → App Store if missing
-	 * - Laptop: open web `/app/` claim (or redeem) target
+	 * - show_pay: open OpenContainer pay QR for POS scan / coupon burn
+	 * - Phone unlock: try native Beamio → App Store if missing
+	 * - Laptop unlock: open web `/app/` claim (or redeem) target
 	 * Discover merchant: phone-only (desktop already has in-page detail).
 	 */
-	const label = mobile
-		? isDiscoverMerchant
-			? 'Open in App'
+	const label = showPay
+		? 'Show Pay'
+		: mobile
+			? isDiscoverMerchant
+				? 'Open in App'
+				: isRedeem
+					? 'Redeem in App'
+					: 'Unlock Beamio App to claim'
 			: isRedeem
-				? 'Redeem in App'
-				: 'Unlock Beamio App to claim'
-		: isRedeem
-			? 'Continue to redeem'
-			: 'Continue to claim'
+				? 'Continue to redeem'
+				: 'Continue to claim'
 
 	const handlePrimary = useCallback(async () => {
 		if (busy) return
+		if (showPay) {
+			onShowPay?.()
+			return
+		}
 		if (!mobile) {
 			window.location.href = targetUrl
 			return
@@ -835,9 +857,9 @@ function CouponShareClaimActions({
 		} finally {
 			setBusy(false)
 		}
-	}, [busy, mobile, onIosNativeProbeResult, search, targetUrl])
+	}, [busy, mobile, onIosNativeProbeResult, onShowPay, search, showPay, targetUrl])
 
-	if (isDiscoverMerchant && !mobile) return null
+	if (isDiscoverMerchant && !mobile && !showPay) return null
 
 	return (
 		<div className="mx-auto mt-6 w-full max-w-xs sm:max-w-sm">
@@ -852,6 +874,8 @@ function CouponShareClaimActions({
 			>
 				{busy ? (
 					<Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+				) : showPay ? (
+					<QrCode className="h-5 w-5 shrink-0" strokeWidth={2.25} aria-hidden />
 				) : mobile ? (
 					<img
 						src="/open-in-app.png"
@@ -883,6 +907,7 @@ export default function AppDownloadPage() {
 	const [visitWalletProfile, setVisitWalletProfile] = useState<AppDownloadVisitWalletProfile | null>(null)
 	const [myWalletOpen, setMyWalletOpen] = useState(false)
 	const [payCodeOpen, setPayCodeOpen] = useState(false)
+	const [couponPayReady, setCouponPayReady] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 	const shareClickStartedRef = useRef(false)
 	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
@@ -1020,9 +1045,13 @@ export default function AppDownloadPage() {
 		}
 	}, [discoverMerchantCardAddress])
 
-	/** Silent web_ / existing PWA wallet for top-right @beamioTag capsule (Discover merchant share). */
+	/** Visit / temp wallet for Discover top bar + coupon Show Pay QR (POS 核销). */
 	useEffect(() => {
-		if (redirectingToInnerTarget || !isDiscoverMerchantShare) return
+		if (redirectingToInnerTarget) return
+		const needsVisitWallet =
+			isDiscoverMerchantShare ||
+			Boolean(parseCouponOpenClaimFromTarget(targetUrl)?.couponId)
+		if (!needsVisitWallet) return
 		let cancelled = false
 		void (async () => {
 			const profile = await loadAppDownloadVisitWalletProfile()
@@ -1031,7 +1060,7 @@ export default function AppDownloadPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [isDiscoverMerchantShare, redirectingToInnerTarget])
+	}, [isDiscoverMerchantShare, redirectingToInnerTarget, targetUrl])
 
 	useEffect(() => {
 		if (!myWalletOpen) return
@@ -1109,6 +1138,7 @@ export default function AppDownloadPage() {
 						effectiveShareMeta.shareKind !== 'redeem' &&
 						effectiveShareMeta.distributionKind !== 'catalog'
 					}
+					onPayReadyChange={setCouponPayReady}
 				/>
 			) : null
 		) : null
@@ -1119,7 +1149,7 @@ export default function AppDownloadPage() {
 		isCouponShareMeta(effectiveShareMeta) &&
 		phase !== 'checking' &&
 		/** Discover merchant landing 已在页内展示详情，桌面端无需底部 CTA。 */
-		(!isDiscoverMerchantShare || isMobileDevice())
+		(!isDiscoverMerchantShare || isMobileDevice() || couponPayReady)
 
 	const couponClaimActions = showCouponClaimActions ? (
 			<CouponShareClaimActions
@@ -1127,6 +1157,8 @@ export default function AppDownloadPage() {
 				search={location.search}
 				onIosNativeProbeResult={setIosNativeProbe}
 				shareKind={effectiveShareMeta.shareKind}
+				mode={couponPayReady ? 'show_pay' : 'unlock'}
+				onShowPay={() => setPayCodeOpen(true)}
 			/>
 		) : null
 
