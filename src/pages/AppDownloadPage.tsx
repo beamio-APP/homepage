@@ -45,6 +45,7 @@ import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
 import AppDownloadPayCodeSheet from '../components/AppDownloadPayCodeSheet'
 import {
 	loadAppDownloadVisitWalletProfile,
+	prepareVisitWalletForOpenClaim,
 	provisionWebShareVisitWallet,
 	resolveSigningWalletFromBlob,
 	type AppDownloadVisitWalletProfile,
@@ -389,6 +390,9 @@ function CouponSharePreview({
 	const [claimStatus, setClaimStatus] = useState<CouponTempClaimStatus>('idle')
 	const [claimError, setClaimError] = useState<string | undefined>()
 	const [eligibility, setEligibility] = useState<CouponOpenClaimEligibility | null>(null)
+	/** CoNET AA must exist before temp-wallet Claim is pressable. */
+	const [visitAaReady, setVisitAaReady] = useState(false)
+	const [aaPrepEpoch, setAaPrepEpoch] = useState(0)
 	const walletBlobRef = useRef<Awaited<ReturnType<typeof provisionWebShareVisitWallet>>>(null)
 	const claimStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -426,21 +430,40 @@ function CouponSharePreview({
 		}
 	}, [isCouponTicket, meta.cardAddress, meta.tokenId, seriesExtras.tokenId])
 
+	// Prepare visit EOA + CoNET AA before Claim is enabled (setTimeout chain, no setInterval).
 	useEffect(() => {
-		if (!showTempClaim) return
+		if (!showTempClaim) {
+			setVisitAaReady(false)
+			return
+		}
 		let cancelled = false
-		void provisionWebShareVisitWallet().then((blob) => {
-			if (!cancelled) walletBlobRef.current = blob
-		})
+		let timer: ReturnType<typeof setTimeout> | undefined
+		setVisitAaReady(false)
+
+		const tick = async () => {
+			if (cancelled) return
+			const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
+			if (cancelled) return
+			if (prepared) {
+				walletBlobRef.current = prepared.blob
+				setVisitAaReady(true)
+				return
+			}
+			timer = setTimeout(() => {
+				void tick()
+			}, 2000)
+		}
+		void tick()
 		return () => {
 			cancelled = true
+			if (timer !== undefined) clearTimeout(timer)
 		}
-	}, [showTempClaim])
+	}, [showTempClaim, aaPrepEpoch])
 
 	// Temp-wallet claimed / redeemed status (local-first visit wallet → chain).
 	useEffect(() => {
-		if (!showTempClaim || !seriesExtras.seriesItem) {
-			setEligibility(null)
+		if (!showTempClaim || !seriesExtras.seriesItem || !visitAaReady) {
+			if (!showTempClaim || !seriesExtras.seriesItem) setEligibility(null)
 			return
 		}
 		let cancelled = false
@@ -458,7 +481,7 @@ function CouponSharePreview({
 		return () => {
 			cancelled = true
 		}
-	}, [showTempClaim, seriesExtras.seriesItem])
+	}, [showTempClaim, seriesExtras.seriesItem, visitAaReady])
 
 	useEffect(
 		() => () => {
@@ -493,29 +516,27 @@ function CouponSharePreview({
 	}, [onPayReadyChange, payReady])
 
 	const handleTempWalletClaim = useCallback(async () => {
-		if (!showTempClaim || claimStatus !== 'idle' || claimBlocked) return
-		let blob = walletBlobRef.current
-		if (!blob) {
-			blob = await provisionWebShareVisitWallet()
-			walletBlobRef.current = blob
-		}
-		const wallet = resolveSigningWalletFromBlob(blob)
-		const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
-		if (!privateKeyArmor) {
-			setClaimStatus('error')
-			setClaimError('Could not prepare a temporary wallet.')
-			scheduleClaimErrorReset()
-			return
-		}
+		if (!showTempClaim || !visitAaReady || claimStatus !== 'idle' || claimBlocked) return
 
 		setClaimStatus('loading')
 		setClaimError(undefined)
 		try {
+			const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
+			if (!prepared) {
+				setVisitAaReady(false)
+				setAaPrepEpoch((n) => n + 1)
+				setClaimStatus('error')
+				setClaimError('Smart Wallet is still preparing. Please wait and try again.')
+				scheduleClaimErrorReset()
+				return
+			}
+			walletBlobRef.current = prepared.blob
+
 			const ret = await postCardCouponOpenClaimWithWallet({
 				cardAddress: meta.cardAddress,
 				couponId: meta.couponId,
 				tokenId: seriesExtras.tokenId ?? meta.tokenId ?? undefined,
-				privateKeyArmor,
+				privateKeyArmor: prepared.privateKeyArmor,
 				referrerEoa,
 			})
 			if (ret.success) {
@@ -550,6 +571,7 @@ function CouponSharePreview({
 		scheduleClaimErrorReset,
 		seriesExtras.tokenId,
 		showTempClaim,
+		visitAaReady,
 	])
 
 	const iconUrl = isCatalogVideoOg
@@ -590,13 +612,16 @@ function CouponSharePreview({
 		shareClickCount: socialStats?.shareClickCount ?? null,
 	} as const
 
+	const claimBusy = !visitAaReady || claimStatus === 'loading'
 	const claimActionAriaLabel = isAlreadyRedeemed
 		? 'Coupon already redeemed'
 		: isAlreadyClaimed
 			? 'Coupon claimed'
-			: claimStatus === 'error'
-				? claimError ?? 'Coupon claim failed'
-				: 'Claim with temporary wallet'
+			: !visitAaReady
+				? 'Preparing Smart Wallet'
+				: claimStatus === 'error'
+					? claimError ?? 'Coupon claim failed'
+					: 'Claim with temporary wallet'
 
 	const claimButton = showTempClaim ? (
 		<div className="pointer-events-auto absolute right-6 top-1/2 z-[2] -translate-y-1/2 sm:right-8">
@@ -619,18 +644,24 @@ function CouponSharePreview({
 			) : (
 				<button
 					type="button"
-					disabled={claimStatus !== 'idle' || claimBlocked}
+					disabled={!visitAaReady || claimStatus !== 'idle' || claimBlocked}
 					onClick={(e) => {
 						e.stopPropagation()
 						void handleTempWalletClaim()
 					}}
 					className="inline-flex items-center justify-center rounded-full px-2.5 py-1.5 transition-opacity active:scale-95 disabled:cursor-not-allowed disabled:opacity-55"
 					style={{ background: CLAIM_GRADIENT }}
-					title={claimStatus === 'error' ? claimError : 'Claim with temporary wallet'}
+					title={
+						!visitAaReady
+							? 'Preparing Smart Wallet…'
+							: claimStatus === 'error'
+								? claimError
+								: 'Claim with temporary wallet'
+					}
 					aria-label={claimActionAriaLabel}
-					aria-busy={claimStatus === 'loading'}
+					aria-busy={claimBusy}
 				>
-					{claimStatus === 'loading' ? (
+					{claimBusy ? (
 						<Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden />
 					) : claimStatus === 'error' ? (
 						<AlertTriangle className="h-4 w-4 text-white" strokeWidth={2.4} aria-hidden />

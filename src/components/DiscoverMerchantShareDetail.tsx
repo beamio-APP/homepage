@@ -57,8 +57,8 @@ import {
 	resolveCouponOpenClaimEligibility,
 } from '../utils/discoverCouponOpenClaim'
 import {
+	prepareVisitWalletForOpenClaim,
 	provisionWebShareVisitWallet,
-	resolveSigningWalletFromBlob,
 } from '../utils/beamioWebShareWallet'
 import { buildDiscoverActivePromotionsPanelModel, resolveCouponSocialMissionBlockForSeries } from '../utils/discoverMerchantPromotions'
 import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
@@ -675,7 +675,9 @@ export function DiscoverMerchantShareDetail({
 		Record<string, DiscoverCouponClaimButtonStatus>
 	>({})
 	const [couponClaimErrorById, setCouponClaimErrorById] = useState<Record<string, string>>({})
-	const walletBlobRef = useRef<encrypt_keys_object | null>(null)
+	const [visitAaReady, setVisitAaReady] = useState(false)
+	const [aaPrepEpoch, setAaPrepEpoch] = useState(0)
+	const walletBlobRef = useRef<Awaited<ReturnType<typeof provisionWebShareVisitWallet>>>(null)
 	const couponClaimStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
 	useEffect(() => {
@@ -690,6 +692,31 @@ export function DiscoverMerchantShareDetail({
 			cancelled = true
 		}
 	}, [cardAddress, shareMeta])
+
+	// Block coupon Claim until CoNET AA has bytecode (setTimeout chain).
+	useEffect(() => {
+		let cancelled = false
+		let timer: ReturnType<typeof setTimeout> | undefined
+		setVisitAaReady(false)
+		const tick = async () => {
+			if (cancelled) return
+			const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
+			if (cancelled) return
+			if (prepared) {
+				walletBlobRef.current = prepared.blob
+				setVisitAaReady(true)
+				return
+			}
+			timer = setTimeout(() => {
+				void tick()
+			}, 2000)
+		}
+		void tick()
+		return () => {
+			cancelled = true
+			if (timer !== undefined) clearTimeout(timer)
+		}
+	}, [aaPrepEpoch])
 
 	useEffect(() => {
 		if (!cardAddress) {
@@ -727,16 +754,6 @@ export function DiscoverMerchantShareDetail({
 			cancelled = true
 		}
 	}, [cardAddress, userEoa])
-
-	useEffect(() => {
-		let cancelled = false
-		void provisionWebShareVisitWallet().then((blob) => {
-			if (!cancelled) walletBlobRef.current = blob
-		})
-		return () => {
-			cancelled = true
-		}
-	}, [])
 
 	const couponSeriesByTokenId = useMemo(() => {
 		const map = new Map<string, DiscoverMerchantCouponSeriesRow>()
@@ -803,17 +820,9 @@ export function DiscoverMerchantShareDetail({
 
 	const handleDiscoverCouponClaim = useCallback(
 		async (coupon: DiscoverMerchantCouponPreview) => {
+			if (!visitAaReady) return
 			const currentStatus = couponClaimStatusById[coupon.id] ?? 'idle'
 			if (currentStatus !== 'idle') return
-
-			let blob = walletBlobRef.current
-			if (!blob) {
-				blob = await provisionWebShareVisitWallet()
-				walletBlobRef.current = blob
-			}
-			const wallet = resolveSigningWalletFromBlob(blob)
-			const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
-			if (!privateKeyArmor) return
 
 			setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'loading' }))
 			setCouponClaimErrorById((s) => {
@@ -824,11 +833,25 @@ export function DiscoverMerchantShareDetail({
 			})
 
 			try {
+				const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
+				if (!prepared) {
+					setVisitAaReady(false)
+					setAaPrepEpoch((n) => n + 1)
+					setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'error' }))
+					setCouponClaimErrorById((s) => ({
+						...s,
+						[coupon.id]: 'Smart Wallet is still preparing. Please wait and try again.',
+					}))
+					scheduleCouponClaimStatusReset(coupon.id)
+					return
+				}
+				walletBlobRef.current = prepared.blob
+
 				const ret = await postCardCouponOpenClaimWithWallet({
 					cardAddress: coupon.cardAddress,
 					couponId: coupon.couponId,
 					tokenId: coupon.tokenId,
-					privateKeyArmor,
+					privateKeyArmor: prepared.privateKeyArmor,
 					referrerEoa,
 				})
 				if (ret.success) {
@@ -853,7 +876,7 @@ export function DiscoverMerchantShareDetail({
 				scheduleCouponClaimStatusReset(coupon.id)
 			}
 		},
-		[couponClaimStatusById, referrerEoa, scheduleCouponClaimStatusReset],
+		[couponClaimStatusById, referrerEoa, scheduleCouponClaimStatusReset, visitAaReady],
 	)
 
 	const view: DiscoverMerchantLandingModel = model ?? {
@@ -1040,7 +1063,11 @@ export function DiscoverMerchantShareDetail({
 											coupon={coupon}
 											seriesRow={couponSeriesByTokenId.get(coupon.tokenId) ?? null}
 											claimEligibility={couponClaimEligibilityById[coupon.id]}
-											claimStatus={couponClaimStatusById[coupon.id] ?? 'idle'}
+											claimStatus={
+												!visitAaReady
+													? 'loading'
+													: (couponClaimStatusById[coupon.id] ?? 'idle')
+											}
 											claimError={couponClaimErrorById[coupon.id]}
 											onClaim={() => void handleDiscoverCouponClaim(coupon)}
 										/>

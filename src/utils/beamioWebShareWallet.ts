@@ -489,7 +489,8 @@ async function fetchEnsureAaFromApi(eoa: string): Promise<string | null> {
 	}
 }
 
-async function ensureVisitWalletAaOnConet(eoa: string): Promise<string | null> {
+/** Ensure CoNET Smart Wallet (AA) exists with bytecode for this EOA. */
+export async function ensureVisitWalletAaOnConet(eoa: string): Promise<string | null> {
 	const norm = ethers.getAddress(eoa)
 	const existing = await resolveAaOnChain(norm).catch(() => null)
 	if (existing) return existing
@@ -505,7 +506,44 @@ async function ensureVisitWalletAaOnConet(eoa: string): Promise<string | null> {
 		}
 	}
 
-	return fetchEnsureAaFromApi(norm)
+	const ensured = await fetchEnsureAaFromApi(norm)
+	if (!ensured) return null
+	// Relay may return address before code is visible — require on-chain bytecode.
+	try {
+		const provider = new ethers.JsonRpcProvider(CONET_RPC_URL, 224422)
+		const code = await provider.getCode(ensured).catch(() => '0x')
+		if (code && code !== '0x' && code.length > 2) return ensured
+	} catch {
+		/* not ready yet */
+	}
+	return resolveAaOnChain(norm).catch(() => null)
+}
+
+export type PreparedVisitWalletForOpenClaim = {
+	blob: encrypt_keys_object
+	privateKeyArmor: string
+	eoa: string
+	aa: string
+}
+
+/**
+ * Provision visit/temp wallet and block until CoNET AA has bytecode.
+ * Open-claim UI must not enable Claim until this resolves with `aa`.
+ */
+export async function prepareVisitWalletForOpenClaim(
+	existingBlob?: encrypt_keys_object | null,
+): Promise<PreparedVisitWalletForOpenClaim | null> {
+	const blob = existingBlob ?? (await provisionWebShareVisitWallet())
+	if (!blob) return null
+	const wallet = resolveSigningWalletFromBlob(blob)
+	const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
+	if (!wallet || !privateKeyArmor) return null
+	const eoa = ethers.getAddress(wallet.address)
+	const aa = await ensureVisitWalletAaOnConet(eoa)
+	if (!aa) return null
+	await persistAaToVisitWalletProfile(aa)
+	const nextBlob = CoNET_Data ?? blob
+	return { blob: nextBlob, privateKeyArmor, eoa, aa }
 }
 
 async function persistAaToVisitWalletProfile(aa: string): Promise<void> {
