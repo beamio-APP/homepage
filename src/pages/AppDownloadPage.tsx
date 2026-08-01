@@ -51,6 +51,7 @@ import {
 } from '../utils/beamioWebShareWallet'
 import { postCardCouponOpenClaimWithWallet, resolveCouponOpenClaimEligibilityForItem, type CardActiveIssuedCouponSeriesItem, type CouponOpenClaimEligibility } from '../utils/discoverCouponOpenClaim'
 import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
+import { BEAMIO_FIXED_CAPSULE_SCROLL_TOP_SPACER } from '../utils/beamioFixedTopCapsuleLayout'
 
 type CouponTempClaimStatus = 'idle' | 'loading' | 'success' | 'error'
 
@@ -831,7 +832,7 @@ function CouponShareClaimActions({
 					: 'Unlock Beamio App to claim'
 			: isRedeem
 				? 'Continue to redeem'
-				: 'Continue to claim'
+				: 'Unlock Beamio App to claim'
 
 	const handlePrimary = useCallback(async () => {
 		if (busy) return
@@ -1009,6 +1010,23 @@ export default function AppDownloadPage() {
 				Boolean(parseDiscoverMerchantOpenFromTarget(targetUrl)?.cardAddress)),
 	)
 
+	/** Coupon / redeem open-claim card (for top bar Scan to Pay + @tag, same as merchant). */
+	const couponShareCardAddress = useMemo(() => {
+		const fromMeta = shareMeta?.cardAddress?.trim() ?? ''
+		if (fromMeta && ethers.isAddress(fromMeta) && shareMeta && isCouponShareMeta(shareMeta) && !isDiscoverMerchantMeta(shareMeta)) {
+			try {
+				return ethers.getAddress(fromMeta)
+			} catch {
+				/* fall through */
+			}
+		}
+		const fromTarget = parseCouponOpenClaimFromTarget(targetUrl)?.cardAddress
+		return fromTarget ?? null
+	}, [shareMeta, targetUrl])
+
+	const topBarCardAddress = discoverMerchantCardAddress ?? couponShareCardAddress
+	const showAppDownloadTopBar = Boolean(topBarCardAddress) && !myWalletOpen
+
 	const effectiveShareMeta = useMemo((): CouponClaimShareMeta | null => {
 		if (shareMeta) return shareMeta
 		if (!discoverMerchantCardAddress || !shareUrl) return null
@@ -1031,19 +1049,20 @@ export default function AppDownloadPage() {
 	}, [discoverMerchantCardAddress, shareMeta, shareUrl])
 
 	useEffect(() => {
-		if (!discoverMerchantCardAddress) {
+		const card = discoverMerchantCardAddress ?? couponShareCardAddress
+		if (!card) {
 			setDiscoverSocialStats(null)
 			return
 		}
 		let cancelled = false
 		void (async () => {
-			const summary = await fetchCardProgramSocialSummary(discoverMerchantCardAddress)
+			const summary = await fetchCardProgramSocialSummary(card)
 			if (!cancelled && summary) setDiscoverSocialStats(summary)
 		})()
 		return () => {
 			cancelled = true
 		}
-	}, [discoverMerchantCardAddress])
+	}, [couponShareCardAddress, discoverMerchantCardAddress])
 
 	/** Visit / temp wallet for Discover top bar + coupon Show Pay QR (POS 核销). */
 	useEffect(() => {
@@ -1178,27 +1197,39 @@ export default function AppDownloadPage() {
 					aria-hidden
 				/>
 			) : null}
-			{isDiscoverMerchantShare &&
-			discoverMerchantCardAddress &&
-			!myWalletOpen ? (
+			{showAppDownloadTopBar && topBarCardAddress ? (
 				<AppDownloadDiscoverTopBar
 					profile={visitWalletProfile}
-					cardAddress={discoverMerchantCardAddress}
+					cardAddress={topBarCardAddress}
 					merchantTitle={
 						effectiveShareMeta?.title ||
 						effectiveShareMeta?.merchantName ||
-						'Merchant'
+						(isDiscoverMerchantShare ? 'Merchant' : 'Coupon')
 					}
-					referrerEoa={discoverReferrerEoa}
+					referrerEoa={
+						discoverReferrerEoa ??
+						parseCouponOpenClaimFromTarget(targetUrl)?.referrerEoa ??
+						null
+					}
 					opacity={capsuleOpacity}
 					socialStats={discoverSocialStats}
 					onOpenWallet={() => setMyWalletOpen(true)}
 					onOpenPayCode={() => setPayCodeOpen(true)}
 					onSocialStatsRefresh={() => {
-						void fetchCardProgramSocialSummary(discoverMerchantCardAddress).then((summary) => {
+						void fetchCardProgramSocialSummary(topBarCardAddress).then((summary) => {
 							if (summary) setDiscoverSocialStats(summary)
 						})
 					}}
+					shareUrlOverride={!isDiscoverMerchantShare ? shareUrl : null}
+					shareTitleOverride={
+						!isDiscoverMerchantShare
+							? effectiveShareMeta?.merchantName?.trim()
+								? `Claim a ${effectiveShareMeta.merchantName.trim()} Coupon`
+								: effectiveShareMeta?.title?.trim()
+									? String(effectiveShareMeta.title)
+									: 'Claim this coupon on Beamio'
+							: null
+					}
 				/>
 			) : null}
 			<AppDownloadPayCodeSheet
@@ -1219,8 +1250,15 @@ export default function AppDownloadPage() {
 				className={`relative z-[1] w-full min-w-0 ${
 					isDiscoverMerchantShare
 						? 'max-w-none px-0 pb-0 pt-0 text-left'
-						: 'mx-auto max-w-lg px-4 pb-16 pt-[max(1rem,env(safe-area-inset-top,0px))] text-center sm:px-6'
+						: 'mx-auto max-w-lg px-4 pb-16 text-center sm:px-6'
 				}`}
+				style={
+					!isDiscoverMerchantShare && showAppDownloadTopBar
+						? { paddingTop: BEAMIO_FIXED_CAPSULE_SCROLL_TOP_SPACER }
+						: !isDiscoverMerchantShare
+							? { paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }
+							: undefined
+				}
 			>
 				<div
 					className={`flex w-full min-w-0 max-w-full flex-col ${

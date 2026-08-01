@@ -27,11 +27,17 @@ type AppDownloadDiscoverTopBarProps = {
 	onOpenWallet: () => void
 	onOpenPayCode: () => void
 	onSocialStatsRefresh?: () => void
+	/**
+	 * Coupon / redeem open-claim: Share pastes this URL instead of Discover merchant share.
+	 * When omitted, Share builds {@link buildDiscoverMerchantShareUrl}.
+	 */
+	shareUrlOverride?: string | null
+	shareTitleOverride?: string | null
 }
 
 /**
- * Discover merchant detail top chrome on app-download:
- * left `@beamioTag` capsule; right share + like (aligned with SilentPassUI Market detail).
+ * App-download Discover / coupon claim top chrome:
+ * left Scan to Pay + `@beamioTag` capsule; right share + like (SilentPassUI Market detail).
  */
 export default function AppDownloadDiscoverTopBar({
 	profile,
@@ -43,6 +49,8 @@ export default function AppDownloadDiscoverTopBar({
 	onOpenWallet,
 	onOpenPayCode,
 	onSocialStatsRefresh,
+	shareUrlOverride = null,
+	shareTitleOverride = null,
 }: AppDownloadDiscoverTopBarProps) {
 	const [shared, setShared] = useState(false)
 	const [userLiked, setUserLiked] = useState<boolean | null>(null)
@@ -64,20 +72,31 @@ export default function AppDownloadDiscoverTopBar({
 	const handleShare = useCallback(
 		async (e: React.MouseEvent) => {
 			e.stopPropagation()
-			if (!profile?.eoaAddress) return
-			const shareUrl = buildDiscoverMerchantShareUrl(cardAddress, profile.eoaAddress)
+			const override = shareUrlOverride?.trim() ?? ''
+			const shareUrl = override
+				? override
+				: profile?.eoaAddress
+					? buildDiscoverMerchantShareUrl(cardAddress, profile.eoaAddress)
+					: ''
 			if (!shareUrl) return
-			const outcome = await shareDiscoverMerchantUrl(shareUrl, {
-				title: merchantTitle.trim()
+			const title =
+				shareTitleOverride?.trim() ||
+				(merchantTitle.trim()
 					? `Discover ${merchantTitle.trim()} on Beamio`
-					: 'Discover this brand on Beamio',
-			})
+					: 'Discover this brand on Beamio')
+			const outcome = await shareDiscoverMerchantUrl(shareUrl, { title })
 			if (outcome === 'shared' || outcome === 'copied') {
 				setShared(true)
 				window.setTimeout(() => setShared(false), 2000)
 			}
 		},
-		[cardAddress, merchantTitle, profile?.eoaAddress],
+		[
+			cardAddress,
+			merchantTitle,
+			profile?.eoaAddress,
+			shareTitleOverride,
+			shareUrlOverride,
+		],
 	)
 
 	const handleLike = useCallback(async () => {
@@ -125,8 +144,8 @@ export default function AppDownloadDiscoverTopBar({
 					type="button"
 					onClick={onOpenPayCode}
 					className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-800/85 text-white shadow-lg ring-1 ring-white/10 transition active:scale-95"
-					aria-label="Show pay code"
-					title="Show pay code"
+					aria-label="Scan to Pay"
+					title="Scan to Pay"
 				>
 					<QrCode className="h-5 w-5" strokeWidth={2.2} aria-hidden />
 				</button>
