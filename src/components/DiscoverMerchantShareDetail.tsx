@@ -56,10 +56,8 @@ import {
 	postCardCouponOpenClaimWithWallet,
 	resolveCouponOpenClaimEligibility,
 } from '../utils/discoverCouponOpenClaim'
-import {
-	prepareVisitWalletForOpenClaim,
-	provisionWebShareVisitWallet,
-} from '../utils/beamioWebShareWallet'
+import { prepareVisitWalletForOpenClaim } from '../utils/beamioWebShareWallet'
+import { useVisitWalletAaReady } from '../hooks/useVisitWalletAaReady'
 import { buildDiscoverActivePromotionsPanelModel, resolveCouponSocialMissionBlockForSeries } from '../utils/discoverMerchantPromotions'
 import { DiscoverMerchantActivePromotionsPanel } from './DiscoverMerchantActivePromotionsPanel'
 import { DiscoverOfferSocialMissionTrigger } from './DiscoverOfferSocialMissionTrigger'
@@ -675,9 +673,7 @@ export function DiscoverMerchantShareDetail({
 		Record<string, DiscoverCouponClaimButtonStatus>
 	>({})
 	const [couponClaimErrorById, setCouponClaimErrorById] = useState<Record<string, string>>({})
-	const [visitAaReady, setVisitAaReady] = useState(false)
-	const [aaPrepEpoch, setAaPrepEpoch] = useState(0)
-	const walletBlobRef = useRef<Awaited<ReturnType<typeof provisionWebShareVisitWallet>>>(null)
+	const { visitAaReady, walletBlobRef, requestAaRetry } = useVisitWalletAaReady(Boolean(cardAddress))
 	const couponClaimStatusTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
 	useEffect(() => {
@@ -692,31 +688,6 @@ export function DiscoverMerchantShareDetail({
 			cancelled = true
 		}
 	}, [cardAddress, shareMeta])
-
-	// Block coupon Claim until CoNET AA has bytecode (setTimeout chain).
-	useEffect(() => {
-		let cancelled = false
-		let timer: ReturnType<typeof setTimeout> | undefined
-		setVisitAaReady(false)
-		const tick = async () => {
-			if (cancelled) return
-			const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
-			if (cancelled) return
-			if (prepared) {
-				walletBlobRef.current = prepared.blob
-				setVisitAaReady(true)
-				return
-			}
-			timer = setTimeout(() => {
-				void tick()
-			}, 2000)
-		}
-		void tick()
-		return () => {
-			cancelled = true
-			if (timer !== undefined) clearTimeout(timer)
-		}
-	}, [aaPrepEpoch])
 
 	useEffect(() => {
 		if (!cardAddress) {
@@ -835,14 +806,9 @@ export function DiscoverMerchantShareDetail({
 			try {
 				const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
 				if (!prepared) {
-					setVisitAaReady(false)
-					setAaPrepEpoch((n) => n + 1)
-					setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'error' }))
-					setCouponClaimErrorById((s) => ({
-						...s,
-						[coupon.id]: 'Smart Wallet is still preparing. Please wait and try again.',
-					}))
-					scheduleCouponClaimStatusReset(coupon.id)
+					// Resume AA gate spinner; Claim auto-enables when ready (no refresh).
+					requestAaRetry()
+					setCouponClaimStatusById((s) => ({ ...s, [coupon.id]: 'idle' }))
 					return
 				}
 				walletBlobRef.current = prepared.blob
@@ -876,7 +842,7 @@ export function DiscoverMerchantShareDetail({
 				scheduleCouponClaimStatusReset(coupon.id)
 			}
 		},
-		[couponClaimStatusById, referrerEoa, scheduleCouponClaimStatusReset, visitAaReady],
+		[couponClaimStatusById, referrerEoa, requestAaRetry, scheduleCouponClaimStatusReset, visitAaReady],
 	)
 
 	const view: DiscoverMerchantLandingModel = model ?? {

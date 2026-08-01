@@ -52,6 +52,7 @@ import {
 } from '../utils/beamioWebShareWallet'
 import { postCardCouponOpenClaimWithWallet, resolveCouponOpenClaimEligibilityForItem, type CardActiveIssuedCouponSeriesItem, type CouponOpenClaimEligibility } from '../utils/discoverCouponOpenClaim'
 import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
+import { useVisitWalletAaReady } from '../hooks/useVisitWalletAaReady'
 import { BEAMIO_FIXED_CAPSULE_SCROLL_TOP_SPACER } from '../utils/beamioFixedTopCapsuleLayout'
 
 type CouponTempClaimStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -390,10 +391,7 @@ function CouponSharePreview({
 	const [claimStatus, setClaimStatus] = useState<CouponTempClaimStatus>('idle')
 	const [claimError, setClaimError] = useState<string | undefined>()
 	const [eligibility, setEligibility] = useState<CouponOpenClaimEligibility | null>(null)
-	/** CoNET AA must exist before temp-wallet Claim is pressable. */
-	const [visitAaReady, setVisitAaReady] = useState(false)
-	const [aaPrepEpoch, setAaPrepEpoch] = useState(0)
-	const walletBlobRef = useRef<Awaited<ReturnType<typeof provisionWebShareVisitWallet>>>(null)
+	const { visitAaReady, walletBlobRef, requestAaRetry } = useVisitWalletAaReady(showTempClaim)
 	const claimStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 	useEffect(() => {
@@ -429,36 +427,6 @@ function CouponSharePreview({
 			cancelled = true
 		}
 	}, [isCouponTicket, meta.cardAddress, meta.tokenId, seriesExtras.tokenId])
-
-	// Prepare visit EOA + CoNET AA before Claim is enabled (setTimeout chain, no setInterval).
-	useEffect(() => {
-		if (!showTempClaim) {
-			setVisitAaReady(false)
-			return
-		}
-		let cancelled = false
-		let timer: ReturnType<typeof setTimeout> | undefined
-		setVisitAaReady(false)
-
-		const tick = async () => {
-			if (cancelled) return
-			const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
-			if (cancelled) return
-			if (prepared) {
-				walletBlobRef.current = prepared.blob
-				setVisitAaReady(true)
-				return
-			}
-			timer = setTimeout(() => {
-				void tick()
-			}, 2000)
-		}
-		void tick()
-		return () => {
-			cancelled = true
-			if (timer !== undefined) clearTimeout(timer)
-		}
-	}, [showTempClaim, aaPrepEpoch])
 
 	// Temp-wallet claimed / redeemed status (local-first visit wallet → chain).
 	useEffect(() => {
@@ -523,11 +491,9 @@ function CouponSharePreview({
 		try {
 			const prepared = await prepareVisitWalletForOpenClaim(walletBlobRef.current)
 			if (!prepared) {
-				setVisitAaReady(false)
-				setAaPrepEpoch((n) => n + 1)
-				setClaimStatus('error')
-				setClaimError('Smart Wallet is still preparing. Please wait and try again.')
-				scheduleClaimErrorReset()
+				// AA not ready yet — resume spinner gate; Claim auto-enables when ready.
+				requestAaRetry()
+				setClaimStatus('idle')
 				return
 			}
 			walletBlobRef.current = prepared.blob
@@ -568,6 +534,7 @@ function CouponSharePreview({
 		meta.couponId,
 		meta.tokenId,
 		referrerEoa,
+		requestAaRetry,
 		scheduleClaimErrorReset,
 		seriesExtras.tokenId,
 		showTempClaim,

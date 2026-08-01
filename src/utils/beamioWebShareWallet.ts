@@ -489,34 +489,59 @@ async function fetchEnsureAaFromApi(eoa: string): Promise<string | null> {
 	}
 }
 
+/** AA address known from API/ensure but bytecode not yet visible — poll getCode only. */
+const pendingAaByEoa = new Map<string, string>()
+
+async function aaHasBytecode(aa: string): Promise<boolean> {
+	try {
+		const provider = new ethers.JsonRpcProvider(CONET_RPC_URL, 224422)
+		const code = await provider.getCode(aa).catch(() => '0x')
+		return Boolean(code && code !== '0x' && code.length > 2)
+	} catch {
+		return false
+	}
+}
+
 /** Ensure CoNET Smart Wallet (AA) exists with bytecode for this EOA. */
 export async function ensureVisitWalletAaOnConet(eoa: string): Promise<string | null> {
 	const norm = ethers.getAddress(eoa)
+	const key = norm.toLowerCase()
+
 	const existing = await resolveAaOnChain(norm).catch(() => null)
-	if (existing) return existing
+	if (existing) {
+		pendingAaByEoa.delete(key)
+		return existing
+	}
+
+	const pending = pendingAaByEoa.get(key)
+	if (pending) {
+		if (await aaHasBytecode(pending)) {
+			pendingAaByEoa.delete(key)
+			return pending
+		}
+		// Relay returned address earlier; wait for code without re-spamming ensure.
+		return null
+	}
 
 	const fromApi = await fetchAaFromApi(norm)
 	if (fromApi) {
-		try {
-			const provider = new ethers.JsonRpcProvider(CONET_RPC_URL, 224422)
-			const code = await provider.getCode(fromApi).catch(() => '0x')
-			if (code && code !== '0x' && code.length > 2) return fromApi
-		} catch {
-			/* fall through to ensure */
+		if (await aaHasBytecode(fromApi)) {
+			pendingAaByEoa.delete(key)
+			return fromApi
 		}
+		pendingAaByEoa.set(key, fromApi)
+		return null
 	}
 
 	const ensured = await fetchEnsureAaFromApi(norm)
 	if (!ensured) return null
 	// Relay may return address before code is visible — require on-chain bytecode.
-	try {
-		const provider = new ethers.JsonRpcProvider(CONET_RPC_URL, 224422)
-		const code = await provider.getCode(ensured).catch(() => '0x')
-		if (code && code !== '0x' && code.length > 2) return ensured
-	} catch {
-		/* not ready yet */
+	if (await aaHasBytecode(ensured)) {
+		pendingAaByEoa.delete(key)
+		return ensured
 	}
-	return resolveAaOnChain(norm).catch(() => null)
+	pendingAaByEoa.set(key, ensured)
+	return null
 }
 
 export type PreparedVisitWalletForOpenClaim = {
@@ -527,23 +552,28 @@ export type PreparedVisitWalletForOpenClaim = {
 }
 
 /**
- * Provision visit/temp wallet and block until CoNET AA has bytecode.
- * Open-claim UI must not enable Claim until this resolves with `aa`.
+ * Provision visit/temp wallet and return only when CoNET AA has bytecode.
+ * Never throws — callers poll until non-null (UI auto-enables Claim; no refresh).
  */
 export async function prepareVisitWalletForOpenClaim(
 	existingBlob?: encrypt_keys_object | null,
 ): Promise<PreparedVisitWalletForOpenClaim | null> {
-	const blob = existingBlob ?? (await provisionWebShareVisitWallet())
-	if (!blob) return null
-	const wallet = resolveSigningWalletFromBlob(blob)
-	const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
-	if (!wallet || !privateKeyArmor) return null
-	const eoa = ethers.getAddress(wallet.address)
-	const aa = await ensureVisitWalletAaOnConet(eoa)
-	if (!aa) return null
-	await persistAaToVisitWalletProfile(aa)
-	const nextBlob = CoNET_Data ?? blob
-	return { blob: nextBlob, privateKeyArmor, eoa, aa }
+	try {
+		const blob = existingBlob ?? (await provisionWebShareVisitWallet())
+		if (!blob) return null
+		const wallet = resolveSigningWalletFromBlob(blob)
+		const privateKeyArmor = wallet?.signingKey.privateKey ?? ''
+		if (!wallet || !privateKeyArmor) return null
+		const eoa = ethers.getAddress(wallet.address)
+		const aa = await ensureVisitWalletAaOnConet(eoa)
+		if (!aa) return null
+		await persistAaToVisitWalletProfile(aa)
+		const nextBlob = CoNET_Data ?? blob
+		return { blob: nextBlob, privateKeyArmor, eoa, aa }
+	} catch (err) {
+		console.warn('[prepareVisitWalletForOpenClaim] failed:', err)
+		return null
+	}
 }
 
 async function persistAaToVisitWalletProfile(aa: string): Promise<void> {
