@@ -1,11 +1,19 @@
-/** Native Beamio apps — store listings (source of truth for /app-download). */
+import {
+	buildPlayStoreUrlWithDeepLinkReferrer,
+	stashPendingConsumerDeepLink,
+} from './pendingConsumerDeepLink'
+
+/** Native Beamio **Consumer** app — store listings (source of truth for /app-download). */
 export const BEAMIO_ANDROID_PACKAGE = 'com.beamio.app'
 export const BEAMIO_ANDROID_STORE_URL =
 	'https://play.google.com/store/apps/details?id=com.beamio.app'
 export const BEAMIO_IOS_STORE_URL =
 	'https://apps.apple.com/us/app/beamio-smart-local-pass/id6755375110'
 
-/** Custom schemes to probe / open when native handlers are registered. */
+/**
+ * Consumer custom scheme (`CashTrees_iOS` / CaehTrees).
+ * Must not target SoftPOS / Beamio POS — those use separate store listings and packages.
+ */
 const IOS_OPEN_SCHEME = 'beamio://open'
 const ANDROID_SCHEME = 'beamio'
 
@@ -43,6 +51,50 @@ export function isIosDevice(): boolean {
 export function isBeamioNativeShell(): boolean {
 	if (typeof window === 'undefined') return false
 	return Boolean((window as { CashTreesIOS?: unknown }).CashTreesIOS)
+}
+
+/**
+ * In-app browsers (Telegram, Instagram, etc.): custom-scheme probes always show a system
+ * “wants to open …” sheet and often bind SoftPOS / Beamio POS. Skip auto-probe there.
+ *
+ * Note: Telegram iOS WebView often still includes “Safari” in UA — do not rely on
+ * `!Safari` alone; match Telegram (and peers) explicitly.
+ */
+export function isIosEmbeddedWebView(): boolean {
+	if (typeof navigator === 'undefined') return false
+	const ua = navigator.userAgent || ''
+	if (!isIosDevice()) return false
+	if (isKnownInAppBrowserUa(ua)) return true
+	return !/Safari/i.test(ua)
+}
+
+/** Telegram / Instagram / WeChat / LINE / Facebook / Twitter in-app browsers. */
+export function isKnownInAppBrowserUa(ua: string = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''): boolean {
+	return (
+		/Telegram/i.test(ua) ||
+		/TelegramBot/i.test(ua) ||
+		/\bFBAN\b|\bFBAV\b/i.test(ua) ||
+		/Instagram/i.test(ua) ||
+		/Line\//i.test(ua) ||
+		/MicroMessenger/i.test(ua) ||
+		/\bTwitter/i.test(ua) ||
+		/\bLinkedInApp\b/i.test(ua)
+	)
+}
+
+/**
+ * Share landings: skip silent `beamio://` install probe.
+ * Telegram (explicit): never auto-open custom scheme — user confirmed skip silent detect.
+ */
+export function shouldSkipSilentNativeAppProbe(): boolean {
+	if (isBeamioNativeShell()) return true
+	if (typeof navigator === 'undefined') return false
+	const ua = navigator.userAgent || ''
+	if (isKnownInAppBrowserUa(ua)) return true
+	if (isIosEmbeddedWebView()) return true
+	// Android system WebView marker (many messengers).
+	if (isAndroidDevice() && /; wv\)/i.test(ua)) return true
+	return false
 }
 
 function normalizeSearch(search: string): string {
@@ -115,23 +167,32 @@ export function buildBeamioOpenUrl(search: string): string {
 	return query ? `${IOS_OPEN_SCHEME}?${query}` : IOS_OPEN_SCHEME
 }
 
-/** Android Chrome: launch by package; Play Store fallback when app is missing. */
-export function buildAndroidIntentOpenUrl(search: string): string {
+/**
+ * Android Chrome Intent — always pins **Consumer** package `com.beamio.app`
+ * (never SoftPOS / `com.beamio.pos`).
+ */
+export function buildAndroidIntentOpenUrl(
+	search: string,
+	options: { storeFallback?: boolean } = {},
+): string {
 	const query = buildBeamioOpenQuery(search)
 	const intentPath = query ? `open?${query}` : 'open'
-	const fallback = encodeURIComponent(BEAMIO_ANDROID_STORE_URL)
-	return (
-		`intent://${intentPath}#Intent;` +
-		`scheme=${ANDROID_SCHEME};` +
-		`package=${BEAMIO_ANDROID_PACKAGE};` +
-		`action=android.intent.action.VIEW;` +
-		`S.browser_fallback_url=${fallback};` +
-		`end`
-	)
-}
-
-function buildIosOpenUrl(search: string): string {
-	return buildBeamioOpenUrl(search)
+	const storeFallback = options.storeFallback !== false
+	const parts = [
+		`intent://${intentPath}#Intent;`,
+		`scheme=${ANDROID_SCHEME};`,
+		`package=${BEAMIO_ANDROID_PACKAGE};`,
+		`action=android.intent.action.VIEW;`,
+	]
+	if (storeFallback) {
+		const deepLink = resolveBeamioAppTargetFromSearch(search)
+		const storeUrl = deepLink
+			? buildPlayStoreUrlWithDeepLinkReferrer(deepLink)
+			: BEAMIO_ANDROID_STORE_URL
+		parts.push(`S.browser_fallback_url=${encodeURIComponent(storeUrl)};`)
+	}
+	parts.push('end')
+	return parts.join('')
 }
 
 export type AttemptOpenNativeBeamioAppOptions = {
@@ -142,14 +203,13 @@ export type AttemptOpenNativeBeamioAppOptions = {
 	useLocationNavigation?: boolean
 	timeoutMs?: number
 	/**
-	 * When true (default), Android uses Intent with Play Store `browser_fallback_url`.
-	 * Set false for Discover merchant share landings — missing app must NOT open the store
-	 * (caller typically falls back to web `/app/` instead).
+	 * When true (default), Android Intent includes Play Store `browser_fallback_url`.
+	 * Set false for silent install probes — missing app must NOT jump to the store.
 	 */
 	storeFallback?: boolean
 }
 
-function waitForIosNativeAppOpenOrTimeout(
+function waitForNativeAppOpenOrTimeout(
 	openUrl: string,
 	timeoutMs: number,
 	useLocationNavigation: boolean,
@@ -200,9 +260,8 @@ function waitForIosNativeAppOpenOrTimeout(
 }
 
 /**
- * Mobile: try to open the native app; desktop callers should show store links instead.
- * Web cannot enumerate installed apps — we infer from custom-scheme / visibility probes (iOS)
- * or Android intent + Play Store fallback (unless `storeFallback: false`).
+ * Mobile: try to open the **Consumer** Beamio native app (package / scheme above).
+ * Desktop callers should show store links instead.
  */
 export async function attemptOpenNativeBeamioApp(
 	search: string,
@@ -212,33 +271,97 @@ export async function attemptOpenNativeBeamioApp(
 
 	const timeoutMs = options.timeoutMs ?? 2500
 	const storeFallback = options.storeFallback !== false
+	const useLocationNavigation = Boolean(options.useLocationNavigation)
 
 	if (isAndroidDevice()) {
-		if (storeFallback) {
-			window.location.href = buildAndroidIntentOpenUrl(search)
+		const openUrl = buildAndroidIntentOpenUrl(search, { storeFallback })
+		if (storeFallback && useLocationNavigation) {
+			window.location.href = openUrl
 			return 'opened'
 		}
-		// Soft probe — no Play Store fallback (Discover merchant / no-install UX).
-		return waitForIosNativeAppOpenOrTimeout(
-			buildBeamioOpenUrl(search),
-			timeoutMs,
-			Boolean(options.useLocationNavigation),
-		)
+		return waitForNativeAppOpenOrTimeout(openUrl, timeoutMs, useLocationNavigation)
 	}
 
 	if (isIosDevice()) {
-		return waitForIosNativeAppOpenOrTimeout(
-			buildIosOpenUrl(search),
-			timeoutMs,
-			Boolean(options.useLocationNavigation),
-		)
+		return waitForNativeAppOpenOrTimeout(buildBeamioOpenUrl(search), timeoutMs, useLocationNavigation)
 	}
 
 	return 'not_installed'
 }
 
-/** Open App Store / Play Store (HTTPS only — never shows Safari custom-scheme errors). */
-export function openBeamioAppStore(): void {
+export type OpenBeamioAppStoreOptions = {
+	/**
+	 * Inner `https://beamio.app/app/?beamiocard=…[&ref=…]` (or app-download wrapper).
+	 * Stashed for post-install so merchant/coupon + referrer survive App Store / Play open.
+	 */
+	deepLinkUrl?: string | null
+	/** `/app-download` location.search — used when `deepLinkUrl` omitted. */
+	pageSearch?: string
+}
+
+/**
+ * Open Consumer App Store / Play Store (HTTPS only — never `beamio://` / web `/app/` PWA).
+ * Before navigating, stash merchant/coupon deep link (incl. `ref=`) for post-install restore.
+ */
+export function openBeamioAppStore(options: OpenBeamioAppStoreOptions = {}): void {
 	if (typeof window === 'undefined') return
-	window.location.href = isIosDevice() ? BEAMIO_IOS_STORE_URL : BEAMIO_ANDROID_STORE_URL
+	const fromOpt = options.deepLinkUrl?.trim() ?? ''
+	const fromSearch = options.pageSearch
+		? resolveBeamioAppTargetFromSearch(options.pageSearch)
+		: resolveBeamioAppTargetFromSearch(window.location.search)
+	const deepLink = stashPendingConsumerDeepLink(fromOpt || fromSearch)
+	const url = isIosDevice()
+		? BEAMIO_IOS_STORE_URL
+		: deepLink
+			? buildPlayStoreUrlWithDeepLinkReferrer(deepLink)
+			: BEAMIO_ANDROID_STORE_URL
+	// Prefer top-level HTTPS navigation so Telegram does not intercept a custom scheme.
+	window.location.assign(url)
+}
+
+export type OpenBeamioAppOrStoreOptions = OpenBeamioAppStoreOptions & {
+	/** How long to wait for the native app to take focus before falling back to the store. */
+	probeTimeoutMs?: number
+}
+
+/**
+ * 「Open in App」 CTA (user gesture):
+ * 1. Stash deep link (merchant/coupon + `ref=`)
+ * 2. Try to open **Consumer** Beamio (`beamio://` / Android Intent `package=com.beamio.app`)
+ * 3. Only if the page stays in the foreground → open App Store / Play Store
+ *
+ * Unlike page-load silent probe, this always attempts open (including Telegram) because the
+ * user explicitly tapped Open in App.
+ */
+export async function openBeamioAppOrStore(
+	pageSearch: string,
+	options: OpenBeamioAppOrStoreOptions = {},
+): Promise<'opened' | 'store' | 'desktop'> {
+	if (typeof window === 'undefined') return 'desktop'
+	if (!isMobileDevice()) {
+		openBeamioAppStore(options)
+		return 'desktop'
+	}
+
+	const fromOpt = options.deepLinkUrl?.trim() ?? ''
+	const fromSearch = resolveBeamioAppTargetFromSearch(pageSearch)
+	stashPendingConsumerDeepLink(fromOpt || fromSearch)
+
+	const probeTimeoutMs = options.probeTimeoutMs ?? 1800
+	const result = await attemptOpenNativeBeamioApp(pageSearch, {
+		// User gesture: top-level navigation opens the installed app reliably.
+		useLocationNavigation: true,
+		timeoutMs: probeTimeoutMs,
+		// Do not auto-jump to Play via Intent fallback — we only open the store if probe fails.
+		storeFallback: false,
+	})
+
+	if (result === 'opened') return 'opened'
+	if (result === 'desktop') {
+		openBeamioAppStore({ ...options, pageSearch })
+		return 'desktop'
+	}
+
+	openBeamioAppStore({ ...options, pageSearch })
+	return 'store'
 }

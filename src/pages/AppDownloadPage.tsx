@@ -10,8 +10,14 @@ import {
 	isBeamioNativeShell,
 	isIosDevice,
 	isMobileDevice,
-	type NativeAppOpenResult,
+	openBeamioAppStore,
+	openBeamioAppOrStore,
+	shouldSkipSilentNativeAppProbe,
 } from '../utils/nativeAppDownload'
+import {
+	buildPlayStoreUrlWithDeepLinkReferrer,
+	stashPendingConsumerDeepLink,
+} from '../utils/pendingConsumerDeepLink'
 import {
 	applyCouponClaimShareMeta,
 	buildAppDownloadShareUrl,
@@ -57,7 +63,6 @@ import { BEAMIO_FIXED_CAPSULE_SCROLL_TOP_SPACER } from '../utils/beamioFixedTopC
 type CouponTempClaimStatus = 'idle' | 'loading' | 'success' | 'error'
 
 type PagePhase = 'checking' | 'install' | 'desktop'
-type IosNativeProbeResult = 'pending' | NativeAppOpenResult
 
 /** POS Check Balance claim button — same orange/red gradient. */
 const CLAIM_GRADIENT = 'linear-gradient(to bottom right, rgb(255,132,36), rgb(255,71,87))'
@@ -79,15 +84,9 @@ function resolveBeamioAppTarget(search: string): string {
 	}
 }
 
-function isIosEmbeddedWebView(): boolean {
-	if (typeof navigator === 'undefined') return false
-	const ua = navigator.userAgent || ''
-	return isIosDevice() && !/Safari/i.test(ua)
-}
-
-/** In native shell or embedded WKWebView: jump straight to inner `/app/` claim URL. */
+/** Only the native Consumer shell should skip the share landing (embedded Telegram must not auto-jump to web `/app/`). */
 function shouldRedirectToInnerAppTarget(): boolean {
-	return isBeamioNativeShell() || isIosEmbeddedWebView()
+	return isBeamioNativeShell()
 }
 
 function CouponBannerImage({ src }: { src: string }) {
@@ -811,10 +810,12 @@ export default function AppDownloadPage() {
 	const location = useLocation()
 	const targetUrl = useMemo(() => resolveBeamioAppTarget(location.search), [location.search])
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
-	const [phase, setPhase] = useState<PagePhase>(() => (isMobileDevice() ? 'checking' : 'desktop'))
-	const [iosNativeProbe, setIosNativeProbe] = useState<IosNativeProbeResult>(() =>
-		isMobileDevice() ? 'pending' : 'desktop',
-	)
+	/** Telegram / in-app: skip probe → install; Safari/Chrome: start checking for silent probe. */
+	const [phase, setPhase] = useState<PagePhase>(() => {
+		if (!isMobileDevice()) return 'desktop'
+		if (shouldSkipSilentNativeAppProbe()) return 'install'
+		return 'checking'
+	})
 	const [shareMeta, setShareMeta] = useState<CouponClaimShareMeta | null>(null)
 	const [discoverSocialStats, setDiscoverSocialStats] = useState<CardProgramSocialSummary | null>(null)
 	const [visitWalletProfile, setVisitWalletProfile] = useState<AppDownloadVisitWalletProfile | null>(null)
@@ -826,27 +827,25 @@ export default function AppDownloadPage() {
 	const shareClickStartedRef = useRef(false)
 	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
 
-	/** Merchant + coupon share: soft native open; missing app → web `/app/` (never App Store). */
-	const handleOpenInApp = useCallback(async () => {
-		if (openInAppBusy || !targetUrl) return
-		if (!isMobileDevice()) {
-			window.location.href = targetUrl
-			return
-		}
+	/**
+	 * Open in App: probe Consumer Beamio first (user gesture → `beamio://` / Intent).
+	 * If already installed → open app with merchant/coupon + `ref=`.
+	 * If not → stash deep link and open App Store / Play Store.
+	 */
+	const handleOpenInApp = useCallback(() => {
+		if (openInAppBusy) return
 		setOpenInAppBusy(true)
-		try {
-			const result = await attemptOpenNativeBeamioApp(location.search, {
-				useLocationNavigation: false,
-				timeoutMs: 2800,
-				storeFallback: false,
-			})
-			setIosNativeProbe(result)
-			if (result === 'not_installed') {
-				window.location.href = targetUrl
+		void (async () => {
+			try {
+				await openBeamioAppOrStore(location.search, {
+					deepLinkUrl: targetUrl,
+					pageSearch: location.search,
+					probeTimeoutMs: 1800,
+				})
+			} finally {
+				window.setTimeout(() => setOpenInAppBusy(false), 400)
 			}
-		} finally {
-			setOpenInAppBusy(false)
-		}
+		})()
 	}, [location.search, openInAppBusy, targetUrl])
 
 	useLayoutEffect(() => {
@@ -869,6 +868,10 @@ export default function AppDownloadPage() {
 					})
 				})
 			}
+		}
+		// Stash early (landing view) so install from store badges still carries referrer.
+		if (targetUrl) {
+			stashPendingConsumerDeepLink(targetUrl)
 		}
 		if (!targetUrl || !shouldRedirectToInnerAppTarget()) return
 		window.location.replace(targetUrl)
@@ -1027,9 +1030,10 @@ export default function AppDownloadPage() {
 	}, [myWalletOpen])
 
 	/**
-	 * Share landings (merchant + coupon/redeem): soft-probe native on load.
-	 * - App installed → open coupon / merchant in Beamio
-	 * - Missing → web landing only (never Play Store / App Store install popup)
+	 * Merchant / coupon share landings:
+	 * 1) Silently probe Consumer Beamio (not SoftPOS) — if installed, wake it with deep link.
+	 * 2) If missing (or in-app browser where silent probe would show a system sheet) → Open in App UI.
+	 * 3) Open in App → try native Consumer app first; App Store only if not installed.
 	 */
 	useLayoutEffect(() => {
 		if (redirectingToInnerTarget) return
@@ -1047,28 +1051,31 @@ export default function AppDownloadPage() {
 				return
 			}
 
-			/** Merchant / coupon / redeem share: soft-probe; never Play Store / App Store on miss. */
-			if (targetUrl) {
-				setPhase('checking')
-				window.scrollTo(0, 0)
-				const result = await attemptOpenNativeBeamioApp(location.search, {
-					// Inbound link may still carry user gesture — prefer top-level on iOS to open app.
-					useLocationNavigation: isIosDevice(),
-					timeoutMs: 2500,
-					storeFallback: false,
-				})
-				if (cancelled) return
-				setIosNativeProbe(result)
-				if (result === 'opened') {
-					window.setTimeout(() => {
-						if (!cancelled) setPhase('install')
-					}, 3500)
-					return
-				}
+			if (!targetUrl) {
 				setPhase('install')
 				return
 			}
 
+			/** Telegram / in-app browsers: skip silent beamio:// probe (cannot be silent; often opens POS). */
+			if (shouldSkipSilentNativeAppProbe()) {
+				setPhase('install')
+				return
+			}
+
+			setPhase('checking')
+			window.scrollTo(0, 0)
+			const result = await attemptOpenNativeBeamioApp(location.search, {
+				useLocationNavigation: false,
+				timeoutMs: 2200,
+				storeFallback: false,
+			})
+			if (cancelled) return
+			if (result === 'opened') {
+				window.setTimeout(() => {
+					if (!cancelled) setPhase('install')
+				}, 3500)
+				return
+			}
 			setPhase('install')
 		})()
 
@@ -1079,9 +1086,13 @@ export default function AppDownloadPage() {
 
 	const storeUrl = isIosDevice()
 		? BEAMIO_IOS_STORE_URL
-		: isAndroidDevice()
-			? BEAMIO_ANDROID_STORE_URL
+		: targetUrl
+			? buildPlayStoreUrlWithDeepLinkReferrer(targetUrl)
 			: BEAMIO_ANDROID_STORE_URL
+
+	const onStoreBadgeClick = useCallback(() => {
+		if (targetUrl) stashPendingConsumerDeepLink(targetUrl)
+	}, [targetUrl])
 
 	const couponOpenClaim = useMemo(() => parseCouponOpenClaimFromTarget(targetUrl), [targetUrl])
 
@@ -1268,9 +1279,10 @@ export default function AppDownloadPage() {
 								<div className="mx-auto w-full max-w-xs space-y-3">
 									{isAndroidDevice() && (
 										<a
-											href={BEAMIO_ANDROID_STORE_URL}
+											href={storeUrl}
 											target="_blank"
 											rel="noopener noreferrer"
+											onClick={onStoreBadgeClick}
 											className="flex justify-center transition-opacity hover:opacity-80"
 										>
 											<img
@@ -1282,6 +1294,13 @@ export default function AppDownloadPage() {
 									)}
 									<a
 										href={storeUrl}
+										onClick={(e) => {
+											e.preventDefault()
+											void openBeamioAppOrStore(location.search, {
+												deepLinkUrl: targetUrl,
+												pageSearch: location.search,
+											})
+										}}
 										className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1562f0] px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#1250c4]"
 									>
 										<Download className="h-4 w-4" />
@@ -1322,6 +1341,7 @@ export default function AppDownloadPage() {
 										href={BEAMIO_IOS_STORE_URL}
 										target="_blank"
 										rel="noopener noreferrer"
+										onClick={onStoreBadgeClick}
 										className="flex justify-center transition-opacity hover:opacity-80"
 									>
 										<img
@@ -1331,9 +1351,14 @@ export default function AppDownloadPage() {
 										/>
 									</a>
 									<a
-										href={BEAMIO_ANDROID_STORE_URL}
+										href={
+											targetUrl
+												? buildPlayStoreUrlWithDeepLinkReferrer(targetUrl)
+												: BEAMIO_ANDROID_STORE_URL
+										}
 										target="_blank"
 										rel="noopener noreferrer"
+										onClick={onStoreBadgeClick}
 										className="flex justify-center transition-opacity hover:opacity-80"
 									>
 										<img
