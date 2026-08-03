@@ -141,6 +141,12 @@ export type AttemptOpenNativeBeamioAppOptions = {
 	 */
 	useLocationNavigation?: boolean
 	timeoutMs?: number
+	/**
+	 * When true (default), Android uses Intent with Play Store `browser_fallback_url`.
+	 * Set false for Discover merchant share landings — missing app must NOT open the store
+	 * (caller typically falls back to web `/app/` instead).
+	 */
+	storeFallback?: boolean
 }
 
 function waitForIosNativeAppOpenOrTimeout(
@@ -196,7 +202,7 @@ function waitForIosNativeAppOpenOrTimeout(
 /**
  * Mobile: try to open the native app; desktop callers should show store links instead.
  * Web cannot enumerate installed apps — we infer from custom-scheme / visibility probes (iOS)
- * or Android intent + Play Store fallback.
+ * or Android intent + Play Store fallback (unless `storeFallback: false`).
  */
 export async function attemptOpenNativeBeamioApp(
 	search: string,
@@ -205,10 +211,19 @@ export async function attemptOpenNativeBeamioApp(
 	if (!isMobileDevice()) return 'desktop'
 
 	const timeoutMs = options.timeoutMs ?? 2500
+	const storeFallback = options.storeFallback !== false
 
 	if (isAndroidDevice()) {
-		window.location.href = buildAndroidIntentOpenUrl(search)
-		return 'opened'
+		if (storeFallback) {
+			window.location.href = buildAndroidIntentOpenUrl(search)
+			return 'opened'
+		}
+		// Soft probe — no Play Store fallback (Discover merchant / no-install UX).
+		return waitForIosNativeAppOpenOrTimeout(
+			buildBeamioOpenUrl(search),
+			timeoutMs,
+			Boolean(options.useLocationNavigation),
+		)
 	}
 
 	if (isIosDevice()) {

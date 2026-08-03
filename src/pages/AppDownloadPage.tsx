@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ethers } from 'ethers'
 import { useLocation } from 'react-router-dom'
-import { AlertTriangle, Calendar, Check, Clock, Download, Gift, Loader2, Lock, QrCode, Smartphone, Ticket } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, Clock, Download, Gift, Loader2, QrCode, Smartphone, Ticket } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -10,7 +10,6 @@ import {
 	isBeamioNativeShell,
 	isIosDevice,
 	isMobileDevice,
-	openBeamioAppStore,
 	type NativeAppOpenResult,
 } from '../utils/nativeAppDownload'
 import {
@@ -791,103 +790,18 @@ function CouponSharePreview({
 	)
 }
 
-function CouponShareClaimActions({
-	targetUrl,
-	search,
-	onIosNativeProbeResult,
-	shareKind,
-	mode = 'unlock',
-	onShowPay,
-}: {
-	targetUrl: string
-	search: string
-	onIosNativeProbeResult?: (result: NativeAppOpenResult) => void
-	shareKind?: CouponClaimShareMeta['shareKind']
-	/** Claimed coupon on this visit wallet → Show Pay QR for POS 核销. */
-	mode?: 'unlock' | 'show_pay'
-	onShowPay?: () => void
-}) {
-	const [busy, setBusy] = useState(false)
-	const mobile = isMobileDevice()
-	const isDiscoverMerchant = shareKind === 'discover_merchant'
-	const isRedeem = shareKind === 'redeem'
-	const showPay = mode === 'show_pay'
-
-	/**
-	 * One CTA, adaptive workflow:
-	 * - show_pay: open OpenContainer pay QR for POS scan / coupon burn
-	 * - Phone unlock: try native Beamio → App Store if missing
-	 * - Laptop unlock: open web `/app/` claim (or redeem) target
-	 * Discover merchant: phone-only (desktop already has in-page detail).
-	 */
-	const label = showPay
-		? 'Show Pay'
-		: mobile
-			? isDiscoverMerchant
-				? 'Open in App'
-				: isRedeem
-					? 'Redeem in App'
-					: 'Unlock Beamio App to claim'
-			: isRedeem
-				? 'Continue to redeem'
-				: 'Unlock Beamio App to claim'
-
-	const handlePrimary = useCallback(async () => {
-		if (busy) return
-		if (showPay) {
-			onShowPay?.()
-			return
-		}
-		if (!mobile) {
-			window.location.href = targetUrl
-			return
-		}
-		setBusy(true)
-		try {
-			// Fresh probe on every tap — never reuse page-load result (user may install App and return).
-			const result = await attemptOpenNativeBeamioApp(search, {
-				useLocationNavigation: isIosDevice(),
-				timeoutMs: 2800,
-			})
-			onIosNativeProbeResult?.(result)
-			if (result === 'not_installed') {
-				openBeamioAppStore()
-			}
-		} finally {
-			setBusy(false)
-		}
-	}, [busy, mobile, onIosNativeProbeResult, onShowPay, search, showPay, targetUrl])
-
-	if (isDiscoverMerchant && !mobile && !showPay) return null
-
+function CouponShareClaimActions({ onShowPay }: { onShowPay?: () => void }) {
 	return (
 		<div className="mx-auto mt-6 w-full max-w-xs sm:max-w-sm">
 			<button
 				type="button"
-				onClick={() => void handlePrimary()}
-				disabled={busy}
-				aria-busy={busy}
-				aria-label={busy ? 'Opening Beamio' : label}
-				className="inline-flex w-full items-center justify-center gap-2.5 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 sm:py-4 sm:text-[15px]"
+				onClick={() => onShowPay?.()}
+				aria-label="Show Pay"
+				className="inline-flex w-full items-center justify-center gap-2.5 rounded-full px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-95 active:scale-[0.98] sm:py-4 sm:text-[15px]"
 				style={{ background: CLAIM_GRADIENT }}
 			>
-				{busy ? (
-					<Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
-				) : showPay ? (
-					<QrCode className="h-5 w-5 shrink-0" strokeWidth={2.25} aria-hidden />
-				) : mobile ? (
-					<img
-						src="/open-in-app.png"
-						alt=""
-						className="h-8 w-8 shrink-0 rounded-lg object-contain sm:h-9 sm:w-9"
-						draggable={false}
-					/>
-				) : isRedeem ? (
-					<Gift className="h-4 w-4 shrink-0" aria-hidden />
-				) : (
-					<Lock className="h-4 w-4 shrink-0" aria-hidden />
-				)}
-				<span>{busy ? 'Opening Beamio…' : label}</span>
+				<QrCode className="h-5 w-5 shrink-0" strokeWidth={2.25} aria-hidden />
+				<span>Show Pay</span>
 			</button>
 		</div>
 	)
@@ -907,9 +821,33 @@ export default function AppDownloadPage() {
 	const [myWalletOpen, setMyWalletOpen] = useState(false)
 	const [payCodeOpen, setPayCodeOpen] = useState(false)
 	const [couponPayReady, setCouponPayReady] = useState(false)
+	const [openInAppBusy, setOpenInAppBusy] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 	const shareClickStartedRef = useRef(false)
 	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
+
+	/** Merchant + coupon share: soft native open; missing app → web `/app/` (never App Store). */
+	const handleOpenInApp = useCallback(async () => {
+		if (openInAppBusy || !targetUrl) return
+		if (!isMobileDevice()) {
+			window.location.href = targetUrl
+			return
+		}
+		setOpenInAppBusy(true)
+		try {
+			const result = await attemptOpenNativeBeamioApp(location.search, {
+				useLocationNavigation: false,
+				timeoutMs: 2800,
+				storeFallback: false,
+			})
+			setIosNativeProbe(result)
+			if (result === 'not_installed') {
+				window.location.href = targetUrl
+			}
+		} finally {
+			setOpenInAppBusy(false)
+		}
+	}, [location.search, openInAppBusy, targetUrl])
 
 	useLayoutEffect(() => {
 		if (!shareClickStartedRef.current) {
@@ -1089,8 +1027,9 @@ export default function AppDownloadPage() {
 	}, [myWalletOpen])
 
 	/**
-	 * Fire native scheme probe immediately on load — iOS only shows "Open in Beamio" when
-	 * navigation still carries the user tap gesture; deferring until share meta fetch breaks that.
+	 * Share landings (merchant + coupon/redeem): soft-probe native on load.
+	 * - App installed → open coupon / merchant in Beamio
+	 * - Missing → web landing only (never Play Store / App Store install popup)
 	 */
 	useLayoutEffect(() => {
 		if (redirectingToInnerTarget) return
@@ -1108,19 +1047,28 @@ export default function AppDownloadPage() {
 				return
 			}
 
-			setPhase('checking')
-			window.scrollTo(0, 0)
-			const result = await attemptOpenNativeBeamioApp(location.search)
-			if (cancelled) return
-			setIosNativeProbe(result)
-
-			if (result === 'opened') {
-				// Custom scheme may not leave the page; avoid infinite "checking" spinner.
-				window.setTimeout(() => {
-					if (!cancelled) setPhase('install')
-				}, 3500)
+			/** Merchant / coupon / redeem share: soft-probe; never Play Store / App Store on miss. */
+			if (targetUrl) {
+				setPhase('checking')
+				window.scrollTo(0, 0)
+				const result = await attemptOpenNativeBeamioApp(location.search, {
+					// Inbound link may still carry user gesture — prefer top-level on iOS to open app.
+					useLocationNavigation: isIosDevice(),
+					timeoutMs: 2500,
+					storeFallback: false,
+				})
+				if (cancelled) return
+				setIosNativeProbe(result)
+				if (result === 'opened') {
+					window.setTimeout(() => {
+						if (!cancelled) setPhase('install')
+					}, 3500)
+					return
+				}
+				setPhase('install')
 				return
 			}
+
 			setPhase('install')
 		})()
 
@@ -1138,7 +1086,7 @@ export default function AppDownloadPage() {
 	const couponOpenClaim = useMemo(() => parseCouponOpenClaimFromTarget(targetUrl), [targetUrl])
 
 	const couponPreview =
-		effectiveShareMeta && shareUrl && (phase !== 'checking' || isDiscoverMerchantShare) ? (
+		effectiveShareMeta && shareUrl ? (
 			isDiscoverMerchantShare && discoverMerchantCardAddress ? (
 				<DiscoverMerchantShareDetail
 					cardAddress={discoverMerchantCardAddress}
@@ -1160,23 +1108,20 @@ export default function AppDownloadPage() {
 			) : null
 		) : null
 
+	/**
+	 * Unlock / Open in App is top-right neon pill (merchant + coupon).
+	 * Bottom CTA only for claimed coupon → Show Pay QR.
+	 */
 	const showCouponClaimActions =
 		effectiveShareMeta &&
 		targetUrl &&
 		isCouponShareMeta(effectiveShareMeta) &&
+		!isDiscoverMerchantShare &&
 		phase !== 'checking' &&
-		/** Discover merchant landing 已在页内展示详情，桌面端无需底部 CTA。 */
-		(!isDiscoverMerchantShare || isMobileDevice() || couponPayReady)
+		couponPayReady
 
 	const couponClaimActions = showCouponClaimActions ? (
-			<CouponShareClaimActions
-				targetUrl={targetUrl}
-				search={location.search}
-				onIosNativeProbeResult={setIosNativeProbe}
-				shareKind={effectiveShareMeta.shareKind}
-				mode={couponPayReady ? 'show_pay' : 'unlock'}
-				onShowPay={() => setPayCodeOpen(true)}
-			/>
+			<CouponShareClaimActions onShowPay={() => setPayCodeOpen(true)} />
 		) : null
 
 	return (
@@ -1184,12 +1129,12 @@ export default function AppDownloadPage() {
 			className={`font-sans text-slate-900 selection:bg-[#1562f0]/20 antialiased ${
 				isDiscoverMerchantShare ? 'bg-[#f5f7f9]' : 'bg-[#f8fafc]'
 			} ${
-				phase === 'checking' && !isDiscoverMerchantShare
+				phase === 'checking' && !showAppDownloadTopBar
 					? 'relative h-[100dvh] max-h-[100dvh] overflow-hidden'
 					: 'min-h-[100dvh]'
 			}`}
 		>
-			{phase === 'checking' && !isDiscoverMerchantShare ? (
+			{phase === 'checking' && !showAppDownloadTopBar ? (
 				<div
 					className="pointer-events-none fixed inset-0 z-[90] bg-[#2c2f31]/35 backdrop-blur-[1px]"
 					aria-hidden
@@ -1218,14 +1163,12 @@ export default function AppDownloadPage() {
 							if (summary) setDiscoverSocialStats(summary)
 						})
 					}}
-					shareUrlOverride={!isDiscoverMerchantShare ? shareUrl : null}
-					shareTitleOverride={
-						!isDiscoverMerchantShare
-							? effectiveShareMeta?.merchantName?.trim()
-								? `Claim a ${effectiveShareMeta.merchantName.trim()} Coupon`
-								: effectiveShareMeta?.title?.trim()
-									? String(effectiveShareMeta.title)
-									: 'Claim this coupon on Beamio'
+					openInAppAction={
+						targetUrl
+							? {
+									onClick: () => void handleOpenInApp(),
+									busy: openInAppBusy,
+								}
 							: null
 					}
 				/>
@@ -1268,7 +1211,16 @@ export default function AppDownloadPage() {
 				{phase === 'checking' && (
 					<div className="w-full min-w-0 max-w-full space-y-6">
 						{couponPreview}
-						{!isDiscoverMerchantShare ? (
+						{showAppDownloadTopBar ? (
+							<div className="mx-auto max-w-lg px-4 pb-6 text-center">
+								<div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1562f0]/10">
+									<Loader2 className="h-6 w-6 animate-spin text-[#1562f0]" />
+								</div>
+								<p className="mt-3 text-[14px] font-medium text-slate-600">
+									Checking for the Beamio app on your device…
+								</p>
+							</div>
+						) : (
 							<>
 								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1562f0]/10">
 									<Loader2 className="h-8 w-8 animate-spin text-[#1562f0]" />
@@ -1284,15 +1236,6 @@ export default function AppDownloadPage() {
 									<p className="mt-3 text-slate-600">Checking for the Beamio app on your device…</p>
 								</div>
 							</>
-						) : (
-							<div className="mx-auto max-w-lg px-4 pb-6 text-center">
-								<div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1562f0]/10">
-									<Loader2 className="h-6 w-6 animate-spin text-[#1562f0]" />
-								</div>
-								<p className="mt-3 text-[14px] font-medium text-slate-600">
-									Checking for the Beamio app on your device…
-								</p>
-							</div>
 						)}
 					</div>
 				)}
