@@ -376,7 +376,8 @@ export default function UsdcTopupPage() {
 		() => (parsed.ok ? parsed.params.amount : ''),
 	)
 
-	const eth = activeProvider ?? (typeof window !== 'undefined' ? window.ethereum : undefined)
+	/** Only the wallet the user chose. Never fall back to window.ethereum (Phantom auto-login). */
+	const eth = activeProvider
 
 	const walletDepositAmount = useMemo(() => {
 		if (!parsed.ok || parsed.params.workflow !== 'walletDeposit') {
@@ -387,8 +388,8 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok || typeof window === 'undefined') return
-		// EIP-6963 + legacy namespaces. Do not call eth_accounts here — probing every
-		// injected provider on load opens Phantom/OKX login UIs without user intent.
+		// EIP-6963 discovery only. Do not read window.ethereum / window.phantom or
+		// call eth_accounts until the user picks a wallet (Phantom auto-login).
 		return subscribeInstalledInjectedWallets(setInstalledWallets)
 	}, [parsed.ok])
 
@@ -460,16 +461,17 @@ export default function UsdcTopupPage() {
 		walletDepositAmount,
 	])
 
-	// Mobile in-app browsers (Base / MetaMask) often suspend the WebView during signing.
-	// Re-sync account/chain when the page becomes visible again so we do not drop to a blank shell.
+	// Re-sync only after the user selected a wallet. Calling eth_accounts on
+	// window.ethereum before that opens Phantom login on first page load.
 	useEffect(() => {
-		if (!eth) return
+		if (!activeProvider) return
+		const provider = activeProvider
 		const resync = () => {
 			void (async () => {
 				try {
-					const accounts = (await eth.request({ method: 'eth_accounts' })) as string[]
+					const accounts = (await provider.request({ method: 'eth_accounts' })) as string[]
 					if (accounts?.[0]) setAccount(accounts[0] as Address)
-					const chain = (await eth.request({ method: 'eth_chainId' })) as string
+					const chain = (await provider.request({ method: 'eth_chainId' })) as string
 					if (chain) setChainIdHex(chain)
 				} catch {
 					/* ignore */
@@ -485,10 +487,10 @@ export default function UsdcTopupPage() {
 			window.removeEventListener('pageshow', resync)
 			document.removeEventListener('visibilitychange', onVis)
 		}
-	}, [eth])
+	}, [activeProvider])
 
-	const connectWallet = async (choice?: InjectedWalletChoice) => {
-		const provider = choice?.provider ?? eth
+	const connectWallet = async (choice: InjectedWalletChoice) => {
+		const provider = choice.provider
 		if (!provider) return
 		setError(null)
 		setStatus('connecting')
@@ -892,8 +894,8 @@ export default function UsdcTopupPage() {
 	const isWalletDeposit = topupWorkflow === 'walletDeposit' && Boolean(topupBeneficiary)
 	const showNfcTagRow = Boolean(uid && uid.length >= 6)
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
-	const hasInjectedWallet = installedWallets.length > 0 || !!eth
-	const ready = hasInjectedWallet && !!account && onBase
+	const hasInjectedWallet = installedWallets.length > 0
+	const ready = !!activeProvider && !!account && onBase
 
 	const quotedUsdcLabel = formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
 
@@ -1044,22 +1046,11 @@ export default function UsdcTopupPage() {
 								<NoWalletPanel />
 							)
 						) : !account ? (
-							installedWallets.length > 0 ? (
-								<InstalledInjectedWalletPicker
-									wallets={installedWallets}
-									connecting={status === 'connecting'}
-									onSelect={(w) => void connectWallet(w)}
-								/>
-							) : (
-								<button
-									type="button"
-									onClick={() => void connectWallet()}
-									disabled={status === 'connecting'}
-									className="w-full rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-								>
-									{status === 'connecting' ? 'Connecting…' : 'Connect wallet'}
-								</button>
-							)
+							<InstalledInjectedWalletPicker
+								wallets={installedWallets}
+								connecting={status === 'connecting'}
+								onSelect={(w) => void connectWallet(w)}
+							/>
 						) : !onBase ? (
 							<button
 								type="button"

@@ -192,18 +192,29 @@ function mergeWalletChoices(parts: InjectedWalletChoice[]): InjectedWalletChoice
 }
 
 /**
- * Snapshot of installed EVM wallets: EIP-6963 announcements + legacy namespaces
- * (`okxwallet`, `coinbaseWalletExtension`, `phantom.ethereum`, `ethereum.providers`).
- * Does **not** call provider.request — safe to run on page load (avoids Phantom popups).
+ * True when this page already runs inside a wallet in-app browser (UA only).
+ * Never reads `window.ethereum` / `window.phantom` — those getters can open login.
+ */
+export function isLikelyWalletInAppBrowser(): boolean {
+	if (typeof navigator === 'undefined') return false
+	const ua = navigator.userAgent || ''
+	return /MetaMask|Phantom|CoinbaseWallet|CBWallet|OKApp|OKX|TokenPocket|TrustWallet|Rainbow/i.test(ua)
+}
+
+/**
+ * Snapshot of installed EVM wallets.
+ * Desktop: EIP-6963 only (do not touch `window.ethereum` / `window.phantom` — Phantom login).
+ * Wallet in-app UA: may include legacy namespaces for the host wallet.
  */
 export function listInstalledInjectedWallets(): InjectedWalletChoice[] {
 	if (typeof window === 'undefined') return []
+	if (!isLikelyWalletInAppBrowser()) return []
 	return mergeWalletChoices(collectLegacyNamespaceProviders(window as WindowWithWalletNamespaces))
 }
 
 /**
- * Live discovery: listen for EIP-6963 announces and re-scan legacy namespaces.
- * Call once on mount; unsubscribe on unmount. Never auto-requests accounts.
+ * Live discovery via EIP-6963 only (desktop). Never auto-requests accounts.
+ * Legacy `window.ethereum` / `window.phantom` are read only inside a wallet in-app browser.
  */
 export function subscribeInstalledInjectedWallets(
 	onChange: (wallets: InjectedWalletChoice[]) => void
@@ -217,7 +228,7 @@ export function subscribeInstalledInjectedWallets(
 	const from6963 = new Map<string, InjectedWalletChoice>()
 
 	const publish = () => {
-		const legacy = collectLegacyNamespaceProviders(win)
+		const legacy = isLikelyWalletInAppBrowser() ? collectLegacyNamespaceProviders(win) : []
 		onChange(mergeWalletChoices([...from6963.values(), ...legacy]))
 	}
 
@@ -230,7 +241,7 @@ export function subscribeInstalledInjectedWallets(
 	}
 
 	window.addEventListener('eip6963:announceProvider', onAnnounce as EventListener)
-	// Ask already-injected wallets to re-announce (EIP-6963).
+	// Ask already-injected wallets to re-announce (EIP-6963). Do not touch window.ethereum.
 	try {
 		window.dispatchEvent(new Event('eip6963:requestProvider'))
 	} catch {
