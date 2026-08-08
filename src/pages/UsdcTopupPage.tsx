@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem'
 import { base } from 'viem/chains'
@@ -208,7 +208,10 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 			}
 		}
 	}
-	if (!amount || !(Number(amount) > 0)) return { ok: false, error: 'Missing or invalid `amount`' }
+	const amountOk = !!amount && Number(amount) > 0
+	if (!amountOk && !walletDepositPath) {
+		return { ok: false, error: 'Missing or invalid `amount`' }
+	}
 	if (!currency) return { ok: false, error: 'Missing `currency`' }
 	return {
 		ok: true,
@@ -219,7 +222,7 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 			e: hasSidPos && !uid ? '' : e,
 			c: hasSidPos && !uid ? '' : c,
 			m: hasSidPos && !uid ? '' : m,
-			amount,
+			amount: walletDepositPath && !amountOk ? '' : amount,
 			currency: genesisSeatPath || walletDepositPath ? 'USDC' : currency,
 			sid,
 			pos: pos && isEthAddress(pos) ? pos : '',
@@ -327,6 +330,29 @@ function isX402RequirementShapeError(errorMessage: string): boolean {
 	return /maxAmountRequired|ZodError/i.test(errorMessage)
 }
 
+const NUMERIC_SPINNER_HIDE =
+	'[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]'
+
+function preventNumericInputStepKeys(e: KeyboardEvent<HTMLInputElement>): void {
+	const blocked = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'])
+	if (blocked.has(e.key)) {
+		e.preventDefault()
+		e.stopPropagation()
+	}
+}
+
+function preventNumericInputWheelStep(e: WheelEvent<HTMLInputElement>): void {
+	e.preventDefault()
+	e.stopPropagation()
+}
+
+function normalizeUsdcAmountInput(raw: string): string {
+	const n = Number(raw.trim())
+	if (!Number.isFinite(n) || n <= 0) return ''
+	const fixed = n.toFixed(2)
+	return Number(fixed) >= 0.01 ? fixed : ''
+}
+
 export default function UsdcTopupPage() {
 	const [sp] = useSearchParams()
 	const parsed = useMemo(() => parseParams(sp), [sp])
@@ -346,8 +372,18 @@ export default function UsdcTopupPage() {
 		/** POS 两阶段：仅 USDC 已付，顾客需在终端贴卡完成入账 */
 		awaitingBeneficiaryTap?: boolean
 	} | null>(null)
+	const [depositAmountDraft, setDepositAmountDraft] = useState(
+		() => (parsed.ok ? parsed.params.amount : ''),
+	)
 
 	const eth = activeProvider ?? (typeof window !== 'undefined' ? window.ethereum : undefined)
+
+	const walletDepositAmount = useMemo(() => {
+		if (!parsed.ok || parsed.params.workflow !== 'walletDeposit') {
+			return parsed.ok ? parsed.params.amount : ''
+		}
+		return parsed.params.amount || normalizeUsdcAmountInput(depositAmountDraft)
+	}, [parsed, depositAmountDraft])
 
 	useEffect(() => {
 		if (!parsed.ok || typeof window === 'undefined') return
@@ -373,7 +409,14 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok) return
-		const { cardAddress, cardOwner, amount, currency, workflow, testCode, beneficiary } = parsed.params
+		const { cardAddress, cardOwner, currency, workflow, testCode, beneficiary } = parsed.params
+		const amount =
+			workflow === 'walletDeposit' ? walletDepositAmount : parsed.params.amount
+		if (workflow === 'walletDeposit' && !amount) {
+			setQuote(null)
+			setStatus((s) => (s === 'quoting' ? 'idle' : s))
+			return
+		}
 		setStatus((s) => (s === 'idle' ? 'quoting' : s))
 		// Test gate settles 1.37 USDC; do not quote the product list price (e.g. 1370).
 		const quoteAmount =
@@ -414,6 +457,7 @@ export default function UsdcTopupPage() {
 		parsed.ok ? parsed.params.workflow : '',
 		parsed.ok ? parsed.params.testCode : '',
 		parsed.ok ? parsed.params.beneficiary : '',
+		walletDepositAmount,
 	])
 
 	// Mobile in-app browsers (Base / MetaMask) often suspend the WebView during signing.
@@ -669,7 +713,13 @@ export default function UsdcTopupPage() {
 			const { decodeXPaymentResponse } = await import('x402-fetch')
 			const p = parsed.params
 			const genesisTest = p.workflow === 'genesisNodeSeat' && p.testCode === GENESIS_NODE_SEAT_TEST_CODE
-			const amountAtomic6 = decimalToAtomic6(p.amount)
+			const payAmount = p.workflow === 'walletDeposit' ? walletDepositAmount : p.amount
+			if (p.workflow === 'walletDeposit' && !payAmount) {
+				setError('Enter a valid USDC amount greater than 0')
+				setStatus('error')
+				return
+			}
+			const amountAtomic6 = decimalToAtomic6(payAmount)
 			let x402MaxValue =
 				amountAtomic6 && BigInt(amountAtomic6) > 0n ? BigInt(amountAtomic6) : 1_000_000_000n
 			if (genesisTest) {
@@ -679,7 +729,7 @@ export default function UsdcTopupPage() {
 				if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
 			}
 			const bodyObj: Record<string, string> = {
-				amount: p.amount,
+				amount: payAmount,
 				currency: p.currency,
 			}
 			if (p.workflow !== 'walletDeposit') {
@@ -901,8 +951,53 @@ export default function UsdcTopupPage() {
 						<div className="grid grid-cols-1 gap-3 text-sm">
 							{isWalletDeposit ? (
 								<>
-									<Row label="Deposit amount" value={formatCurrencyAmount(amount, currency)} mono={false} bold />
-									<Row label="You pay" value={status === 'quoting' ? 'Quoting…' : quotedUsdcLabel} mono bold />
+									{Number(parsed.params.amount) > 0 ? (
+										<Row
+											label="Deposit amount"
+											value={formatCurrencyAmount(walletDepositAmount || amount, currency)}
+											mono={false}
+											bold
+										/>
+									) : (
+										<div>
+											<label
+												htmlFor="wallet-deposit-usdc-amount"
+												className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant"
+											>
+												Deposit amount (USDC)
+											</label>
+											<input
+												id="wallet-deposit-usdc-amount"
+												type="number"
+												inputMode="decimal"
+												autoComplete="off"
+												enterKeyHint="done"
+												min={0.01}
+												step={0.01}
+												value={depositAmountDraft}
+												onChange={(e) => {
+													setDepositAmountDraft(e.target.value)
+													if (error) setError(null)
+												}}
+												onKeyDown={preventNumericInputStepKeys}
+												onWheel={preventNumericInputWheelStep}
+												placeholder="10.00"
+												className={`mt-2 w-full rounded-2xl border border-outline-variant/30 bg-white px-4 py-3 text-base font-semibold text-[#1a1c1f] outline-none focus:ring-2 focus:ring-blue-200 ${NUMERIC_SPINNER_HIDE}`}
+											/>
+										</div>
+									)}
+									<Row
+										label="You pay"
+										value={
+											!walletDepositAmount
+												? 'Enter amount'
+												: status === 'quoting'
+													? 'Quoting…'
+													: quotedUsdcLabel
+										}
+										mono
+										bold
+									/>
 									<Divider />
 									<Row label="Credit to (CoNET-USDC)" value={truncate(topupBeneficiary, 8, 6)} mono />
 								</>
@@ -994,7 +1089,8 @@ export default function UsdcTopupPage() {
 									status === 'awaiting-signature' ||
 									status === 'settling' ||
 									status === 'quoting' ||
-									!quote
+									!quote ||
+									(isWalletDeposit && !walletDepositAmount)
 								}
 								className="w-full rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
 							>
