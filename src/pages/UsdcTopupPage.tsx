@@ -65,7 +65,7 @@ type TopupParams = {
 	aa: string
 	/** Genesis Seat：购买节点数量 */
 	qty: number
-	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat'
+	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit'
 	paymentToken: 'USDC' | 'CADD'
 	/**
 	 * Opaque gate for genesisNodeSeat E2E (`test` query). Not shown in UI —
@@ -121,16 +121,20 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const testCode = (sp.get('test') ?? '').trim()
 	const referrerL0Raw = (queryGetCI('referrerL0', 'referrer') || '').trim()
 	const workflowRaw = queryGetCI('workflow').trim().toLowerCase()
-	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' =
+	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit' =
 		workflowRaw === 'treasurybridge'
 			? 'treasuryBridge'
 			: workflowRaw === 'clienttopup'
 				? 'clientTopup'
 				: workflowRaw === 'genesisnodeseat'
 					? 'genesisNodeSeat'
-					: ''
-	if (!isEthAddress(cardAddress)) return { ok: false, error: 'Missing or invalid `card` (BeamioUserCard address)' }
-	if (!isEthAddress(cardOwner)) return { ok: false, error: 'Missing or invalid `owner` (card owner EOA)' }
+					: workflowRaw === 'walletdeposit'
+						? 'walletDeposit'
+						: ''
+	if (workflow !== 'walletDeposit') {
+		if (!isEthAddress(cardAddress)) return { ok: false, error: 'Missing or invalid `card` (BeamioUserCard address)' }
+		if (!isEthAddress(cardOwner)) return { ok: false, error: 'Missing or invalid `owner` (card owner EOA)' }
+	}
 	if (workflow === 'treasuryBridge') {
 		if (!isEthAddress(aa)) {
 			return { ok: false, error: 'Missing or invalid `aa` (Smart Wallet) for treasuryBridge workflow' }
@@ -168,6 +172,16 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 		if (referrerL0Raw && !isEthAddress(referrerL0Raw)) {
 			return { ok: false, error: 'Invalid `referrerL0` (expect EOA address)' }
 		}
+	} else if (workflow === 'walletDeposit') {
+		if (!isEthAddress(beneficiary)) {
+			return { ok: false, error: 'Missing or invalid `beneficiary` (wallet EOA or AA) for walletDeposit workflow' }
+		}
+		if (sid || pos) {
+			return { ok: false, error: 'walletDeposit links must not include `sid` or `pos` (POS admin workflow)' }
+		}
+		if (currency !== 'USDC' && paymentToken !== 'USDC') {
+			return { ok: false, error: 'walletDeposit requires currency/paymentToken USDC' }
+		}
 	} else {
 		if (sid && !isUuidV4(sid)) return { ok: false, error: 'Invalid `sid` (expect UUID v4)' }
 		if (sid && !isEthAddress(pos)) return { ok: false, error: 'Missing or invalid `pos` when `sid` is set (POS terminal EOA)' }
@@ -177,10 +191,11 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const treasuryBridgePath = workflow === 'treasuryBridge' && isEthAddress(aa)
 	const clientTopupPath = workflow === 'clientTopup' && isEthAddress(beneficiary)
 	const genesisSeatPath = workflow === 'genesisNodeSeat' && isEthAddress(beneficiary)
+	const walletDepositPath = workflow === 'walletDeposit' && isEthAddress(beneficiary)
 	const genesisQty = genesisSeatPath ? Number(qtyRaw) : 0
 	const genesisTestCode =
 		genesisSeatPath && testCode === GENESIS_NODE_SEAT_TEST_CODE ? GENESIS_NODE_SEAT_TEST_CODE : ''
-	if (!hasSidPos && !clientTopupPath && !treasuryBridgePath && !genesisSeatPath) {
+	if (!hasSidPos && !clientTopupPath && !treasuryBridgePath && !genesisSeatPath && !walletDepositPath) {
 		if (!uid || !isHex(uid, 14)) return { ok: false, error: 'Missing or invalid `uid` (NFC UID, 14 hex chars)' }
 		if (!isHex(e, 64)) return { ok: false, error: 'Missing or invalid SUN `e` (64 hex chars)' }
 		if (!isHex(c, 6)) return { ok: false, error: 'Missing or invalid SUN `c` (6 hex chars)' }
@@ -205,10 +220,10 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 			c: hasSidPos && !uid ? '' : c,
 			m: hasSidPos && !uid ? '' : m,
 			amount,
-			currency: genesisSeatPath ? 'USDC' : currency,
+			currency: genesisSeatPath || walletDepositPath ? 'USDC' : currency,
 			sid,
 			pos: pos && isEthAddress(pos) ? pos : '',
-			beneficiary: clientTopupPath || genesisSeatPath ? beneficiary : '',
+			beneficiary: clientTopupPath || genesisSeatPath || walletDepositPath ? beneficiary : '',
 			aa: treasuryBridgePath ? aa : '',
 			qty: genesisSeatPath ? genesisQty : 0,
 			workflow: treasuryBridgePath
@@ -217,8 +232,10 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 					? 'clientTopup'
 					: genesisSeatPath
 						? 'genesisNodeSeat'
-						: '',
-			paymentToken: genesisSeatPath ? 'USDC' : paymentToken,
+						: walletDepositPath
+							? 'walletDeposit'
+							: '',
+			paymentToken: genesisSeatPath || walletDepositPath ? 'USDC' : paymentToken,
 			testCode: genesisTestCode,
 			referrerL0: genesisSeatPath && isEthAddress(referrerL0Raw) ? referrerL0Raw : '',
 		},
@@ -356,14 +373,17 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok) return
-		const { cardAddress, cardOwner, amount, currency, workflow, testCode } = parsed.params
+		const { cardAddress, cardOwner, amount, currency, workflow, testCode, beneficiary } = parsed.params
 		setStatus((s) => (s === 'idle' ? 'quoting' : s))
 		// Test gate settles 1.37 USDC; do not quote the product list price (e.g. 1370).
 		const quoteAmount =
 			workflow === 'genesisNodeSeat' && testCode === GENESIS_NODE_SEAT_TEST_CODE
 				? (Number(GENESIS_NODE_SEAT_TEST_USDC6) / 1_000_000).toFixed(2)
 				: amount
-		const url = `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(quoteAmount)}&currency=${currency}`
+		const url =
+			workflow === 'walletDeposit'
+				? `${BEAMIO_API}/api/nfcUsdcTopupQuote?workflow=walletDeposit&beneficiary=${encodeURIComponent(beneficiary)}&amount=${encodeURIComponent(quoteAmount)}&currency=USDC&paymentToken=USDC`
+				: `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(quoteAmount)}&currency=${currency}`
 		let cancelled = false
 		fetch(url)
 			.then(async (r) => {
@@ -393,6 +413,7 @@ export default function UsdcTopupPage() {
 		parsed.ok ? parsed.params.currency : '',
 		parsed.ok ? parsed.params.workflow : '',
 		parsed.ok ? parsed.params.testCode : '',
+		parsed.ok ? parsed.params.beneficiary : '',
 	])
 
 	// Mobile in-app browsers (Base / MetaMask) often suspend the WebView during signing.
@@ -596,6 +617,11 @@ export default function UsdcTopupPage() {
 					bodyObj.workflow = 'genesisNodeSeat'
 					if (p.testCode) bodyObj.test = p.testCode
 					if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
+				} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
+					bodyObj.beneficiary = p.beneficiary
+					bodyObj.workflow = 'walletDeposit'
+					delete bodyObj.cardAddress
+					delete bodyObj.cardOwner
 				} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 					bodyObj.beneficiary = p.beneficiary
 					bodyObj.workflow = 'clientTopup'
@@ -653,10 +679,12 @@ export default function UsdcTopupPage() {
 				if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
 			}
 			const bodyObj: Record<string, string> = {
-				cardAddress: p.cardAddress,
-				cardOwner: p.cardOwner,
 				amount: p.amount,
 				currency: p.currency,
+			}
+			if (p.workflow !== 'walletDeposit') {
+				bodyObj.cardAddress = p.cardAddress
+				bodyObj.cardOwner = p.cardOwner
 			}
 			if (p.workflow === 'treasuryBridge' && p.aa) {
 				bodyObj.aa = p.aa
@@ -667,6 +695,9 @@ export default function UsdcTopupPage() {
 				bodyObj.workflow = 'genesisNodeSeat'
 				if (p.testCode) bodyObj.test = p.testCode
 				if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
+			} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
+				bodyObj.beneficiary = p.beneficiary
+				bodyObj.workflow = 'walletDeposit'
 			} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.workflow = 'clientTopup'
@@ -790,7 +821,8 @@ export default function UsdcTopupPage() {
 							<p className="mt-4 text-xs opacity-80">
 								Expected: <code>card</code>, <code>owner</code>, <code>amount</code>, <code>currency</code>; Discover{' '}
 								<code>workflow=treasuryBridge</code> + <code>aa</code>;{' '}
-								<code>workflow=genesisNodeSeat</code> + <code>beneficiary</code> + <code>qty</code>; POS session{' '}
+								<code>workflow=genesisNodeSeat</code> + <code>beneficiary</code> + <code>qty</code>; wallet deposit{' '}
+								<code>workflow=walletDeposit</code> + <code>beneficiary</code> (no card); POS session{' '}
 								<code>sid</code> + admin <code>pos</code>; or legacy <code>workflow=clientTopup</code> +{' '}
 								<code>beneficiary</code>. Legacy NFC links need full <code>uid</code>/<code>e</code>/<code>c</code>/
 								<code>m</code>.
@@ -807,6 +839,7 @@ export default function UsdcTopupPage() {
 	const isTreasuryBridge = topupWorkflow === 'treasuryBridge' && Boolean(topupAa)
 	const isClientTopup = topupWorkflow === 'clientTopup' && Boolean(topupBeneficiary)
 	const isGenesisSeat = topupWorkflow === 'genesisNodeSeat' && Boolean(topupBeneficiary) && topupQty > 0
+	const isWalletDeposit = topupWorkflow === 'walletDeposit' && Boolean(topupBeneficiary)
 	const showNfcTagRow = Boolean(uid && uid.length >= 6)
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
 	const hasInjectedWallet = installedWallets.length > 0 || !!eth
@@ -842,25 +875,38 @@ export default function UsdcTopupPage() {
 				<div className="mx-auto max-w-xl px-6">
 					<header className="mb-8 text-center">
 						<h1 className="text-3xl font-extrabold tracking-tight">
-							{isGenesisSeat ? 'Lock Genesis Node Seat' : 'Top up your card'}
+							{isWalletDeposit
+								? 'Deposit USDC'
+								: isGenesisSeat
+									? 'Lock Genesis Node Seat'
+									: 'Top up your card'}
 						</h1>
 						<p className="mt-2 text-on-surface-variant">
 							Pay with {parsed.params.paymentToken} on Base from your own wallet.
-							{isGenesisSeat
-								? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
-								: isTreasuryBridge
-									? ' USDC settles to the Beamio treasury; card points credit to your Smart Wallet. The merchant receives CoNET-USDC separately.'
-									: isClientTopup
-										? ' USDC is sent to the beneficiary wallet; complete the merchant top-up in the Beamio app.'
-										: topupSid
-											? ' After payment, tap your Beamio card on the merchant terminal to receive the credit.'
-											: ' Your NFC card will be credited automatically.'}
+							{isWalletDeposit
+								? ' After payment confirms, CoNET-USDC is minted to your wallet via the Base–CoNET treasury bridge.'
+								: isGenesisSeat
+									? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
+									: isTreasuryBridge
+										? ' USDC settles to the Beamio treasury; card points credit to your Smart Wallet. The merchant receives CoNET-USDC separately.'
+										: isClientTopup
+											? ' USDC is sent to the beneficiary wallet; complete the merchant top-up in the Beamio app.'
+											: topupSid
+												? ' After payment, tap your Beamio card on the merchant terminal to receive the credit.'
+												: ' Your NFC card will be credited automatically.'}
 						</p>
 					</header>
 
 					<section className="rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
 						<div className="grid grid-cols-1 gap-3 text-sm">
-							{isGenesisSeat ? (
+							{isWalletDeposit ? (
+								<>
+									<Row label="Deposit amount" value={formatCurrencyAmount(amount, currency)} mono={false} bold />
+									<Row label="You pay" value={status === 'quoting' ? 'Quoting…' : quotedUsdcLabel} mono bold />
+									<Divider />
+									<Row label="Credit to (CoNET-USDC)" value={truncate(topupBeneficiary, 8, 6)} mono />
+								</>
+							) : isGenesisSeat ? (
 								<>
 									<Row
 										label="Nodes"
@@ -937,6 +983,7 @@ export default function UsdcTopupPage() {
 								awaitingBeneficiaryTap={result?.awaitingBeneficiaryTap}
 								treasuryBridge={isTreasuryBridge}
 								genesisSeat={isGenesisSeat}
+								walletDeposit={isWalletDeposit}
 								onDone={() => window.close()}
 							/>
 						) : (
@@ -1019,6 +1066,7 @@ function SuccessPanel({
 	awaitingBeneficiaryTap,
 	treasuryBridge,
 	genesisSeat,
+	walletDeposit,
 	onDone,
 }: {
 	usdcTx?: string
@@ -1028,21 +1076,24 @@ function SuccessPanel({
 	awaitingBeneficiaryTap?: boolean
 	treasuryBridge?: boolean
 	genesisSeat?: boolean
+	walletDeposit?: boolean
 	onDone: () => void
 }) {
 	return (
 		<div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-100">
 			<p className="text-lg font-bold">Payment confirmed</p>
 			<p className="mt-1 text-sm opacity-90">
-				{genesisSeat
-					? `${tokenLabel} settled. Your Genesis nodes are being claimed and deployed — check CoNET Mining / Wallet shortly.`
-					: treasuryBridge
-						? `${tokenLabel} settled to the Beamio treasury. Card points are crediting to your Smart Wallet. The merchant receives CoNET-USDC separately.`
-						: awaitingBeneficiaryTap
-							? `Your ${tokenLabel} payment is complete. Tap your Beamio card on the merchant terminal to finish top-up.`
-							: awaitingPosAuthorization
-								? `Your ${tokenLabel} payment is complete. The merchant terminal will finalize crediting your card in a moment.`
-								: `${tokenLabel} transferred and your NFC card will be topped up shortly.`}
+				{walletDeposit
+					? `${tokenLabel} settled. CoNET-USDC is being minted to your wallet via the Base–CoNET treasury bridge. Check Wallet shortly.`
+					: genesisSeat
+						? `${tokenLabel} settled. Your Genesis nodes are being claimed and deployed — check CoNET Mining / Wallet shortly.`
+						: treasuryBridge
+							? `${tokenLabel} settled to the Beamio treasury. Card points are crediting to your Smart Wallet. The merchant receives CoNET-USDC separately.`
+							: awaitingBeneficiaryTap
+								? `Your ${tokenLabel} payment is complete. Tap your Beamio card on the merchant terminal to finish top-up.`
+								: awaitingPosAuthorization
+									? `Your ${tokenLabel} payment is complete. The merchant terminal will finalize crediting your card in a moment.`
+									: `${tokenLabel} transferred and your NFC card will be topped up shortly.`}
 			</p>
 			<div className="mt-4 grid gap-2 text-xs">
 				{usdcTx ? (
@@ -1055,7 +1106,7 @@ function SuccessPanel({
 						{tokenLabel} tx: {truncate(usdcTx, 10, 8)}
 					</a>
 				) : null}
-				{topupTx ? (
+				{topupTx && !walletDeposit ? (
 					<a
 						href={`https://basescan.org/tx/${topupTx}`}
 						target="_blank"
