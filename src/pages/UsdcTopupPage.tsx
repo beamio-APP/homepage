@@ -67,11 +67,6 @@ type TopupParams = {
 	qty: number
 	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit'
 	paymentToken: 'USDC' | 'CADD'
-	/**
-	 * Opaque gate for genesisNodeSeat E2E (`test` query). Not shown in UI —
-	 * product amount stays on the link; x402 settle uses 1.37 USDC when matched.
-	 */
-	testCode: string
 	/** Evangelist L0 EOA (optional Genesis share attribution). */
 	referrerL0: string
 }
@@ -85,10 +80,8 @@ const isHex = (s: string, len?: number): boolean =>
 const isEthAddress = (s: string): boolean => typeof s === 'string' && /^0x[0-9a-fA-F]{40}$/.test(s)
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-/** Must match x402sdk `GENESIS_NODE_SEAT_TEST_CODE` — third-party E2E settle 1.37 USDC (code gate; no buyer whitelist) */
-const GENESIS_NODE_SEAT_TEST_CODE = '332266'
-const GENESIS_NODE_SEAT_TEST_USDC6 = 1_370_000n
-const GENESIS_NODE_SEAT_USDC_PER_NODE6 = 1_370_000_000n
+/** Must match x402sdk `GENESIS_NODE_SEAT_USDC_PER_NODE6` (4000 USDC list price, OPEX included). */
+const GENESIS_NODE_SEAT_USDC_PER_NODE6 = 4_000_000_000n
 const isUuidV4 = (s: string): boolean => typeof s === 'string' && UUID_V4_RE.test(s)
 
 function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | { ok: false; error: string } {
@@ -118,7 +111,6 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const beneficiary = (sp.get('beneficiary') ?? '').trim()
 	const aa = (queryGetCI('aa', 'recipientAA') || '').trim()
 	const qtyRaw = (queryGetCI('qty', 'quantity') || '').trim()
-	const testCode = (sp.get('test') ?? '').trim()
 	const referrerL0Raw = (queryGetCI('referrerL0', 'referrer') || '').trim()
 	const workflowRaw = queryGetCI('workflow').trim().toLowerCase()
 	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit' =
@@ -163,12 +155,6 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 		if (currency !== 'USDC' && paymentToken !== 'USDC') {
 			return { ok: false, error: 'genesisNodeSeat requires currency/paymentToken USDC' }
 		}
-		if (testCode && testCode !== GENESIS_NODE_SEAT_TEST_CODE) {
-			return { ok: false, error: 'Invalid `test` code for genesisNodeSeat' }
-		}
-		if (testCode === GENESIS_NODE_SEAT_TEST_CODE && qtyNum !== 1) {
-			return { ok: false, error: 'genesisNodeSeat test mode allows qty=1 only' }
-		}
 		if (referrerL0Raw && !isEthAddress(referrerL0Raw)) {
 			return { ok: false, error: 'Invalid `referrerL0` (expect EOA address)' }
 		}
@@ -193,8 +179,6 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const genesisSeatPath = workflow === 'genesisNodeSeat' && isEthAddress(beneficiary)
 	const walletDepositPath = workflow === 'walletDeposit' && isEthAddress(beneficiary)
 	const genesisQty = genesisSeatPath ? Number(qtyRaw) : 0
-	const genesisTestCode =
-		genesisSeatPath && testCode === GENESIS_NODE_SEAT_TEST_CODE ? GENESIS_NODE_SEAT_TEST_CODE : ''
 	if (!hasSidPos && !clientTopupPath && !treasuryBridgePath && !genesisSeatPath && !walletDepositPath) {
 		if (!uid || !isHex(uid, 14)) return { ok: false, error: 'Missing or invalid `uid` (NFC UID, 14 hex chars)' }
 		if (!isHex(e, 64)) return { ok: false, error: 'Missing or invalid SUN `e` (64 hex chars)' }
@@ -239,7 +223,6 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 							? 'walletDeposit'
 							: '',
 			paymentToken: genesisSeatPath || walletDepositPath ? 'USDC' : paymentToken,
-			testCode: genesisTestCode,
 			referrerL0: genesisSeatPath && isEthAddress(referrerL0Raw) ? referrerL0Raw : '',
 		},
 	}
@@ -410,7 +393,7 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok) return
-		const { cardAddress, cardOwner, currency, workflow, testCode, beneficiary } = parsed.params
+		const { cardAddress, cardOwner, currency, workflow, beneficiary } = parsed.params
 		const amount =
 			workflow === 'walletDeposit' ? walletDepositAmount : parsed.params.amount
 		if (workflow === 'walletDeposit' && !amount) {
@@ -419,11 +402,7 @@ export default function UsdcTopupPage() {
 			return
 		}
 		setStatus((s) => (s === 'idle' ? 'quoting' : s))
-		// Test gate settles 1.37 USDC; do not quote the product list price (e.g. 1370).
-		const quoteAmount =
-			workflow === 'genesisNodeSeat' && testCode === GENESIS_NODE_SEAT_TEST_CODE
-				? (Number(GENESIS_NODE_SEAT_TEST_USDC6) / 1_000_000).toFixed(2)
-				: amount
+		const quoteAmount = amount
 		const url =
 			workflow === 'walletDeposit'
 				? `${BEAMIO_API}/api/nfcUsdcTopupQuote?workflow=walletDeposit&beneficiary=${encodeURIComponent(beneficiary)}&amount=${encodeURIComponent(quoteAmount)}&currency=USDC&paymentToken=USDC`
@@ -456,7 +435,6 @@ export default function UsdcTopupPage() {
 		parsed.ok ? parsed.params.amount : '',
 		parsed.ok ? parsed.params.currency : '',
 		parsed.ok ? parsed.params.workflow : '',
-		parsed.ok ? parsed.params.testCode : '',
 		parsed.ok ? parsed.params.beneficiary : '',
 		walletDepositAmount,
 	])
@@ -661,7 +639,6 @@ export default function UsdcTopupPage() {
 					bodyObj.beneficiary = p.beneficiary
 					bodyObj.qty = String(p.qty)
 					bodyObj.workflow = 'genesisNodeSeat'
-					if (p.testCode) bodyObj.test = p.testCode
 					if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
 				} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
 					bodyObj.beneficiary = p.beneficiary
@@ -714,7 +691,6 @@ export default function UsdcTopupPage() {
 			const { PaymentRequirementsSchema } = await import('x402/types')
 			const { decodeXPaymentResponse } = await import('x402-fetch')
 			const p = parsed.params
-			const genesisTest = p.workflow === 'genesisNodeSeat' && p.testCode === GENESIS_NODE_SEAT_TEST_CODE
 			const payAmount = p.workflow === 'walletDeposit' ? walletDepositAmount : p.amount
 			if (p.workflow === 'walletDeposit' && !payAmount) {
 				setError('Enter a valid USDC amount greater than 0')
@@ -724,9 +700,7 @@ export default function UsdcTopupPage() {
 			const amountAtomic6 = decimalToAtomic6(payAmount)
 			let x402MaxValue =
 				amountAtomic6 && BigInt(amountAtomic6) > 0n ? BigInt(amountAtomic6) : 1_000_000_000n
-			if (genesisTest) {
-				x402MaxValue = GENESIS_NODE_SEAT_TEST_USDC6
-			} else if (p.workflow === 'genesisNodeSeat' && p.qty > 0) {
+			if (p.workflow === 'genesisNodeSeat' && p.qty > 0) {
 				const genesisFloor = BigInt(p.qty) * GENESIS_NODE_SEAT_USDC_PER_NODE6
 				if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
 			}
@@ -745,7 +719,6 @@ export default function UsdcTopupPage() {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.qty = String(p.qty)
 				bodyObj.workflow = 'genesisNodeSeat'
-				if (p.testCode) bodyObj.test = p.testCode
 				if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
 			} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
 				bodyObj.beneficiary = p.beneficiary
