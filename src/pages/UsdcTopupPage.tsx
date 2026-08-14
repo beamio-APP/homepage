@@ -12,6 +12,7 @@ import {
 	type Eip1193Provider,
 	type InjectedWalletChoice,
 } from '../utils/mobileWalletApps'
+import { lookupFuelPack } from '../utils/fuelPackCatalog'
 
 declare global {
 	interface Window {
@@ -65,10 +66,12 @@ type TopupParams = {
 	aa: string
 	/** Genesis Seat：购买节点数量 */
 	qty: number
-	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit'
+	workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit' | 'fuelPack'
 	paymentToken: 'USDC' | 'CADD'
 	/** Evangelist L0 EOA (optional Genesis share attribution). */
 	referrerL0: string
+	/** Custom Fuel catalog id (`genesis_starter`, …); empty for custom USDC amount. */
+	packId: string
 }
 
 const truncate = (s: string, head = 6, tail = 4): string =>
@@ -113,19 +116,35 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const qtyRaw = (queryGetCI('qty', 'quantity') || '').trim()
 	const referrerL0Raw = (queryGetCI('referrerL0', 'referrer') || '').trim()
 	const workflowRaw = queryGetCI('workflow').trim().toLowerCase()
-	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit' =
+	const workflow: '' | 'clientTopup' | 'treasuryBridge' | 'genesisNodeSeat' | 'walletDeposit' | 'fuelPack' =
 		workflowRaw === 'treasurybridge'
 			? 'treasuryBridge'
 			: workflowRaw === 'clienttopup'
 				? 'clientTopup'
 				: workflowRaw === 'genesisnodeseat'
 					? 'genesisNodeSeat'
-					: workflowRaw === 'walletdeposit'
-						? 'walletDeposit'
-						: ''
-	if (workflow !== 'walletDeposit') {
+					: workflowRaw === 'fuelpack'
+						? 'fuelPack'
+						: workflowRaw === 'walletdeposit'
+							? 'walletDeposit'
+							: ''
+	if (workflow !== 'walletDeposit' && workflow !== 'fuelPack') {
 		if (!isEthAddress(cardAddress)) return { ok: false, error: 'Missing or invalid `card` (BeamioUserCard address)' }
 		if (!isEthAddress(cardOwner)) return { ok: false, error: 'Missing or invalid `owner` (card owner EOA)' }
+	}
+	const packRaw = queryGetCI('pack', 'packId').trim()
+	const catalogPack = lookupFuelPack(packRaw)
+	let amountResolved = amount
+	if (workflow === 'fuelPack') {
+		if (packRaw && !catalogPack) {
+			return { ok: false, error: 'Unknown fuel pack' }
+		}
+		if (catalogPack) {
+			if (!amountResolved) amountResolved = catalogPack.usdcAmount
+			else if (Number(amountResolved) !== Number(catalogPack.usdcAmount)) {
+				return { ok: false, error: `fuelPack amount must be ${catalogPack.usdcAmount} USDC` }
+			}
+		}
 	}
 	if (workflow === 'treasuryBridge') {
 		if (!isEthAddress(aa)) {
@@ -168,6 +187,16 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 		if (currency !== 'USDC' && paymentToken !== 'USDC') {
 			return { ok: false, error: 'walletDeposit requires currency/paymentToken USDC' }
 		}
+	} else if (workflow === 'fuelPack') {
+		if (!isEthAddress(beneficiary)) {
+			return { ok: false, error: 'Missing or invalid `beneficiary` (merchant EOA) for fuelPack workflow' }
+		}
+		if (sid || pos) {
+			return { ok: false, error: 'fuelPack links must not include `sid` or `pos` (POS admin workflow)' }
+		}
+		if (currency !== 'USDC' && paymentToken !== 'USDC') {
+			return { ok: false, error: 'fuelPack requires currency/paymentToken USDC' }
+		}
 	} else {
 		if (sid && !isUuidV4(sid)) return { ok: false, error: 'Invalid `sid` (expect UUID v4)' }
 		if (sid && !isEthAddress(pos)) return { ok: false, error: 'Missing or invalid `pos` when `sid` is set (POS terminal EOA)' }
@@ -178,8 +207,9 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 	const clientTopupPath = workflow === 'clientTopup' && isEthAddress(beneficiary)
 	const genesisSeatPath = workflow === 'genesisNodeSeat' && isEthAddress(beneficiary)
 	const walletDepositPath = workflow === 'walletDeposit' && isEthAddress(beneficiary)
+	const fuelPackPath = workflow === 'fuelPack' && isEthAddress(beneficiary)
 	const genesisQty = genesisSeatPath ? Number(qtyRaw) : 0
-	if (!hasSidPos && !clientTopupPath && !treasuryBridgePath && !genesisSeatPath && !walletDepositPath) {
+	if (!hasSidPos && !clientTopupPath && !treasuryBridgePath && !genesisSeatPath && !walletDepositPath && !fuelPackPath) {
 		if (!uid || !isHex(uid, 14)) return { ok: false, error: 'Missing or invalid `uid` (NFC UID, 14 hex chars)' }
 		if (!isHex(e, 64)) return { ok: false, error: 'Missing or invalid SUN `e` (64 hex chars)' }
 		if (!isHex(c, 6)) return { ok: false, error: 'Missing or invalid SUN `c` (6 hex chars)' }
@@ -192,7 +222,7 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 			}
 		}
 	}
-	const amountOk = !!amount && Number(amount) > 0
+	const amountOk = !!amountResolved && Number(amountResolved) > 0
 	if (!amountOk && !walletDepositPath) {
 		return { ok: false, error: 'Missing or invalid `amount`' }
 	}
@@ -206,11 +236,11 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 			e: hasSidPos && !uid ? '' : e,
 			c: hasSidPos && !uid ? '' : c,
 			m: hasSidPos && !uid ? '' : m,
-			amount: walletDepositPath && !amountOk ? '' : amount,
-			currency: genesisSeatPath || walletDepositPath ? 'USDC' : currency,
+			amount: walletDepositPath && !amountOk ? '' : amountResolved,
+			currency: genesisSeatPath || walletDepositPath || fuelPackPath ? 'USDC' : currency,
 			sid,
 			pos: pos && isEthAddress(pos) ? pos : '',
-			beneficiary: clientTopupPath || genesisSeatPath || walletDepositPath ? beneficiary : '',
+			beneficiary: clientTopupPath || genesisSeatPath || walletDepositPath || fuelPackPath ? beneficiary : '',
 			aa: treasuryBridgePath ? aa : '',
 			qty: genesisSeatPath ? genesisQty : 0,
 			workflow: treasuryBridgePath
@@ -219,11 +249,14 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 					? 'clientTopup'
 					: genesisSeatPath
 						? 'genesisNodeSeat'
-						: walletDepositPath
-							? 'walletDeposit'
-							: '',
-			paymentToken: genesisSeatPath || walletDepositPath ? 'USDC' : paymentToken,
+						: fuelPackPath
+							? 'fuelPack'
+							: walletDepositPath
+								? 'walletDeposit'
+								: '',
+			paymentToken: genesisSeatPath || walletDepositPath || fuelPackPath ? 'USDC' : paymentToken,
 			referrerL0: genesisSeatPath && isEthAddress(referrerL0Raw) ? referrerL0Raw : '',
+			packId: fuelPackPath && catalogPack ? catalogPack.id : '',
 		},
 	}
 }
@@ -393,7 +426,7 @@ export default function UsdcTopupPage() {
 
 	useEffect(() => {
 		if (!parsed.ok) return
-		const { cardAddress, cardOwner, currency, workflow, beneficiary } = parsed.params
+		const { cardAddress, cardOwner, currency, workflow, beneficiary, packId } = parsed.params
 		const amount =
 			workflow === 'walletDeposit' ? walletDepositAmount : parsed.params.amount
 		if (workflow === 'walletDeposit' && !amount) {
@@ -406,7 +439,9 @@ export default function UsdcTopupPage() {
 		const url =
 			workflow === 'walletDeposit'
 				? `${BEAMIO_API}/api/nfcUsdcTopupQuote?workflow=walletDeposit&beneficiary=${encodeURIComponent(beneficiary)}&amount=${encodeURIComponent(quoteAmount)}&currency=USDC&paymentToken=USDC`
-				: `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(quoteAmount)}&currency=${currency}`
+				: workflow === 'fuelPack'
+					? `${BEAMIO_API}/api/nfcUsdcTopupQuote?workflow=fuelPack&beneficiary=${encodeURIComponent(beneficiary)}&amount=${encodeURIComponent(quoteAmount)}&currency=USDC&paymentToken=USDC${packId ? `&pack=${encodeURIComponent(packId)}` : ''}`
+					: `${BEAMIO_API}/api/nfcUsdcTopupQuote?card=${cardAddress}&owner=${cardOwner}&amount=${encodeURIComponent(quoteAmount)}&currency=${currency}`
 		let cancelled = false
 		fetch(url)
 			.then(async (r) => {
@@ -436,6 +471,7 @@ export default function UsdcTopupPage() {
 		parsed.ok ? parsed.params.currency : '',
 		parsed.ok ? parsed.params.workflow : '',
 		parsed.ok ? parsed.params.beneficiary : '',
+		parsed.ok ? parsed.params.packId : '',
 		walletDepositAmount,
 	])
 
@@ -645,6 +681,12 @@ export default function UsdcTopupPage() {
 					bodyObj.workflow = 'walletDeposit'
 					delete bodyObj.cardAddress
 					delete bodyObj.cardOwner
+				} else if (p.workflow === 'fuelPack' && p.beneficiary) {
+					bodyObj.beneficiary = p.beneficiary
+					bodyObj.workflow = 'fuelPack'
+					if (p.packId) bodyObj.pack = p.packId
+					delete bodyObj.cardAddress
+					delete bodyObj.cardOwner
 				} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 					bodyObj.beneficiary = p.beneficiary
 					bodyObj.workflow = 'clientTopup'
@@ -708,7 +750,7 @@ export default function UsdcTopupPage() {
 				amount: payAmount,
 				currency: p.currency,
 			}
-			if (p.workflow !== 'walletDeposit') {
+			if (p.workflow !== 'walletDeposit' && p.workflow !== 'fuelPack') {
 				bodyObj.cardAddress = p.cardAddress
 				bodyObj.cardOwner = p.cardOwner
 			}
@@ -723,6 +765,10 @@ export default function UsdcTopupPage() {
 			} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.workflow = 'walletDeposit'
+			} else if (p.workflow === 'fuelPack' && p.beneficiary) {
+				bodyObj.beneficiary = p.beneficiary
+				bodyObj.workflow = 'fuelPack'
+				if (p.packId) bodyObj.pack = p.packId
 			} else if (p.workflow === 'clientTopup' && p.beneficiary) {
 				bodyObj.beneficiary = p.beneficiary
 				bodyObj.workflow = 'clientTopup'
@@ -847,7 +893,8 @@ export default function UsdcTopupPage() {
 								Expected: <code>card</code>, <code>owner</code>, <code>amount</code>, <code>currency</code>; Discover{' '}
 								<code>workflow=treasuryBridge</code> + <code>aa</code>;{' '}
 								<code>workflow=genesisNodeSeat</code> + <code>beneficiary</code> + <code>qty</code>; wallet deposit{' '}
-								<code>workflow=walletDeposit</code> + <code>beneficiary</code> (no card); POS session{' '}
+								<code>workflow=walletDeposit</code> + <code>beneficiary</code> (no card); Custom Fuel{' '}
+								<code>workflow=fuelPack</code> + <code>beneficiary</code> + <code>pack</code> (no card); POS session{' '}
 								<code>sid</code> + admin <code>pos</code>; or legacy <code>workflow=clientTopup</code> +{' '}
 								<code>beneficiary</code>. Legacy NFC links need full <code>uid</code>/<code>e</code>/<code>c</code>/
 								<code>m</code>.
@@ -859,12 +906,14 @@ export default function UsdcTopupPage() {
 		)
 	}
 
-	const { cardAddress, cardOwner, uid, amount, currency, sid: topupSid, beneficiary: topupBeneficiary, aa: topupAa, qty: topupQty, workflow: topupWorkflow } =
+	const { cardAddress, cardOwner, uid, amount, currency, sid: topupSid, beneficiary: topupBeneficiary, aa: topupAa, qty: topupQty, workflow: topupWorkflow, packId: topupPackId } =
 		parsed.params
 	const isTreasuryBridge = topupWorkflow === 'treasuryBridge' && Boolean(topupAa)
 	const isClientTopup = topupWorkflow === 'clientTopup' && Boolean(topupBeneficiary)
 	const isGenesisSeat = topupWorkflow === 'genesisNodeSeat' && Boolean(topupBeneficiary) && topupQty > 0
 	const isWalletDeposit = topupWorkflow === 'walletDeposit' && Boolean(topupBeneficiary)
+	const isFuelPack = topupWorkflow === 'fuelPack' && Boolean(topupBeneficiary)
+	const fuelPackEntry = isFuelPack ? lookupFuelPack(topupPackId) : null
 	const showNfcTagRow = Boolean(uid && uid.length >= 6)
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
 	const hasInjectedWallet = installedWallets.length > 0
@@ -900,15 +949,19 @@ export default function UsdcTopupPage() {
 				<div className="mx-auto max-w-xl px-6">
 					<header className="mb-8 text-center">
 						<h1 className="text-3xl font-extrabold tracking-tight">
-							{isWalletDeposit
-								? 'Deposit USDC'
-								: isGenesisSeat
-									? 'Lock Genesis Node Seat'
-									: 'Top up your card'}
+							{isFuelPack
+								? 'Buy Fuel Pack'
+								: isWalletDeposit
+									? 'Deposit USDC'
+									: isGenesisSeat
+										? 'Lock Genesis Node Seat'
+										: 'Top up your card'}
 						</h1>
 						<p className="mt-2 text-on-surface-variant">
 							Pay with {parsed.params.paymentToken} on Base from your own wallet.
-							{isWalletDeposit
+							{isFuelPack
+								? ' After payment confirms, B-Units (and a Genesis merchant-card NFT if this is the Newcomer pack) credit the merchant account — not the paying wallet.'
+								: isWalletDeposit
 								? ' After payment confirms, CoNET-USDC is minted to your wallet via the Base–CoNET treasury bridge.'
 								: isGenesisSeat
 									? ' After payment confirms, your validator nodes are claimed and deployed automatically.'
@@ -924,7 +977,28 @@ export default function UsdcTopupPage() {
 
 					<section className="rounded-3xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
 						<div className="grid grid-cols-1 gap-3 text-sm">
-							{isWalletDeposit ? (
+							{isFuelPack ? (
+								<>
+									{fuelPackEntry ? (
+										<Row label="Pack" value={fuelPackEntry.name} mono={false} bold />
+									) : null}
+									<Row
+										label="You pay"
+										value={status === 'quoting' ? 'Quoting…' : quotedUsdcLabel}
+										mono
+										bold
+									/>
+									{fuelPackEntry ? (
+										<Row
+											label="Credits"
+											value={`${fuelPackEntry.paidBUnits.toLocaleString('en-US')} paid B-Units${fuelPackEntry.freeBUnits > 0 ? ` + ${fuelPackEntry.freeBUnits.toLocaleString('en-US')} bonus` : ''}${fuelPackEntry.firstTimeOnly ? ' + Genesis merchant-card NFT' : ''}`}
+											mono={false}
+										/>
+									) : null}
+									<Divider />
+									<Row label="Credit to (merchant)" value={truncate(topupBeneficiary, 8, 6)} mono />
+								</>
+							) : isWalletDeposit ? (
 								<>
 									{Number(parsed.params.amount) > 0 ? (
 										<Row
@@ -1043,6 +1117,7 @@ export default function UsdcTopupPage() {
 								treasuryBridge={isTreasuryBridge}
 								genesisSeat={isGenesisSeat}
 								walletDeposit={isWalletDeposit}
+								fuelPack={isFuelPack}
 								onDone={() => window.close()}
 							/>
 						) : (
@@ -1127,6 +1202,7 @@ function SuccessPanel({
 	treasuryBridge,
 	genesisSeat,
 	walletDeposit,
+	fuelPack,
 	onDone,
 }: {
 	usdcTx?: string
@@ -1137,13 +1213,16 @@ function SuccessPanel({
 	treasuryBridge?: boolean
 	genesisSeat?: boolean
 	walletDeposit?: boolean
+	fuelPack?: boolean
 	onDone: () => void
 }) {
 	return (
 		<div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-100">
 			<p className="text-lg font-bold">Payment confirmed</p>
 			<p className="mt-1 text-sm opacity-90">
-				{walletDeposit
+				{fuelPack
+					? `${tokenLabel} settled. B-Units (and a Genesis merchant-card NFT if this pack includes one) are being credited to the merchant account.`
+					: walletDeposit
 					? `${tokenLabel} settled. CoNET-USDC is being minted to your wallet via the Base–CoNET treasury bridge. Check Wallet shortly.`
 					: genesisSeat
 						? `${tokenLabel} settled. Your Genesis nodes are being claimed and deployed — check CoNET Mining / Wallet shortly.`
@@ -1166,7 +1245,7 @@ function SuccessPanel({
 						{tokenLabel} tx: {truncate(usdcTx, 10, 8)}
 					</a>
 				) : null}
-				{topupTx && !walletDeposit ? (
+				{topupTx && !walletDeposit && !fuelPack ? (
 					<a
 						href={`https://basescan.org/tx/${topupTx}`}
 						target="_blank"
