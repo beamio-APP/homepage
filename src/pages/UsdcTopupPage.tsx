@@ -991,7 +991,7 @@ export default function UsdcTopupPage() {
 									{fuelPackEntry ? (
 										<Row
 											label="Credits"
-											value={`${fuelPackEntry.paidBUnits.toLocaleString('en-US')} paid B-Units${fuelPackEntry.freeBUnits > 0 ? ` + ${fuelPackEntry.freeBUnits.toLocaleString('en-US')} bonus` : ''}${fuelPackEntry.firstTimeOnly ? ' + Genesis merchant-card NFT' : ''}`}
+											value={`${(fuelPackEntry.paidBUnits + fuelPackEntry.freeBUnits).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} B-Units${fuelPackEntry.firstTimeOnly ? ' + Genesis merchant-card NFT' : ''}`}
 											mono={false}
 										/>
 									) : null}
