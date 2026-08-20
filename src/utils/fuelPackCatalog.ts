@@ -9,6 +9,7 @@ export type FuelPackCatalogEntry = {
 	id: FuelPackId
 	name: string
 	usdcAmount: string
+	/** Checkout allocation only — UI must show paid+free as a single B-Units total. */
 	paidBUnits: number
 	freeBUnits: number
 	firstTimeOnly?: boolean

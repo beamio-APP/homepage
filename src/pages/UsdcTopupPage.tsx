@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type WheelEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type WheelEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem'
 import { base } from 'viem/chains'
 import { InstalledInjectedWalletPicker } from '../components/InstalledInjectedWalletPicker'
 import { MobileWalletPayPanel } from '../components/MobileWalletPayPanel'
+import { UsdcBaseCompositeIcon } from '../components/UsdcBaseCompositeIcon'
 import { UsdcTopupSiteHeader } from '../components/UsdcTopupSiteHeader'
 import { WalletAppDappIconButtons } from '../components/WalletAppDappIconButtons'
 import {
@@ -13,6 +14,10 @@ import {
 	type InjectedWalletChoice,
 } from '../utils/mobileWalletApps'
 import { lookupFuelPack } from '../utils/fuelPackCatalog'
+import {
+	fetchUsdcBalanceOnBase,
+	fetchUsdcBalanceOnBaseViaWallet,
+} from '../utils/beamioUsdcBalance'
 
 declare global {
 	interface Window {
@@ -72,6 +77,9 @@ type TopupParams = {
 	referrerL0: string
 	/** Custom Fuel catalog id (`genesis_starter`, …); empty for custom USDC amount. */
 	packId: string
+	/** Discover membership first-issue / upgrade (treasuryBridge). */
+	membershipTierIndex: number | null
+	membershipFeeFiat6: string
 }
 
 const truncate = (s: string, head = 6, tail = 4): string =>
@@ -227,6 +235,21 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 		return { ok: false, error: 'Missing or invalid `amount`' }
 	}
 	if (!currency) return { ok: false, error: 'Missing `currency`' }
+	const membershipTierRaw = queryGetCI('membershipTierIndex').trim()
+	const membershipFeeFiat6Raw = queryGetCI('membershipFeeFiat6').trim()
+	let membershipTierIndex: number | null = null
+	let membershipFeeFiat6 = ''
+	if (/^\d+$/.test(membershipTierRaw) && /^\d+$/.test(membershipFeeFiat6Raw)) {
+		try {
+			if (BigInt(membershipFeeFiat6Raw) > 0n) {
+				membershipTierIndex = Number(membershipTierRaw)
+				membershipFeeFiat6 = membershipFeeFiat6Raw
+			}
+		} catch {
+			membershipTierIndex = null
+			membershipFeeFiat6 = ''
+		}
+	}
 	return {
 		ok: true,
 		params: {
@@ -257,8 +280,18 @@ function parseParams(sp: URLSearchParams): { ok: true; params: TopupParams } | {
 			paymentToken: genesisSeatPath || walletDepositPath || fuelPackPath ? 'USDC' : paymentToken,
 			referrerL0: genesisSeatPath && isEthAddress(referrerL0Raw) ? referrerL0Raw : '',
 			packId: fuelPackPath && catalogPack ? catalogPack.id : '',
+			membershipTierIndex,
+			membershipFeeFiat6,
 		},
 	}
+}
+
+function applyMembershipPayFieldsToBody(bodyObj: Record<string, string>, p: TopupParams): void {
+	if (p.workflow !== 'treasuryBridge') return
+	if (p.membershipTierIndex == null || p.membershipTierIndex < 0) return
+	if (!p.membershipFeeFiat6 || !/^\d+$/.test(p.membershipFeeFiat6)) return
+	bodyObj.membershipTierIndex = String(p.membershipTierIndex)
+	bodyObj.membershipFeeFiat6 = p.membershipFeeFiat6
 }
 
 function formatCurrencyAmount(amount: string, currency: string): string {
@@ -274,6 +307,16 @@ function formatUsdc(usdc6OrHuman: string | undefined): string {
 	const n = Number(usdc6OrHuman)
 	if (!Number.isFinite(n)) return '— USDC'
 	return `${(n / 1_000_000).toFixed(2)} USDC`
+}
+
+const PAYER_USDC_REFRESH_MS = 8_000
+
+function formatInsufficientUsdcError(have: number, need: number): string {
+	return `Insufficient USDC balance: account has ${have.toFixed(2)} USDC, need ${need.toFixed(2)} USDC`
+}
+
+function isInsufficientUsdcError(msg: string | null | undefined): boolean {
+	return typeof msg === 'string' && /Insufficient USDC balance/i.test(msg)
 }
 
 function decimalToAtomic6(raw: string): string | null {
@@ -391,6 +434,14 @@ export default function UsdcTopupPage() {
 	const [depositAmountDraft, setDepositAmountDraft] = useState(
 		() => (parsed.ok ? parsed.params.amount : ''),
 	)
+	const [payerUsdcBalance, setPayerUsdcBalance] = useState<number | null>(null)
+	const statusRef = useRef<Status>('idle')
+	const errorRef = useRef<string | null>(null)
+	const accountRef = useRef<Address | null>(null)
+	const payerUsdcInFlightRef = useRef<Promise<number | null> | null>(null)
+	statusRef.current = status
+	errorRef.current = error
+	accountRef.current = account
 
 	/** Only the wallet the user chose. Never fall back to window.ethereum (Phantom auto-login). */
 	const eth = activeProvider
@@ -401,6 +452,62 @@ export default function UsdcTopupPage() {
 		}
 		return parsed.params.amount || normalizeUsdcAmountInput(depositAmountDraft)
 	}, [parsed, depositAmountDraft])
+
+	const needUsdcAmount = useMemo(() => {
+		if (!parsed.ok || parsed.params.paymentToken !== 'USDC') return 0
+		const raw = parsed.params.workflow === 'walletDeposit' ? walletDepositAmount : parsed.params.amount
+		const n = Number(raw)
+		return Number.isFinite(n) && n > 0 ? n : 0
+	}, [parsed, walletDepositAmount])
+
+	const refreshPayerUsdcBalance = useCallback(async (): Promise<number | null> => {
+		if (!eth || !account || chainIdHex?.toLowerCase() !== BASE_CHAIN_ID_HEX) return null
+		if (payerUsdcInFlightRef.current) return payerUsdcInFlightRef.current
+		const requested = account
+		const work = (async () => {
+			const stillSameAccount = () =>
+				(accountRef.current ?? '').toLowerCase() === requested.toLowerCase()
+			const viaWallet = await fetchUsdcBalanceOnBaseViaWallet(eth, requested)
+			if (viaWallet != null) {
+				if (stillSameAccount()) setPayerUsdcBalance(viaWallet)
+				return viaWallet
+			}
+			const viaRpc = await fetchUsdcBalanceOnBase(requested)
+			if (viaRpc != null) {
+				if (stillSameAccount()) setPayerUsdcBalance(viaRpc)
+				return viaRpc
+			}
+			return null
+		})()
+		payerUsdcInFlightRef.current = work
+		try {
+			return await work
+		} finally {
+			if (payerUsdcInFlightRef.current === work) payerUsdcInFlightRef.current = null
+		}
+	}, [eth, account, chainIdHex])
+
+	useEffect(() => {
+		payerUsdcInFlightRef.current = null
+		setPayerUsdcBalance(null)
+	}, [account])
+
+	const applyServerPayError = useCallback(async (serverError: string) => {
+		if (isInsufficientUsdcError(serverError) && needUsdcAmount > 0) {
+			const have = await refreshPayerUsdcBalance()
+			if (have != null) {
+				setError(
+					have + 1e-9 >= needUsdcAmount
+						? `Your wallet now has ${have.toFixed(2)} USDC on Base. Tap Pay again to continue.`
+						: formatInsufficientUsdcError(have, needUsdcAmount),
+				)
+				setStatus('error')
+				return
+			}
+		}
+		setError(serverError)
+		setStatus('error')
+	}, [needUsdcAmount, refreshPayerUsdcBalance])
 
 	useEffect(() => {
 		if (!parsed.ok || typeof window === 'undefined') return
@@ -503,6 +610,57 @@ export default function UsdcTopupPage() {
 		}
 	}, [activeProvider])
 
+	useEffect(() => {
+		if (!eth || !account || chainIdHex?.toLowerCase() !== BASE_CHAIN_ID_HEX) return
+		let cancelled = false
+		let timer: ReturnType<typeof setTimeout> | undefined
+
+		const applyHave = (have: number) => {
+			if (!isInsufficientUsdcError(errorRef.current)) return
+			if (needUsdcAmount > 0 && have + 1e-9 >= needUsdcAmount) {
+				setError(null)
+				setStatus((s) => (s === 'error' ? 'idle' : s))
+				return
+			}
+			if (needUsdcAmount > 0) {
+				setError(formatInsufficientUsdcError(have, needUsdcAmount))
+			}
+		}
+
+		const run = async () => {
+			if (cancelled) return
+			const busy = statusRef.current === 'awaiting-signature' || statusRef.current === 'settling'
+			if (busy || document.visibilityState !== 'visible') return
+			const have = await refreshPayerUsdcBalance()
+			if (cancelled || have == null) return
+			applyHave(have)
+		}
+
+		const schedule = () => {
+			timer = setTimeout(() => {
+				void (async () => {
+					if (cancelled || statusRef.current === 'success') return
+					await run()
+					if (!cancelled && statusRef.current !== 'success') schedule()
+				})()
+			}, PAYER_USDC_REFRESH_MS)
+		}
+
+		void run()
+		schedule()
+		const onVis = () => {
+			if (document.visibilityState === 'visible') void run()
+		}
+		window.addEventListener('pageshow', onVis)
+		document.addEventListener('visibilitychange', onVis)
+		return () => {
+			cancelled = true
+			if (timer !== undefined) clearTimeout(timer)
+			window.removeEventListener('pageshow', onVis)
+			document.removeEventListener('visibilitychange', onVis)
+		}
+	}, [eth, account, chainIdHex, needUsdcAmount, refreshPayerUsdcBalance])
+
 	const connectWallet = async (choice: InjectedWalletChoice) => {
 		const provider = choice.provider
 		if (!provider) return
@@ -578,6 +736,14 @@ export default function UsdcTopupPage() {
 	const payWithUsdc = async () => {
 		if (!parsed.ok || !eth || !account) return
 		setError(null)
+		if (parsed.params.paymentToken === 'USDC' && needUsdcAmount > 0) {
+			const have = await refreshPayerUsdcBalance()
+			if (have != null && have + 1e-9 < needUsdcAmount) {
+				setError(formatInsufficientUsdcError(have, needUsdcAmount))
+				setStatus('error')
+				return
+			}
+		}
 		setStatus('awaiting-signature')
 		setResult(null)
 		try {
@@ -700,6 +866,7 @@ export default function UsdcTopupPage() {
 						bodyObj.m = p.m
 					}
 				}
+				applyMembershipPayFieldsToBody(bodyObj, p)
 				const response = await fetch(`${BEAMIO_API}/api/nfcUsdcTopup`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -716,8 +883,7 @@ export default function UsdcTopupPage() {
 					awaitingBeneficiaryTap?: boolean
 				}
 				if (!response.ok || json.success === false) {
-					setError(json.error ?? `Topup failed (HTTP ${response.status})`)
-					setStatus('error')
+					await applyServerPayError(json.error ?? `Topup failed (HTTP ${response.status})`)
 					return
 				}
 				setResult({
@@ -782,6 +948,7 @@ export default function UsdcTopupPage() {
 					bodyObj.m = p.m
 				}
 			}
+			applyMembershipPayFieldsToBody(bodyObj, p)
 			const body = JSON.stringify(bodyObj)
 			const topupUrl = `${BEAMIO_API}/api/nfcUsdcTopup`
 			// Two-phase x402 (not wrapFetchWithPayment): update UI to "settling" right after
@@ -803,8 +970,7 @@ export default function UsdcTopupPage() {
 					awaitingBeneficiaryTap?: boolean
 				}
 				if (!firstRes.ok || json.success === false) {
-					setError(json.error ?? `Topup failed (HTTP ${firstRes.status})`)
-					setStatus('error')
+					await applyServerPayError(json.error ?? `Topup failed (HTTP ${firstRes.status})`)
 					return
 				}
 				setResult({
@@ -861,8 +1027,7 @@ export default function UsdcTopupPage() {
 				decoded = null
 			}
 			if (!response.ok || json.success === false) {
-				setError(json.error ?? `Topup failed (HTTP ${response.status})`)
-				setStatus('error')
+				await applyServerPayError(json.error ?? `Topup failed (HTTP ${response.status})`)
 				return
 			}
 			setResult({
@@ -991,6 +1156,7 @@ export default function UsdcTopupPage() {
 									{fuelPackEntry ? (
 										<Row
 											label="Credits"
+											/* Total only — never render Paid/Free split (beamio-fuel-pack-display-no-paid-free). */
 											value={`${(fuelPackEntry.paidBUnits + fuelPackEntry.freeBUnits).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} B-Units${fuelPackEntry.firstTimeOnly ? ' + Genesis merchant-card NFT' : ''}`}
 											mono={false}
 										/>
@@ -1140,9 +1306,23 @@ export default function UsdcTopupPage() {
 							</button>
 						)}
 						{ready && account ? (
-							<p className="mt-3 text-center text-xs text-on-surface-variant">
-								Connected as <span className="font-mono">{truncate(account, 6, 4)}</span>
-							</p>
+							<div className="mt-3 space-y-1 text-center text-xs text-on-surface-variant">
+								<p>
+									Connected as <span className="font-mono">{truncate(account, 6, 4)}</span>
+								</p>
+								{parsed.params.paymentToken === 'USDC' ? (
+									<p className="flex items-center justify-center gap-1.5">
+										<UsdcBaseCompositeIcon size={16} badgeSize={10} />
+										<span>
+											Wallet USDC:{' '}
+											<span className="font-semibold text-on-surface">
+												{payerUsdcBalance == null ? '…' : `$${payerUsdcBalance.toFixed(2)}`}
+											</span>
+											{' '}on Base
+										</span>
+									</p>
+								) : null}
+							</div>
 						) : null}
 						{error ? (
 							<div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-200">
