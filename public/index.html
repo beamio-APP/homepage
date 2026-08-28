@@ -14,21 +14,21 @@
     <meta name="color-scheme" content="light" />
 
     <!-- Primary Meta -->
-    <title>Beamio — Stablecoin Pay App on Base</title>
+    <title>CoNET &amp; Beamio</title>
     <meta
       name="description"
-      content="Beamio is a stablecoin pay app built on Base. Send, request, split, and tip with USDC using links, QR codes, Beam codes, and @handles — with gas fully sponsored."
+      content="CoNET combines a live EVM-compatible L1 with wallet-addressed encrypted transport research and a DLE design built on DePIN gossip."
     />
 
     <!-- Open Graph / Social Sharing -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Beamio — Simple Global Stablecoin Payments" />
+    <meta property="og:title" content="CoNET &amp; Beamio" />
     <meta
       property="og:description"
-      content="Send, request, scan, and split payments like a Web2 app — fully onchain with USDC on Base, sponsored gas, and AA smart accounts."
+      content="CoNET combines a live EVM-compatible L1 with wallet-addressed encrypted transport research and a DLE design built on DePIN gossip."
     />
-    <meta property="og:url" content="https://beamio.app/" />
-    <meta property="og:image" content="https://beamio.app/og.png" />
+    <meta property="og:url" content="https://conet.network/" />
+    <meta property="og:image" content="https://conet.network/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 	<meta name="fc:miniapp" content='{
@@ -46,12 +46,12 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Beamio — Stablecoin Payments on Base" />
+    <meta name="twitter:title" content="CoNET &amp; Beamio" />
     <meta
       name="twitter:description"
-      content="Beamio feels like chat but settles onchain. Links, QRs, Beam codes, @handles — not 0x."
+      content="CoNET combines a live EVM-compatible L1 with wallet-addressed encrypted transport research and a DLE design built on DePIN gossip."
     />
-    <meta name="twitter:image" content="https://beamio.app/og.png" />
+    <meta name="twitter:image" content="https://conet.network/og.png" />
 
     <!-- iOS Icons -->
     <link rel="preload" as="image" href="%PUBLIC_URL%/logo192.png" />
@@ -71,6 +71,13 @@
       }
       html {
         background: #f9f9fe;
+      }
+      html.conet-site,
+      html.conet-site body,
+      html.conet-site #root {
+        color-scheme: dark;
+        background: #101115;
+        color: #ffffff;
       }
       #root {
         min-height: 100vh;
@@ -106,6 +113,38 @@
         object-fit: contain;
         box-shadow: 0 22px 54px rgba(37, 99, 235, 0.32);
       }
+      .boot-loading__conet-logo {
+        display: none;
+      }
+      html.conet-site .boot-loading {
+        background:
+          radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.12), transparent 30rem),
+          radial-gradient(circle at 80% 35%, rgba(192, 132, 252, 0.16), transparent 30rem),
+          #101115;
+      }
+      html.conet-site .boot-loading__beamio-logo {
+        display: none;
+      }
+      html.conet-site .boot-loading__conet-logo {
+        display: grid;
+        place-items: center;
+        background: #101115;
+        border: 1px solid rgba(103, 232, 249, 0.65);
+        color: #ffffff;
+        font-size: 28px;
+        font-weight: 900;
+        box-shadow: 0 0 32px rgba(103, 232, 249, 0.18);
+      }
+      html.conet-site .boot-loading__title {
+        color: #ffffff;
+      }
+      html.conet-site .boot-loading__text {
+        color: rgba(203, 213, 225, 0.82);
+      }
+      html.conet-site .boot-loading__spinner {
+        border-color: rgba(103, 232, 249, 0.18);
+        border-top-color: #67e8f9;
+      }
       .boot-loading__title {
         color: #1a1c1f;
         font-size: 22px;
@@ -136,21 +175,27 @@
     <script>
       (() => {
         const root = document.documentElement;
-        // One-shot light mode before React boots. Do NOT use MutationObserver here:
+        const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
+        const configuredSite = '%REACT_APP_SITE_VARIANT%'.toLowerCase();
+        const conet = configuredSite === 'conet' || host === 'conet.network' || host.endsWith('.conet.network');
+        // One-shot site color mode before React boots. Do NOT use MutationObserver here:
         // AppDownloadPage adds classes to <html> and a style observer can loop forever.
-        if (root.classList.contains('dark')) root.classList.remove('dark');
-        if (!root.classList.contains('light')) root.classList.add('light');
-        if (root.style.colorScheme !== 'light') root.style.colorScheme = 'light';
+        root.classList.toggle('dark', conet);
+        root.classList.toggle('light', !conet);
+        root.classList.toggle('conet-site', conet);
+        root.style.colorScheme = conet ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', conet ? '#101115' : '#f9f9fe');
+        document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', conet ? 'dark' : 'light');
       })();
     </script>
   </head>
 
   <body>
-    <noscript>You need to enable JavaScript to run Beamio.</noscript>
-    <div id="boot-loading" class="boot-loading" role="status" aria-live="polite" aria-label="Loading Beamio">
+    <noscript>You need to enable JavaScript to use this site.</noscript>
+    <div id="boot-loading" class="boot-loading" role="status" aria-live="polite" aria-label="Loading">
       <div class="boot-loading__card">
         <img
-          class="boot-loading__logo"
+          class="boot-loading__logo boot-loading__beamio-logo"
           src="%PUBLIC_URL%/logo192.png"
           alt="Beamio"
           width="76"
@@ -159,7 +204,8 @@
           decoding="sync"
           fetchpriority="high"
         />
-        <div class="boot-loading__title">Beamio</div>
+        <div class="boot-loading__logo boot-loading__conet-logo" aria-hidden="true">C</div>
+        <div class="boot-loading__title"><span class="boot-loading__beamio-logo">Beamio</span><span class="boot-loading__conet-logo">CoNET</span></div>
         <div class="boot-loading__text">Loading...</div>
         <div class="boot-loading__spinner" aria-hidden="true"></div>
       </div>

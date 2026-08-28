@@ -156,8 +156,11 @@ export default function App() {
                     <a href="https://apps.apple.com/ca/app/beamio-softpos/id6763462151" target="_blank" rel="noreferrer" className="flex justify-center transition-opacity hover:opacity-80">
                       <img src="/app-store-badge.png" alt="Download on the App Store" className="h-12 w-auto max-w-full" />
                     </a>
-                    <a href="https://play.google.com/store/apps/details?id=com.beamio.app&pcampaignid=web_share" target="_blank" rel="noreferrer" className="flex justify-center transition-opacity hover:opacity-80">
+                    <a href="https://play.google.com/store/apps/details?id=com.beamio.pos&pcampaignid=web_share" target="_blank" rel="noreferrer" className="flex justify-center transition-opacity hover:opacity-80">
                       <img src="/google-play-badge.png" alt="Get it on Google Play" className="h-12 w-auto max-w-full" />
+                    </a>
+                    <a href="/beamio-softpos.apk" download className="w-full py-3 bg-[#1562f0] text-white rounded-xl flex items-center justify-center gap-2 hover:bg-[#1250c4] font-bold text-sm shadow-md transition-all">
+                      Download Android APK <ArrowRight className="w-4 h-4" />
                     </a>
                   </div>
                 </div>

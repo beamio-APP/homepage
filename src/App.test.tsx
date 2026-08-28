@@ -1,9 +1,5 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { getMarketingSite } from './utils/siteIdentity'
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
-});
+test('uses Beamio as the default marketing site outside CoNET hosts', () => {
+	expect(getMarketingSite()).toBe('beamio')
+})

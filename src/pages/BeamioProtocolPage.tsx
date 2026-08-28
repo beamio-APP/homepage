@@ -1,1302 +1,491 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import BeamioBrandLogo from '../components/BeamioBrandLogo';
-import {
- Lock,
- ShieldCheck,
- Zap,
- Cpu,
- ArrowRight,
- Menu,
- X,
- Database,
- Box,
- Code2,
- Layers,
- Smartphone,
- Terminal,
- Store,
- CreditCard,
- Gift,
- Share2,
- Download,
- CheckCircle2,
- MousePointerClick,
- BookOpen,
- Flame,
- Coins,
- FileText,
- Key,
- Network
-} from 'lucide-react';
+import React, { useEffect } from 'react'
+import { ArrowRight, Blocks, Bot, Braces, CircleDot, Cloud, Coins, Cpu, Database, ExternalLink, Layers3, LockKeyhole, Network, Pickaxe, RadioTower, ServerCog, ShieldCheck } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { ConetSiteShell, ExternalLink as SiteExternalLink } from '../components/ConetSiteShell'
 
+const gitbook = 'https://gitbook.conet.network/'
 
-function Ecosystem({ onBack }: { onBack: () => void }) {
- const content = {
-   EN: {
-     title: 'The Operating Surfaces.',
-     subtitle: 'Beamio is already deployed in real-world closed-loop commerce. Download the apps and deploy the OS to join the trusted clearing rail.',
-     consumerApp: {
-       badge: 'CONSUMER WALLET',
-       title: 'Personal App',
-       desc: 'Your digital asset and identity vault. In the AI era, it serves as the ultimate "Human Principal" super-console to manage spending limits and authorize transactions.',
-       features: ['Smart Consumption Account', 'isReserved Authorization', 'Cryptographic Identity (@BeamioTag)'],
-       btn: 'Download for iOS / Android'
-     },
-     merchantOS: {
-       badge: 'MERCHANT & ISSUER',
-       title: 'Alliance & Business OS',
-       desc: 'The command center for offline physical retail. Manage loyalty points, verify deterministic solvency, and monitor enterprise fuel packs without centralized databases.',
-       features: ['SoftPOS Integration', 'Real-time Clearing Dashboards', 'Voucher & Asset Issuance'],
-       btn: 'Access Business Console'
-     },
-     hardware: {
-       badge: 'FUTURE EDGE SURFACE',
-       title: 'Genesis G1',
-       desc: 'Desktop-Grade Commercial API Gateway. A headless, zero-display micro-base station integrating AI Edge Compute (NPU) and an M2M Spatial Communication Gateway.',
-       status: 'Initial design complete. Presale underway.',
-       btn: 'Join Presale Waitlist'
-     }
-   },
-   CN: {
-     title: '商业运行表面',
-     subtitle: 'Beamio 已经投入真实商业闭环运行。下载客户端或部署 OS，立即接入下一代可信清算轨道。',
-     consumerApp: {
-       badge: '消费者钱包',
-       title: 'Personal App (个人端)',
-       desc: '您的数字资产与身份金库。在 AI 时代，它是完美的"人类主理人"超级控制台，用于管理消费额度、授权交易并监控下游 AI 代理。',
-       features: ['智能消费账户 (ERC-4337)', 'isReserved 状态授权', '密码学去中心化身份 (@BeamioTag)'],
-       btn: '下载 iOS / Android 版本'
-     },
-     merchantOS: {
-       badge: '商户与发行方',
-       title: 'Alliance & Business OS',
-       desc: '线下实体商业的数字指挥中心。管理商圈资产、验证履约前的确定性偿付，并监控企业级燃料池消耗，彻底告别传统中心化数据库。',
-       features: ['SoftPOS 无缝集成', '实时清算数据面板', '联名卡与代币发行中心'],
-       btn: '进入商户控制台'
-     },
-     hardware: {
-       badge: '未来边缘计算终端',
-       title: 'Genesis G1',
-       desc: '桌面级商业 API 网关。这不仅是收银终端，而是一台集成了 AI 边缘算力 (NPU)、物理防伪与空间交互 (NFC/UWB) 的无屏幕物理基站。',
-       status: '初始设计已完成。预售进行中。',
-       btn: '加入预售候补名单'
-     }
-   }
- };
+const layers = [
+	{
+		kicker: 'L0 · CoNET DePIN',
+		title: 'Decentralized cloud infrastructure',
+		copy: 'The foundational resource plane for TCP/UDP forwarding, encrypted storage, SaaS hosting adapters, and contributed CPU/GPU compute. Layer Minus is the privacy protocol that composes these resources; it is not L0 itself.',
+		icon: Cloud,
+		status: 'Implemented capability',
+	},
+	{
+		kicker: 'L1 · CoNET Blockchain',
+		title: 'Shared settlement and state',
+		copy: 'A live EVM-compatible proof-of-stake network. Its target networking direction carries geth and Prysm peer traffic through Layer Minus by wallet locator instead of requiring peers to expose public IP:port identities.',
+		icon: Blocks,
+		status: 'Production L1 · wallet overlay under development',
+	},
+	{
+		kicker: 'L2 · CoNET-DLE',
+		title: 'Application-led execution research',
+		copy: 'A specified parallel-ledger architecture loaded on CoNET DePIN. Control-plane and data-plane gossip use wallet addresses as network identities, with OpenPGP-encrypted traffic relayed through entry and mailbox nodes.',
+		icon: Layers3,
+		status: 'Normative design · laboratory evidence',
+	},
+]
 
+const applications = [
+	{
+		title: 'web3:// Application Protocol',
+		copy: 'Wallet-addressed locators, caller-signed requests, encrypted correlated responses, and persistent application streams over Layer Minus.',
+		to: '/web3',
+		icon: Braces,
+		status: 'Under development',
+	},
+	{
+		title: 'SilentPass',
+		copy: 'Wallet-authorized privacy access to ordinary Internet services, composed over Layer Minus.',
+		href: 'https://gitbook.conet.network/applications/silentpass-vpn.html',
+		icon: ShieldCheck,
+		status: 'Public application',
+	},
+	{
+		title: 'Beamio',
+		copy: 'Consumer wallet, Merchant OS, POS, and Cash and USDC workflows built with CoNET infrastructure.',
+		href: 'https://beamio.app/',
+		icon: CircleDot,
+		status: 'Public application',
+	},
+	{
+		title: 'DePIN Chat',
+		copy: 'Wallet-addressed messages, delivery receipts, presence, and encrypted history over Layer Minus.',
+		href: 'https://gitbook.conet.network/applications/depin-chat.html',
+		icon: LockKeyhole,
+		status: 'Integrated capability',
+	},
+]
 
- const t = content.EN;
+const infrastructureFlow = [
+	{
+		kicker: 'Foundation',
+		title: 'CoNET L0 decentralized cloud',
+		copy: 'Independent nodes contribute TCP/UDP forwarding, ciphertext storage, service hosting, and CPU/GPU capacity.',
+		icon: Cloud,
+	},
+	{
+		kicker: 'Privacy protocol',
+		title: 'Layer Minus',
+		copy: 'Layer Minus uses L0 resources for encrypted, wallet-addressed private communication without treating a public IP as the application identity.',
+		icon: ShieldCheck,
+	},
+	{
+		kicker: 'Private gossip',
+		title: 'CoNET L1 + CoNET-DLE L2',
+		copy: 'The same communication plane can carry privacy-routed gossip for L1 peer networking and DLE application-led mining, with each deployment clearly labeled by maturity.',
+		icon: Network,
+	},
+	{
+		kicker: 'Application server',
+		title: 'web3://',
+		copy: 'A wallet-addressed private-server protocol: resolve a wallet or exact tag, authenticate the caller, and reach Web, API, AI, or TCP services through Layer Minus.',
+		icon: ServerCog,
+	},
+]
 
+const aiSeparation = [
+	{
+		title: 'Model builders',
+		copy: 'Build and publish models without controlling the raw-data collection plane or the user-facing agent.',
+		icon: Cpu,
+	},
+	{
+		title: 'Raw-data acquisition',
+		copy: 'Independent data contributors gather and attest inputs while encrypted fragmentation limits what any single operator can reconstruct.',
+		icon: Database,
+	},
+	{
+		title: 'AI agents',
+		copy: 'User-authorized agents request work, protect private context, verify outputs, and return results encrypted to the user.',
+		icon: Bot,
+	},
+]
 
- return (
-   <div className="min-h-screen bg-slate-50 text-slate-600 font-sans selection:bg-[#1562F0] selection:text-white pb-32">
+const tokenEconomy = [
+	{
+		title: '1,000,000 hard cap',
+		copy: '$CNET has an absolute maximum supply of 1,000,000 tokens. The model does not permit issuance beyond that ceiling.',
+		icon: Coins,
+	},
+	{
+		title: '38.4% full-network lock',
+		copy: 'At the 12,000-node network limit, validator participation requires 384,000 $CNET to remain staked—38.4% of the maximum supply.',
+		icon: LockKeyhole,
+	},
+	{
+		title: 'Automatic slashing',
+		copy: 'The security model penalizes prolonged downtime, inadequate bandwidth, and malicious behavior to protect consensus and commercial settlement.',
+		icon: Pickaxe,
+	},
+]
 
-     <nav className="w-full border-b border-slate-200 bg-white/95 py-4 sticky top-0 z-50 shadow-sm">
-       <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
-         <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
-           <ArrowRight className="rotate-180 text-slate-400 hover:text-[#1562F0] transition-colors" size={24} />
-           <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
-           <span className="text-slate-900 font-semibold text-xl tracking-wide hidden sm:block">Beamio</span>
-         </div>
-         <button onClick={onBack} className="text-xs font-mono border border-slate-300 text-slate-600 px-3 py-1.5 rounded hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
-           Back
-         </button>
-       </div>
-     </nav>
+const nodeIssuanceStages = [
+	{
+		stage: 'Early network',
+		nodes: '3,000 nodes',
+		annual: '≈ 43.68 $CNET / node / year',
+		apr: 'Modelled APR ≈ 136.5%',
+	},
+	{
+		stage: 'Network expansion',
+		nodes: '6,000–8,000 nodes',
+		annual: '≈ 30.88 $CNET / node / year',
+		apr: 'Modelled APR ≈ 96.5%',
+	},
+	{
+		stage: 'Full network',
+		nodes: '12,000 nodes',
+		annual: '≈ 21.84 $CNET / node / year',
+		apr: 'Modelled APR ≈ 68.25%',
+	},
+]
 
-
-     <header className="max-w-5xl mx-auto px-6 md:px-12 pt-24 pb-16 text-center">
-       <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6 tracking-tight">{t.title}</h1>
-       <p className="text-lg md:text-xl text-slate-500 max-w-3xl mx-auto font-light leading-relaxed">
-         {t.subtitle}
-       </p>
-     </header>
-
-
-     <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
-       {/* Consumer App */}
-       <div className="group rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xl shadow-slate-200/50 hover:border-purple-300 hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-500">
-         <div className="h-64 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center relative overflow-hidden border-b border-slate-100">
-            {/* Abstract UI */}
-            <div className="w-48 h-80 bg-white border border-slate-200 rounded-t-3xl absolute bottom-0 shadow-2xl flex flex-col items-center pt-8 px-4">
-               <BeamioBrandLogo className="w-16 h-16 rounded-full object-cover mb-6 shadow-lg shadow-blue-500/30" />
-               <div className="w-3/4 h-2 bg-slate-200 rounded-full mb-3"></div>
-               <div className="w-1/2 h-2 bg-slate-200 rounded-full mb-8"></div>
-               <div className="w-full flex flex-col gap-3">
-                   <div className="w-full h-12 bg-slate-50 rounded-xl border border-slate-100"></div>
-                   <div className="w-full h-12 bg-slate-50 rounded-xl border border-slate-100"></div>
-               </div>
-            </div>
-         </div>
-         <div className="p-8 md:p-10">
-           <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded text-xs font-mono mb-6">
-             <Smartphone size={14} /> {t.consumerApp.badge}
-           </div>
-           <h2 className="text-3xl font-semibold text-slate-900 mb-4">{t.consumerApp.title}</h2>
-           <p className="text-slate-500 mb-8 leading-relaxed h-24">{t.consumerApp.desc}</p>
-           <ul className="flex flex-col gap-3 mb-10">
-             {t.consumerApp.features.map((feat, i) => (
-               <li key={i} className="flex items-center gap-3 text-sm text-slate-600">
-                 <CheckCircle2 size={16} className="text-[#1562F0]" /> {feat}
-               </li>
-             ))}
-           </ul>
-           <a href="https://beamio.app/app/" target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20">
-             <Download size={18} /> {t.consumerApp.btn}
-           </a>
-         </div>
-       </div>
-
-
-       {/* Merchant OS */}
-       <div className="group rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xl shadow-slate-200/50 hover:border-blue-300 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500">
-         <div className="h-64 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center relative overflow-hidden px-8 border-b border-slate-100">
-            {/* Abstract Dashboard UI Mockup */}
-            <div className="w-full max-w-md h-48 bg-white border border-slate-200 rounded-t-xl absolute bottom-0 shadow-2xl flex flex-col p-4">
-               <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-                  <div className="w-24 h-3 bg-slate-200 rounded-full"></div>
-                  <div className="w-8 h-8 bg-slate-100 rounded-md"></div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="h-20 bg-slate-50 rounded-lg border border-slate-100 p-3 flex flex-col justify-end">
-                     <div className="w-16 h-2 bg-purple-500 rounded-full mb-1"></div>
-                     <div className="w-8 h-2 bg-slate-300 rounded-full"></div>
-                  </div>
-                  <div className="h-20 bg-slate-50 rounded-lg border border-slate-100 p-3 flex flex-col justify-end">
-                     <div className="w-12 h-2 bg-[#1562F0] rounded-full mb-1"></div>
-                     <div className="w-10 h-2 bg-slate-300 rounded-full"></div>
-                  </div>
-               </div>
-            </div>
-         </div>
-         <div className="p-8 md:p-10">
-           <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 text-[#1562F0] rounded text-xs font-mono mb-6">
-             <Terminal size={14} /> {t.merchantOS.badge}
-           </div>
-           <h2 className="text-3xl font-semibold text-slate-900 mb-4">{t.merchantOS.title}</h2>
-           <p className="text-slate-500 mb-8 leading-relaxed h-24">{t.merchantOS.desc}</p>
-           <ul className="flex flex-col gap-3 mb-10">
-             {t.merchantOS.features.map((feat, i) => (
-               <li key={i} className="flex items-center gap-3 text-sm text-slate-600">
-                 <ShieldCheck size={16} className="text-[#1562F0]" /> {feat}
-               </li>
-             ))}
-           </ul>
-           <a href="https://biz.beamio.app/biz/" target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-white border border-slate-300 text-slate-900 rounded font-medium hover:bg-slate-50 hover:border-[#1562F0] transition-colors flex items-center justify-center gap-2">
-              {t.merchantOS.btn} <ArrowRight size={18} />
-           </a>
-         </div>
-       </div>
-
-
-       {/* Genesis G1 Hardware Preview (Full Width) */}
-       <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden flex flex-col md:flex-row items-center relative group mt-8">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400/10 rounded-full pointer-events-none"></div>
-
-
-          <div className="w-full md:w-1/2 p-8 md:p-16 relative z-10">
-             <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-200 rounded text-xs font-mono text-orange-600 mb-6">
-               <Cpu size={14} /> {t.hardware.badge}
-             </div>
-             <h2 className="text-4xl font-semibold text-slate-900 mb-4">{t.hardware.title}</h2>
-             <p className="text-slate-500 mb-6 leading-relaxed text-lg">{t.hardware.desc}</p>
-
-             <div className="flex items-center gap-3 mb-10">
-                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shadow-[0_0_8px_#F97316]"></div>
-                <span className="text-sm font-mono text-orange-600 uppercase tracking-wide">{t.hardware.status}</span>
-             </div>
-
-
-             <button className="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-orange-500/30">
-               <Lock size={16} /> {t.hardware.btn}
-             </button>
-          </div>
-
-
-          <div className="w-full md:w-1/2 h-80 md:h-full min-h-[400px] relative flex items-center justify-center p-8 bg-slate-50/50 border-l border-slate-100">
-             <div className="relative w-64 h-64 flex items-center justify-center group-hover:scale-105 transition-transform duration-700">
-                {/* The Box - Now Frosted Glass / Metallic feel */}
-                <div className="absolute inset-0 bg-white/90 rounded-xl border border-white shadow-2xl transform rotate-12 flex items-center justify-center">
-                   <div className="w-full h-[1px] bg-slate-200 absolute top-8"></div>
-                   <div className="w-full h-[1px] bg-slate-200 absolute bottom-8"></div>
-                   <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col gap-2 p-2">
-                      <div className="w-1 h-4 bg-slate-300 rounded-full"></div>
-                      <div className="w-1 h-4 bg-slate-300 rounded-full"></div>
-                   </div>
-                   {/* Orange status LED */}
-                   <div className="absolute left-6 top-6 w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_15px_#F97316]"></div>
-                </div>
-                <div className="absolute w-full h-full border border-orange-500/20 rounded-xl transform rotate-12 scale-110"></div>
-                <div className="absolute w-full h-full border border-purple-500/10 rounded-xl transform rotate-12 scale-125"></div>
-             </div>
-          </div>
-       </div>
-
-
-     </div>
-   </div>
- );
-}
-
-
-function Whitepaper({ onBack, initialScrollToSection }: { onBack: () => void; initialScrollToSection?: string }) {
- const content = {
-   EN: {
-     badge: 'TECHNICAL SPECIFICATION',
-     title: 'Beamio Commerce Protocol (BCP)',
-     version: 'Version: v3.2 (Final Architecture Edition)',
-     sidebar: ['1. Dual-Chain Architecture', '2. Account Model', '3. Atomic Asset Container', '4. Identity & Social', '5. Smart Settlement', '6. AI-Native RPC'],
-     sections: [
-       {
-         id: '1',
-         title: '1. Hybrid Dual-Chain Network',
-         icon: <Network size={20} />,
-         body: 'BCP physically decouples Value Settlement from Data Sovereignty to resolve the central paradox of Web3 commercialization: achieving financial-grade settlement security while enabling zero-marginal-cost social interaction.',
-         subsections: [
-           { subtitle: 'Chain A: Value Settlement (Base L2)', text: 'Anchored by Ethereum security. Utilized exclusively for high-value asset finality (USDC / ERC-20) and unified management of coupons and memberships via the ERC-1155 standard.' },
-           { subtitle: 'Chain B: Data & Identity (CoNET L1)', text: 'An independent, high-performance Sovereign Data Ledger. Processes identity resolution (@BeamioTag), social graph storage, and privacy metadata. BCP strictly adheres to a "No Central Database" principle.' }
-         ]
-       },
-       {
-         id: '2',
-         title: '2. Tethered Hybrid Account Model',
-         icon: <Lock size={20} />,
-         body: 'BCP defines a tethered dual-account model, explicitly delineating the permission boundaries between "Cold Storage" and "Hot Execution" for the Agentic Economy.',
-         subsections: [
-           { subtitle: 'The Vault (EOA)', text: 'The user\'s secure capital vault and L1 identity root. Restricted to signing authorizations for fund transfers. Does not participate in high-frequency logic.' },
-           { subtitle: 'Smart Consumption Account (ERC-4337)', text: 'A "Programmable Commercial Wallet" (AA). It aggregates USDC, Points, and Vouchers, and executes smart routing and discount computation directly via smart contracts.' }
-         ],
-         code: {
-           title: 'ERC-4337 Spending Limit Enforcer',
-           snippet: `// Restrict AI Agent to $50 daily limit for specific merchants
-require(agentSpend[agentId] + amount <= 50 * 10**6, "Limit Exceeded");
-require(merchantAllowlist[targetMerchant], "Unauthorized Endpoint");`
-         }
-       },
-       {
-         id: '3',
-         title: '3. Atomic Asset Container (AAC)',
-         icon: <Box size={20} />,
-         body: 'Standard EVM assets are architected for synchronous transfers. Real-world commerce introduces a "State Gap." The AAC wraps assets into programmable containers to prevent Double-Spend Vulnerabilities and Agentic Uncertainty.',
-         callout: {
-           title: 'The isReserved Mechanism',
-           text: 'Upon initiation of a distribution request, the contract triggers the Reserve function. The protocol logically deducts assets from the Available Balance and flags them on-chain with an isReserved status, guaranteeing 100% deterministic solvency before fulfillment.'
-         },
-         subsections: [
-           { subtitle: 'Lifecycle State Machine', text: 'Created → Reserved (Locked) → Redeemed (Claimed) OR Cancelled/Rolled Back (Expired).' }
-         ]
-       },
-       {
-         id: '4',
-         title: '4. Identity & Social Sovereignty',
-         icon: <Key size={20} />,
-         body: 'Beamio discards the Web2 centralized database model. Fan relationships and followers are on-chain assets (owned by merchants), eliminating platform-level censorship.',
-         subsections: [
-           { subtitle: 'Beamio Decentralized Identity (BDID)', text: 'The @BeamioTag is a native asset on the CoNET chain. It serves as the routing identifier for Wallet-to-Wallet Encrypted Chat via the DePIN network.' },
-           { subtitle: 'Zero-Knowledge Recovery', text: 'Private keys are sharded and encrypted across P2P network nodes. Users can reconstruct keys locally using a mnemonic credential (@BeamioTag + Password) without any centralized custodian.' }
-         ]
-       },
-       {
-         id: '5',
-         title: '5. Cascading Smart Settlement',
-         icon: <Layers size={20} />,
-         body: 'BCP provides an "Asset-Agnostic" payment experience. The protocol executes requests according to a strict priority hierarchy to optimize liquidity.',
-         subsections: [
-           { subtitle: 'Priority 1 (Liability Layer)', text: 'Verification and deduction of Vouchers and Points (Merchant Liability).' },
-           { subtitle: 'Priority 2 (Liquidity Layer)', text: 'Deduction of USDC balance within the Smart Consumption Account.' },
-           { subtitle: 'Priority 3 (Funding Layer)', text: 'Automatic pulling of funds from the EOA (optional).' }
-         ]
-       },
-       {
-         id: '6',
-         title: '6. AI-Native RPC & Developer SDK',
-         icon: <Terminal size={20} />,
-         body: 'As a decentralized protocol, Beamio does not provide centralized API services. Developers and AI Agents communicate directly with blockchain nodes.',
-         subsections: [
-           { subtitle: 'Infrastructure Layer: JSON-RPC', text: 'Send eth_sendUserOperation directly to Base nodes to trigger transfers. Request CoNET nodes to resolve @BeamioTag. Permissionless, Censorship Resistant, Always Online.' },
-           { subtitle: 'Application Layer: LLM-Standard Schema', text: 'The Beamio SDK provides an LLM-standard Schema, allowing Large Language Models to read on-chain data and construct complex clearing transactions natively.' }
-         ]
-       }
-     ]
-   },
-   CN: {
-     badge: '技术规格说明书',
-     title: 'Beamio 商业协议 (BCP)',
-     version: '版本: v3.2 (最终架构版)',
-     sidebar: ['1. 双链混合架构', '2. 混合账户模型', '3. 原子资产容器', '4. 身份与数据主权', '5. 智能级联结算', '6. AI 原生 RPC'],
-     sections: [
-       {
-         id: '1',
-         title: '1. 双链混合架构 (Dual-Chain)',
-         icon: <Network size={20} />,
-         body: 'BCP 在物理上将"价值结算"与"数据主权"剥离，彻底解决了 Web3 商业化的核心悖论：既要实现金融级别的结算安全性，又要实现边际成本为零的高频社交与数据存储。',
-         subsections: [
-           { subtitle: 'Chain A: 价值结算层 (Base L2)', text: '锚定以太坊的安全共识。专用于高价值资产 (USDC) 的最终结算，并利用 ERC-1155 标准统一管理代金券和身份会员，支持批量铸造 (Batch Minting)。' },
-           { subtitle: 'Chain B: 数据与身份层 (CoNET L1)', text: '独立的高性能主权数据账本。处理 @BeamioTag 身份解析、社交图谱存储和隐私通信元数据。严格遵循"无中心化数据库"原则。' }
-         ]
-       },
-       {
-         id: '2',
-         title: '2. 锚定式混合账户模型',
-         icon: <Lock size={20} />,
-         body: 'BCP 定义了双账户模型，为 AI 代理经济明确划定了"冷存储 (Cold Storage)"与"热执行 (Hot Execution)"的权限边界。',
-         subsections: [
-           { subtitle: '主账户金库 (The Vault / EOA)', text: '用户的资金安全底座与 L1 身份根。仅限对资金划转授权进行签名，绝不参与高频商业逻辑。' },
-           { subtitle: '智能消费账户 (ERC-4337 / AA)', text: '"可编程的商业钱包"。混合托管 USDC 与代金券，直接在智能合约内执行智能路由与预留锁定逻辑。' }
-         ],
-         code: {
-           title: 'ERC-4337 AI 代理消费限额合约 (伪代码)',
-           snippet: `// 为特定 AI 代理设定每日 $50 限额与商户白名单\nrequire(agentSpend[agentId] + amount <= 50 * 10**6, "Limit Exceeded");\nrequire(merchantAllowlist[targetMerchant], "Unauthorized Endpoint")`
-         }
-       },
-       {
-         id: '3',
-         title: '3. 原子资产容器 (AAC)',
-         icon: <Box size={20} />,
-         body: '标准的 EVM 资产专为同步原子传输设计。而现实商业（如扫码核销、AI 代理预订）存在关键的"状态时间差 (State Gap)"。AAC 将资产封装进可编程容器，彻底消除双花攻击与代理不确定性。',
-         callout: {
-           title: 'isReserved 预留锁定机制',
-           text: '在发起离线分发请求时，合约触发 Reserve 函数。协议在逻辑上从"可用余额"中扣除资产，并在链上标记 isReserved 状态。这在履约前为商户提供了 100% 的确定性偿付证明 (Deterministic Solvency)。'
-         },
-         subsections: [
-           { subtitle: '生命周期状态机', text: '创建 (Initialized) → 锁定预留 (Reserved) → 提取核销 (Redeemed) 或 过期回滚 (Rolled Back)。' }
-         ]
-       },
-       {
-         id: '4',
-         title: '4. 身份与社交主权',
-         icon: <Key size={20} />,
-         body: 'Beamio 彻底摒弃 Web2 中心化数据库。粉丝关系与社交图谱均作为链上资产存储在 CoNET L1，商户拥有绝对所有权，平台无法封禁或删除。',
-         subsections: [
-           { subtitle: '去中心化身份 (BDID)', text: '@BeamioTag 是 CoNET 链上的原生资产，作为点对点 (P2P) 加密通信与资产路由的唯一标识符。' },
-           { subtitle: '零知识私钥恢复 (ZK-Recovery)', text: '用户私钥被分片加密分布在 P2P 网络节点中。用户只需提供 (@BeamioTag + 密码) 即可在本地重构私钥，无需任何中心化托管机构介入。' }
-         ]
-       },
-       {
-         id: '5',
-         title: '5. 智能级联结算 (Cascading Settlement)',
-         icon: <Layers size={20} />,
-         body: 'BCP 提供"资产无感 (Asset-Agnostic)"的支付体验。智能合约会根据严格的优先级层次自动执行支付请求，以最大化资金利用率。',
-         subsections: [
-           { subtitle: '优先级 1 (负债层)', text: '优先验证并扣减商户发行的代金券和积分 (Vouchers & Points)。' },
-           { subtitle: '优先级 2 (流动性层)', text: '扣减智能消费账户 (AA) 内的 USDC 余额。' },
-           { subtitle: '优先级 3 (资金注入层)', text: '从主账户金库 (EOA) 自动拉取资金（需事先授权）。' }
-         ]
-       },
-       {
-         id: '6',
-         title: '6. AI 原生 RPC 与开发者 SDK',
-         icon: <Terminal size={20} />,
-         body: '作为一个去中心化协议，Beamio 不提供任何中心化的 API 接口。开发者和 AI 代理直接与区块链节点网络进行通信。',
-         subsections: [
-           { subtitle: '基础设施层: JSON-RPC ("The Truth")', text: '直接向 Base 节点发送 eth_sendUserOperation 触发资产转移，或向 CoNET 节点解析 @BeamioTag。无需 API Key，抗审查，永远在线。' },
-           { subtitle: '应用层: LLM-Standard Schema', text: 'Beamio SDK 原生提供适配大型语言模型 (LLM) 的 Schema，允许 AI Agent 轻松读取链上状态并直接构建复杂的清算交易代码。' }
-         ]
-       }
-     ]
-   }
- };
-
-
- const t = content.EN;
-
-
- const scrollToSection = (id: number) => {
-   const element = document.getElementById(`wp-section-${id}`);
-   if (element) {
-     element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-   }
- };
-
-
- useEffect(() => {
-   if (initialScrollToSection) {
-     const el = document.getElementById(`wp-section-${initialScrollToSection}`);
-     if (el) {
-       setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-     }
-   }
- }, [initialScrollToSection]);
-
-
- return (
-   <div className="min-h-screen bg-slate-50 text-slate-600 font-sans selection:bg-[#1562F0] selection:text-white pb-32">
-    <nav className="w-full border-b border-slate-200 bg-white/95 py-4 sticky top-0 z-50 shadow-sm">
-       <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
-         <div className="flex items-center gap-4 cursor-pointer" onClick={onBack}>
-           <ArrowRight className="rotate-180 text-slate-400 hover:text-[#1562F0] transition-colors" size={24} />
-           <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
-           <span className="text-slate-900 font-semibold text-xl tracking-wide hidden sm:block">Beamio</span>
-         </div>
-         <button onClick={onBack} className="text-xs font-mono border border-slate-300 text-slate-600 px-3 py-1.5 rounded hover:border-[#1562F0] hover:text-[#1562F0] transition-colors">
-           Back
-         </button>
-       </div>
-     </nav>
-
-
-     <main className="max-w-7xl mx-auto px-6 md:px-12 pt-16 pb-16 flex flex-col lg:flex-row gap-12 items-start">
-
-       {/* Sticky Sidebar */}
-       <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-28">
-         <div className="mb-6">
-           <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-[#1562F0] mb-4 border border-blue-100">
-              <FileText size={20} />
-           </div>
-           <h3 className="text-slate-900 font-bold text-lg mb-1">Contents</h3>
-           <p className="text-xs font-mono text-slate-400">{t.version}</p>
-         </div>
-         <ul className="flex flex-col gap-2 border-l-2 border-slate-200">
-           {t.sidebar.map((item, idx) => (
-             <li key={idx}>
-               <button
-                 type="button"
-                 onClick={() => scrollToSection(idx + 1)}
-                 className="text-left w-full pl-4 py-1.5 text-sm text-slate-500 hover:text-[#1562F0] hover:border-l-2 hover:-ml-[2px] hover:border-[#1562F0] transition-all cursor-pointer"
-               >
-                 {item}
-               </button>
-             </li>
-           ))}
-         </ul>
-       </aside>
-
-
-       {/* Document Content */}
-       <div className="flex-1 max-w-4xl bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 p-8 md:p-12 lg:p-16">
-         <div className="mb-16 border-b border-slate-100 pb-10">
-           <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-50 text-purple-600 border border-purple-100 rounded text-xs font-mono mb-6">
-             <BookOpen size={14} /> {t.badge}
-           </div>
-           <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">{t.title}</h1>
-           <p className="text-slate-500 text-lg leading-relaxed">
-             A decentralized, full-stack interaction standard engineered for the Agentic Economy and Real-World Commerce.
-           </p>
-         </div>
-
-
-         <div className="space-y-20">
-           {t.sections.map((sec) => (
-             <div key={sec.id} id={`wp-section-${sec.id}`} className="scroll-mt-32">
-               <div className="flex items-center gap-4 mb-6">
-                 <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-[#1562F0] shadow-sm">
-                   {sec.icon}
-                 </div>
-                 <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-                   {sec.title}
-                 </h2>
-               </div>
-
-               <p className="text-lg text-slate-600 leading-relaxed mb-8">
-                 {sec.body}
-               </p>
-
-
-               {sec.callout && (
-                 <div className="mb-8 p-6 bg-blue-50 border border-blue-100 rounded-xl relative overflow-hidden">
-                   <div className="absolute top-0 left-0 w-1 h-full bg-[#1562F0]"></div>
-                   <h4 className="text-[#1562F0] font-bold mb-2 flex items-center gap-2">
-                      <Zap size={18} /> {sec.callout.title}
-                   </h4>
-                   <p className="text-slate-700 text-sm leading-relaxed">{sec.callout.text}</p>
-                 </div>
-               )}
-
-
-               {sec.subsections && (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                   {sec.subsections.map((sub, i) => (
-                     <div key={i} className="p-5 rounded-xl border border-slate-100 bg-slate-50">
-                       <h4 className="text-slate-900 font-bold mb-2 text-sm">{sub.subtitle}</h4>
-                       <p className="text-slate-500 text-sm leading-relaxed">{sub.text}</p>
-                     </div>
-                   ))}
-                 </div>
-               )}
-
-
-               {sec.code && (
-                 <div className="rounded-xl border border-slate-800 bg-[#0F172A] overflow-hidden shadow-lg mb-8">
-                   <div className="flex items-center px-4 py-2 border-b border-slate-800 bg-[#0B1120]">
-                     <span className="text-xs font-mono text-slate-400">{sec.code.title}</span>
-                   </div>
-                   <div className="p-6 text-sm font-mono text-slate-300 overflow-x-auto">
-                     <pre className="whitespace-pre-wrap">{sec.code.snippet}</pre>
-                   </div>
-                 </div>
-               )}
-             </div>
-           ))}
-         </div>
-
-
-         <div className="mt-20 pt-10 border-t border-slate-200 flex justify-center">
-           <button onClick={onBack} className="px-8 py-3 bg-slate-900 text-white rounded font-medium hover:bg-slate-800 transition-colors shadow-md">
-             Back to Home
-           </button>
-         </div>
-       </div>
-
-
-     </main>
-   </div>
- );
-}
-
+const valuationScenarios = [
+	{
+		label: 'Base case',
+		value: '$735 / $CNET',
+		copy: 'Assumes US$36.75M mature annual net profit and a 20× SaaS earnings multiple, producing a US$735M fully diluted valuation.',
+	},
+	{
+		label: 'Target case',
+		value: '$1,500 / $CNET',
+		copy: 'Uses a US$1.5B fully diluted valuation as a comparison case for a mature DePIN privacy-infrastructure network.',
+	},
+	{
+		label: 'Supply-shock case',
+		value: 'Dynamic',
+		copy: 'Models additional scarcity when the 38.4% staking lock and recurring fee burns reduce freely circulating supply.',
+	},
+]
 
 export default function BeamioProtocolPage() {
- const [isScrolled, setIsScrolled] = useState(false);
- const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
- const [currentPage, setCurrentPage] = useState<'home' | 'ecosystem' | 'whitepaper'>('home');
- const [whitepaperScrollTo, setWhitepaperScrollTo] = useState<string | null>(null);
- const isScrolledRef = useRef(false);
+	const location = useLocation()
 
+	useEffect(() => {
+		document.title = 'CoNET | Wallet-addressed infrastructure'
+	}, [])
 
- const content = {
-   EN: {
-     nav: [
-       { label: 'Architecture', href: 'section-architecture' },
-       { label: 'Economics', href: 'section-economy' },
-       { label: 'Sandbox', to: '/homeExample' },
-     ],
-     heroSub: 'Connecting physical storefronts to the AI future. A dual-chain protocol delivering sub-second, zero-hardware USDC settlement with absolute cryptographic solvency.',
-     ctaPrimary: 'Explore the Protocol',
-     ctaSecondary: 'Read Whitepaper v3.2',
-     problemTitle: 'The Trust Gap',
-     problemHeadline: 'Commerce breaks when authorization, funds, and fulfillment fall out of sync.',
-     problemSub: 'Without reservation, merchants cannot verify solvency before fulfillment. This asynchronous gap is the root cause of chargebacks and double-spending.',
-     wedgeTitle: 'Deterministic Solvency',
-     wedgeHeadline: 'Others verify agents. Beamio verifies solvency before fulfillment.',
-     wedgeDesc: 'Beamio is not built for manual one-off payments. It is engineered for delegated execution. We introduce the missing clearing layer: mathematically reserved funds that merchants can cryptographically verify before they fulfill an order.',
-     archTitle: 'Protocol Architecture',
-     archHeadline: 'Engineered for the Agentic Economy.',
-     archSub: 'We rebuilt the commercial stack from the ground up. Zero centralized databases, fully programmable, and native to both humans and autonomous agents.',
-     archCards: [
-       { title: 'Dual-Chain Architecture', desc: 'Base L2 for settlement finality and security. CoNET L1 for data sovereignty. Zero centralized databases.' },
-       { title: 'Atomic Asset Containers', desc: 'Programmable wrappers with the isReserved state, ensuring deterministic solvency before fulfillment.' },
-       { title: 'ERC-4337 Smart Accounts', desc: 'Programmable commercial wallets enabling humans to set hyper-granular spending boundaries for autonomous agents.' },
-       { title: 'AI-Native RPC & Schema', desc: 'No centralized API keys. LLM-standard schema allows agents to read chain data and construct transactions directly.' }
-     ],
-     flowKicker: 'State Machine',
-     flowTitle: 'The Verifiable Lifecycle.',
-     flowSteps: [
-       { title: 'Authorize', desc: 'User signs intent' },
-       { title: 'Reserve', desc: 'Soft Lock' },
-       { title: 'Accept', desc: 'Merchant verifies' },
-       { title: 'Fulfill', desc: 'Goods delivered' },
-       { title: 'Settle / Roll Back', desc: 'Atomic finality' }
-     ],
-     liveTitle: 'Richmond Sandbox Live',
-     liveHeadline: 'Proven in the physical world.',
-     liveSub: 'We didn\'t just bypass the 2.4% legacy surcharge. We provided merchants with a full-suite blockchain marketing OS and a decentralized traffic-sharing network.',
-     liveMetrics: [
-       { value: '100', suffix: '%', label: 'On-Chain Finality' },
-       { value: '0', suffix: '%', label: 'Interaction Failure Rate', accent: true }
-     ],
-     liveItems: [
-       { title: 'Zero-Hardware SoftPOS', desc: 'Accept sub-second offline USDC payments using existing smart devices. Instantly reclaim the 2.4% lost to legacy credit card processing networks.' },
-       { title: 'NTAG 424 Physical Edge', desc: 'Bank-grade dynamic cryptography (SUN). Hardware-level endpoints that bridge offline physical intent seamlessly to on-chain isReserved states.' },
-       { title: 'Blockchain Marketing OS', desc: 'Mint unforgeable digital memberships, stored-value cards, and smart coupons directly to consumers\' wallets using the ERC-1155 standard.' },
-       { title: 'Cross-Border Traffic Routing', desc: 'Break physical silos. Distribute partner vouchers at checkout and earn automated USDC commissions via smart contracts when redeemed elsewhere.' }
-     ],
-     liveMoatTitle: 'Regulatory Moat: Canada RPAA Section 6 Compliant',
-     liveMoatDesc: 'Physical fund isolation and non-custodial routing qualify Beamio for the Closed-Loop Exemption. Zero Money Services Business (MSB) licensing friction for rapid hyper-scaling.',
-     genesisTitle: 'CashTrees & Genesis',
-     genesisDesc: 'CashTrees is our first branded deployment template. From NFC tap-to-acquire to real-world checkout settlement, proving trusted clearing in offline F&B networks.',
-     expansionKicker: 'Master Plan',
-     expansionTitle: 'The Expansion Path.',
-     expansionHeadline: 'One deterministic rail. Multiple operating surfaces.',
-     expansionSteps: [
-       { phase: 'Phase 1 — Live', title: 'Branded Networks', desc: 'Proving trusted clearing in live commerce. Zero-hardware deployment across retail and F&B physical endpoints.', color: 'emerald' },
-       { phase: 'Phase 2 — Scaling', title: 'Online Apps', desc: 'Extending the deterministic rail to consumer applications, digital marketplaces, and e-commerce checkouts.', color: 'blue' },
-       { phase: 'Phase 3 — The Vision', title: 'AI Agents', desc: 'Programmable commerce executed seamlessly by autonomous agents without human intervention or chargeback risks.', color: 'purple' }
-     ],
-     economyTitle: 'The SaaS Engine',
-     economyHeadline: 'Pay-As-You-Go B-Units',
-     economyDesc:
-       'Ditch the expensive percentage-based fees of traditional finance. Beamio operates on a completely transparent, consumption-based credit system. Zero hidden monthly subscriptions, zero percentage extraction—you only pay for the exact software utility you consume.',
-     economyItems: [
-       {
-         title: 'Absolute Value Anchor',
-         desc: 'The system operates on a hard-pegged digital dollar standard (USDC) for global stability. For local convenience, CAD purchases are dynamically routed to ensure you always know the exact purchasing power of your operational expenses.',
-         badges: ['1 B-Unit = 0.01 USDC', '1 CAD ≈ 70 B-Units'],
-       },
-       {
-         title: 'Flat-Rate Settlement',
-         desc: 'Whether a customer spends $10 or $150, your clearing cost remains fixed (only 25 B-Units). This completely crushes the 2.4% extortion of traditional credit cards. The higher the ticket size, the more you save.',
-         badge: '~ $0.35 CAD / tx',
-         featured: true,
-       },
-       {
-         title: 'Basic Interaction',
-         desc: 'Ideal for daily, high-frequency actions like tap-to-redeem and digital receipt pushing (only 5 B-Units). At roughly 7 cents per tap, it shatters the $0.10 CAD floor of traditional debit cards.',
-         badge: 'Per Tap',
-       },
-       {
-         title: 'Batch Voucher Issuance',
-         desc: 'Instantly bundle and mint hundreds of private-domain vouchers or cross-promotional coupons (only 100 B-Units). Extremely low fixed costs (~$1.43 CAD) mean aggressive local marketing is no longer hindered by high system fees.',
-         badge: 'Flat Fee',
-       },
-     ],
-     footerTitle: 'Ready to upgrade your physical storefront?',
-     footerSub: 'Step into our Digital Store OS. Discover how local businesses bypass legacy credit card fees and tap into the decentralized traffic network.',
-     footerCta: 'Explore Merchant Solutions'
-   },
-   CN: {
-     nav: [
-       { label: '协议架构', href: 'section-architecture' },
-       { label: '清算燃料', href: 'section-economy' },
-       { label: '实体沙盘', to: '/homeExample' },
-     ],
-     heroSub: '从真实商业闭环开始，延展到应用与 AI Agents。',
-     ctaPrimary: '探索协议',
-     ctaSecondary: '阅读白皮书 v3.2',
-     problemTitle: '信任裂痕 (Trust Gap)',
-     problemHeadline: '当授权、资金与履约失去同步，商业协作就会中断。',
-     problemSub: '如果没有资金预留，商户无法在发货前确认对方具备偿付能力。',
-     wedgeTitle: '确定性偿付',
-     wedgeHeadline: '别人只验证代理的身份，Beamio 在履约前验证资金。',
-     wedgeDesc: 'Beamio 的核心原语不是为"单次人工支付"设计，而是为"委托执行"打造。我们补齐了缺失的清算层：在履约前可验证的保留资金。彻底消除双花攻击风险与退单不确定性。',
-     archTitle: '底层技术原语',
-     archHeadline: '专为 AI 代理经济打造的协议架构。',
-     archSub: 'We rebuilt the commercial stack from the ground up. Zero centralized databases, fully programmable, and native to both humans and autonomous agents.',
-     archCards: [
-       { title: '双链混合架构 (Dual-Chain)', desc: 'Base L2 负责高价值资金的安全结算，CoNET L1 承载数据与身份主权。彻底摒弃中心化数据库。' },
-       { title: '原子资产容器 (AAC)', desc: '带有完整生命周期的资产包装器。通过 isReserved 智能合约级锁定，在履约前提供 100% 确定性偿付证明。' },
-       { title: '智能消费账户 (ERC-4337)', desc: '可编程的商业钱包引擎。允许人类主理人为下游独立运行的 AI 代理设定精确到微交易的高颗粒度消费边界。' },
-       { title: 'AI 原生 RPC 接口', desc: '摒弃传统 API Key。原生提供 LLM 标准 Schema，让大语言模型能够直接读取链上状态并构建复杂的清算交易。' }
-     ],
-     flowKicker: 'State Machine',
-     flowTitle: 'The Verifiable Lifecycle.',
-     flowSteps: [
-       { title: 'Authorize', desc: 'User signs intent' },
-       { title: 'Reserve', desc: 'Soft Lock' },
-       { title: 'Accept', desc: 'Merchant verifies' },
-       { title: 'Fulfill', desc: 'Goods delivered' },
-       { title: 'Settle / Roll Back', desc: 'Atomic finality' }
-     ],
-     liveTitle: 'Richmond Sandbox Live',
-     liveHeadline: 'Proven in the physical world.',
-     liveSub: 'We didn\'t just bypass the 2.4% legacy surcharge. We provided merchants with a full-suite blockchain marketing OS and a decentralized traffic-sharing network.',
-     liveMetrics: [
-       { value: '100', suffix: '%', label: 'On-Chain Finality' },
-       { value: '0', suffix: '%', label: 'Interaction Failure Rate', accent: true }
-     ],
-     liveItems: [
-       { title: 'Zero-Hardware SoftPOS', desc: 'Accept sub-second offline USDC payments using existing smart devices. Instantly reclaim the 2.4% lost to legacy credit card processing networks.' },
-       { title: 'NTAG 424 Physical Edge', desc: 'Bank-grade dynamic cryptography (SUN). Hardware-level endpoints that bridge offline physical intent seamlessly to on-chain isReserved states.' },
-       { title: 'Blockchain Marketing OS', desc: 'Mint unforgeable digital memberships, stored-value cards, and smart coupons directly to consumers\' wallets using the ERC-1155 standard.' },
-       { title: 'Cross-Border Traffic Routing', desc: 'Break physical silos. Distribute partner vouchers at checkout and earn automated USDC commissions via smart contracts when redeemed elsewhere.' }
-     ],
-     liveMoatTitle: 'Regulatory Moat: Canada RPAA Section 6 Compliant',
-     liveMoatDesc: 'Physical fund isolation and non-custodial routing qualify Beamio for the Closed-Loop Exemption. Zero Money Services Business (MSB) licensing friction for rapid hyper-scaling.',
-     genesisTitle: 'CashTrees 样板与硬件',
-     genesisDesc: 'CashTrees 是首个跑在 Beamio 轨道上的品牌部署样板。从 NFC 挥卡获客到实体商业的真实结算，我们在最复杂的线下餐饮场景中验证了可信清算。',
-     expansionKicker: 'Master Plan',
-     expansionTitle: 'The Expansion Path.',
-     expansionHeadline: 'One deterministic rail. Multiple operating surfaces.',
-     expansionSteps: [
-       { phase: 'Phase 1 — Live', title: 'Branded Networks', desc: 'Proving trusted clearing in live commerce. Zero-hardware deployment across retail and F&B physical endpoints.', color: 'emerald' },
-       { phase: 'Phase 2 — Scaling', title: 'Online Apps', desc: 'Extending the deterministic rail to consumer applications, digital marketplaces, and e-commerce checkouts.', color: 'blue' },
-       { phase: 'Phase 3 — The Vision', title: 'AI Agents', desc: 'Programmable commerce executed seamlessly by autonomous agents without human intervention or chargeback risks.', color: 'purple' }
-     ],
-     economyTitle: 'The SaaS Engine',
-     economyHeadline: 'Pay-As-You-Go B-Units',
-     economyDesc:
-       'Ditch the expensive percentage-based fees of traditional finance. Beamio operates on a completely transparent, consumption-based credit system. Zero hidden monthly subscriptions, zero percentage extraction—you only pay for the exact software utility you consume.',
-     economyItems: [
-       {
-         title: 'Absolute Value Anchor',
-         desc: 'The system operates on a hard-pegged digital dollar standard (USDC) for global stability. For local convenience, CAD purchases are dynamically routed to ensure you always know the exact purchasing power of your operational expenses.',
-         badges: ['1 B-Unit = 0.01 USDC', '1 CAD ≈ 70 B-Units'],
-       },
-       {
-         title: 'Flat-Rate Settlement',
-         desc: 'Whether a customer spends $10 or $150, your clearing cost remains fixed (only 25 B-Units). This completely crushes the 2.4% extortion of traditional credit cards. The higher the ticket size, the more you save.',
-         badge: '~ $0.35 CAD / tx',
-         featured: true,
-       },
-       {
-         title: 'Basic Interaction',
-         desc: 'Ideal for daily, high-frequency actions like tap-to-redeem and digital receipt pushing (only 5 B-Units). At roughly 7 cents per tap, it shatters the $0.10 CAD floor of traditional debit cards.',
-         badge: 'Per Tap',
-       },
-       {
-         title: 'Batch Voucher Issuance',
-         desc: 'Instantly bundle and mint hundreds of private-domain vouchers or cross-promotional coupons (only 100 B-Units). Extremely low fixed costs (~$1.43 CAD) mean aggressive local marketing is no longer hindered by high system fees.',
-         badge: 'Flat Fee',
-       },
-     ],
-     footerTitle: 'Ready to upgrade your physical storefront?',
-     footerSub: 'Step into our Digital Store OS. Discover how local businesses bypass legacy credit card fees and tap into the decentralized traffic network.',
-     footerCta: 'Explore Merchant Solutions'
-   }
- };
+	useEffect(() => {
+		const targetId = location.hash.replace(/^#/, '').replace(/\/+$/, '')
+		if (!targetId) {
+			window.scrollTo({ top: 0, behavior: 'auto' })
+			return
+		}
 
+		const frame = window.requestAnimationFrame(() => {
+			document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'auto' })
+		})
+		return () => window.cancelAnimationFrame(frame)
+	}, [location.hash])
 
- useEffect(() => {
-   const handleScroll = () => {
-     const next = window.scrollY > 50;
-     if (next === isScrolledRef.current) return;
-     isScrolledRef.current = next;
-     setIsScrolled(next);
-   };
-   handleScroll();
-   window.addEventListener('scroll', handleScroll, { passive: true });
-   return () => window.removeEventListener('scroll', handleScroll);
- }, []);
+	return (
+		<ConetSiteShell>
+			<main>
+				<section className="relative isolate overflow-hidden bg-black px-4 pb-20 pt-20 text-white sm:px-6 sm:pb-28 sm:pt-28 lg:px-8">
+					<video
+						className="absolute inset-0 -z-20 h-full w-full object-cover"
+						src="/bg-home.mp4"
+						autoPlay
+						muted
+						loop
+						playsInline
+						preload="metadata"
+						aria-hidden="true"
+						tabIndex={-1}
+					/>
+					<div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(34,211,238,0.12),transparent_32%),radial-gradient(circle_at_85%_40%,rgba(192,132,252,0.18),transparent_34%),linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(16,17,21,0.86)_100%)]" />
+					<div className="mx-auto max-w-7xl">
+						<div className="max-w-4xl">
+							<p className="mb-5 inline-flex rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100">
+								CoNET infrastructure
+							</p>
+							<h1 className="max-w-4xl text-4xl font-semibold leading-[1.04] tracking-[-0.045em] sm:text-6xl lg:text-7xl">
+								Decentralized cloud infrastructure addressed by wallets.
+							</h1>
+							<p className="mt-7 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
+								CoNET L0 is a decentralized cloud resource plane for forwarding, storage, service hosting, and compute. Layer Minus composes those resources into private communications; CoNET L1 and CoNET-DLE use that path for wallet-addressed gossip, while web3:// exposes the same foundation as private application-server technology.
+							</p>
+							<div className="mt-9 flex flex-wrap gap-3">
+								<Link to="/web3" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-300 to-purple-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-[0_0_28px_rgba(103,232,249,0.18)] transition-transform hover:-translate-y-0.5">
+									Explore web3:// <ArrowRight className="h-4 w-4" aria-hidden="true" />
+								</Link>
+								<SiteExternalLink href={gitbook} className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10">
+									Read the GitBook <ExternalLink className="h-4 w-4" aria-hidden="true" />
+								</SiteExternalLink>
+							</div>
+						</div>
+					</div>
+				</section>
 
+				<section className="border-y border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto max-w-7xl">
+						<div className="max-w-3xl">
+							<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Infrastructure to applications</p>
+							<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">L0 is the cloud. Layer Minus is the privacy protocol. web3:// is the application surface.</h2>
+							<p className="mt-5 leading-7 text-slate-400">These responsibilities compose into one stack, but they are not interchangeable names.</p>
+						</div>
+						<div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+							{infrastructureFlow.map(({ kicker, title, copy, icon: Icon }, index) => (
+								<article key={title} className="relative rounded-2xl border border-white/10 bg-[#18191f] p-6">
+									<div className="flex items-center justify-between">
+										<Icon className="h-7 w-7 text-cyan-300" aria-hidden="true" />
+										<span className="text-xs font-bold text-slate-600">0{index + 1}</span>
+									</div>
+									<p className="mt-7 text-xs font-bold uppercase tracking-[0.15em] text-cyan-200">{kicker}</p>
+									<h3 className="mt-2 text-xl font-semibold text-white">{title}</h3>
+									<p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
+								</article>
+							))}
+						</div>
+					</div>
+				</section>
 
- const t = content.EN;
+				<section id="layers" className="scroll-mt-6 px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto max-w-7xl">
+						<div className="max-w-2xl">
+							<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">The stack</p>
+							<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">Three layers, clear boundaries.</h2>
+							<p className="mt-4 leading-7 text-slate-400">CoNET is not a single application. The layers can be composed, while their responsibilities and implementation evidence remain distinct.</p>
+						</div>
+						<div className="mt-10 grid gap-4 lg:grid-cols-3">
+							{layers.map(({ kicker, title, copy, icon: Icon, status }) => (
+								<article key={kicker} className="rounded-2xl border border-white/10 bg-[#18191f] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:p-7">
+									<Icon className="h-7 w-7 text-cyan-300" aria-hidden="true" />
+									<p className="mt-7 text-xs font-bold uppercase tracking-[0.15em] text-cyan-200">{kicker}</p>
+									<h3 className="mt-2 text-xl font-semibold tracking-tight text-white">{title}</h3>
+									<p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
+									<p className="mt-6 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">{status}</p>
+								</article>
+							))}
+						</div>
+					</div>
+				</section>
 
- const scrollToHomeSection = (sectionId: string) => {
-   document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-   setMobileMenuOpen(false);
- };
+				<section className="border-y border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto max-w-7xl">
+						<div className="max-w-3xl">
+							<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">The network difference</p>
+							<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">Wallet identity becomes network infrastructure.</h2>
+							<p className="mt-5 leading-7 text-slate-400">A conventional Ethereum-style L1 normally discovers and connects peers through exposed IP addresses and ports. CoNET keeps EVM-compatible execution and proof-of-stake consensus, while developing a different transport direction: peer streams addressed by wallet identity and carried through the encrypted Layer Minus network.</p>
+						</div>
+						<div className="mt-10 grid gap-4 lg:grid-cols-2">
+							<article className="rounded-2xl border border-white/10 bg-[#18191f] p-6 sm:p-7">
+								<Blocks className="h-7 w-7 text-cyan-300" aria-hidden="true" />
+								<p className="mt-6 text-xs font-bold uppercase tracking-[0.15em] text-cyan-200">CoNET L1 direction</p>
+								<h3 className="mt-2 text-xl font-semibold text-white">Consensus peers by wallet locator</h3>
+								<p className="mt-3 text-sm leading-6 text-slate-400">The destination architecture transports unmodified geth and Prysm peer connections through Layer Minus, so a wallet locator—not a stable public <code>IP:port</code>—can identify the peer destination. Laboratory tests have demonstrated this path; the public production join path still uses conventional hosts today.</p>
+								<SiteExternalLink href="https://gitbook.conet.network/developers/l1-node.html" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100">Read the L1 boundary <ArrowRight className="h-4 w-4" aria-hidden="true" /></SiteExternalLink>
+							</article>
+							<article className="rounded-2xl border border-white/10 bg-[#18191f] p-6 sm:p-7">
+								<Network className="h-7 w-7 text-purple-300" aria-hidden="true" />
+								<p className="mt-6 text-xs font-bold uppercase tracking-[0.15em] text-purple-200">CoNET-DLE foundation</p>
+								<h3 className="mt-2 text-xl font-semibold text-white">Wallet-addressed encrypted gossip</h3>
+								<p className="mt-3 text-sm leading-6 text-slate-400">DLE is designed on top of CoNET DePIN rather than as another IP overlay. Waiting-pool announcements, task offers, block proposals, votes, and other control or data messages use EOA identities and OpenPGP end-to-end encryption through the entry/mailbox routing model.</p>
+								<SiteExternalLink href="https://gitbook.conet.network/l2/" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100">Read the DLE design boundary <ArrowRight className="h-4 w-4" aria-hidden="true" /></SiteExternalLink>
+							</article>
+						</div>
+					</div>
+				</section>
 
+				<section className="px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_1.15fr] lg:items-center">
+						<div>
+							<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Application protocol</p>
+							<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">web3:// is a protocol surface, not a browser promise.</h2>
+							<p className="mt-5 leading-7 text-slate-400">It defines wallet-addressed resource and streaming interactions over CoNET infrastructure. URI resolution, signed requests, and encrypted responses are specified separately from the routing substrate.</p>
+							<Link to="/web3" className="mt-7 inline-flex items-center gap-2 font-semibold text-cyan-300 hover:text-cyan-100">
+								Read the protocol overview <ArrowRight className="h-4 w-4" aria-hidden="true" />
+							</Link>
+						</div>
+						<div className="rounded-2xl border border-cyan-200/10 bg-black/40 p-6 text-slate-100 shadow-[0_0_48px_rgba(103,232,249,0.08)] sm:p-8">
+							<div className="flex items-center gap-3 text-cyan-200"><Braces className="h-5 w-5" aria-hidden="true" /><span className="text-sm font-semibold">URI examples</span></div>
+							<code className="mt-6 block overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-cyan-100">web3://0x1234…abcd/resource</code>
+							<code className="mt-3 block overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-cyan-100">web3://ExactTag.web3/inbox</code>
+							<p className="mt-5 text-sm leading-6 text-slate-300">Examples illustrate locator shape only. An exact tag must resolve unambiguously; this page does not execute these URIs.</p>
+						</div>
+					</div>
+				</section>
 
- if (currentPage === 'ecosystem') {
-   return <Ecosystem onBack={() => setCurrentPage('home')} />;
- }
-  if (currentPage === 'whitepaper') {
-   return <Whitepaper onBack={() => { setCurrentPage('home'); setWhitepaperScrollTo(null); }} initialScrollToSection={whitepaperScrollTo ?? undefined} />;
- }
+				<section className="border-y border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto max-w-7xl">
+						<div className="max-w-3xl">
+							<p className="text-xs font-bold uppercase tracking-[0.16em] text-purple-300">Future direction · decentralized AI</p>
+							<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">Three independent powers above user privacy.</h2>
+							<p className="mt-5 leading-7 text-slate-400">CoNET intends to use contributed L0 GPU capacity for decentralized AI while separating model construction, raw-data acquisition, and AI-agent operation. No single role should own the model, the complete private input, and the user relationship at once.</p>
+						</div>
+						<div className="mt-10 grid gap-4 md:grid-cols-3">
+							{aiSeparation.map(({ title, copy, icon: Icon }) => (
+								<article key={title} className="rounded-2xl border border-purple-300/15 bg-[#18191f] p-6 sm:p-7">
+									<Icon className="h-7 w-7 text-purple-300" aria-hidden="true" />
+									<h3 className="mt-6 text-xl font-semibold text-white">{title}</h3>
+									<p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
+								</article>
+							))}
+						</div>
+						<p className="mt-6 max-w-4xl text-sm leading-6 text-slate-500">This is a future architecture direction, not a claim that a general GPU marketplace or decentralized AI product is already in production.</p>
+					</div>
+				</section>
 
+				<section id="applications" className="scroll-mt-6 px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto max-w-7xl">
+						<div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+							<div className="max-w-xl">
+								<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Application ecosystem</p>
+								<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">Built for specialized applications.</h2>
+							</div>
+							<SiteExternalLink href="https://gitbook.conet.network/applications/" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100">
+								All applications <ArrowRight className="h-4 w-4" aria-hidden="true" />
+							</SiteExternalLink>
+						</div>
+						<div className="mt-9 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+							{applications.map(({ title, copy, icon: Icon, ...destination }) => {
+								const content = <>
+									<Icon className="h-6 w-6 text-cyan-300" aria-hidden="true" />
+									<h3 className="mt-6 text-lg font-semibold text-white">{title}</h3>
+									<p className="mt-2 text-sm leading-6 text-slate-400">{copy}</p>
+									{'status' in destination ? <span className="mt-5 inline-flex rounded-full border border-cyan-200/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-semibold text-cyan-100">{destination.status}</span> : null}
+									<span className="mt-6 flex items-center gap-1.5 text-sm font-semibold text-cyan-300">Explore <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden="true" /></span>
+								</>
+								const className = 'group flex flex-col rounded-2xl border border-white/10 bg-[#18191f] p-6 transition hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_0_32px_rgba(103,232,249,0.08)]'
+								return 'to' in destination
+									? <Link key={title} to={destination.to} className={className}>{content}</Link>
+									: <SiteExternalLink key={title} href={destination.href} className={className}>{content}</SiteExternalLink>
+							})}
+						</div>
+					</div>
+				</section>
 
- return (
-   <div className="min-h-screen bg-slate-50 text-slate-600 font-sans selection:bg-purple-500 selection:text-white">
+				<section id="token-economy" className="border-y border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+					<div className="mx-auto max-w-7xl">
+						<div className="max-w-3xl">
+							<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">$CNET macro token economics</p>
+							<h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">Structural scarcity and the Web4 deflation model.</h2>
+							<p className="mt-5 leading-7 text-slate-400">$CNET is the native governance and resource-accounting asset across CoNET L1 consensus, the Layer Minus physical network, and CoNET application protocols. Its macro model combines a fixed supply ceiling, validator staking, algorithmically declining node output, and permanent transaction-fee burns.</p>
+						</div>
+						<div className="mt-10 grid gap-4 md:grid-cols-3">
+							{tokenEconomy.map(({ title, copy, icon: Icon }) => (
+								<article key={title} className="rounded-2xl border border-white/10 bg-[#18191f] p-6 sm:p-7">
+									<Icon className="h-7 w-7 text-cyan-300" aria-hidden="true" />
+									<h3 className="mt-6 text-xl font-semibold text-white">{title}</h3>
+									<p className="mt-3 text-sm leading-6 text-slate-400">{copy}</p>
+								</article>
+							))}
+						</div>
 
-     {/* Navigation */}
-     <nav className={`fixed w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 border-b border-slate-200 shadow-sm py-4' : 'bg-white/0 py-6'}`}>
-       <div className="max-w-7xl mx-auto px-6 md:px-12 flex justify-between items-center">
-         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-           <BeamioBrandLogo className="w-8 h-8 rounded-lg object-cover shadow-lg shadow-blue-500/20" />
-           <span className="text-slate-900 font-bold text-xl tracking-wide">Beamio</span>
-         </div>
+						<div className="mt-10 rounded-2xl border border-blue-300/20 bg-blue-300/[0.07] p-6 sm:p-7">
+							<div className="grid gap-7 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+								<div>
+									<p className="text-xs font-bold uppercase tracking-[0.15em] text-blue-200">Current Genesis node entry</p>
+									<p className="mt-3 text-4xl font-semibold tracking-tight text-blue-300">$4,000 USDC</p>
+									<p className="mt-2 text-sm text-slate-400">Total entry threshold per infrastructure seat</p>
+								</div>
+								<div className="grid gap-3 sm:grid-cols-2">
+									<div className="rounded-xl border border-white/10 bg-black/20 p-5">
+										<p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Infrastructure allocation</p>
+										<p className="mt-2 text-xl font-semibold text-white">$3,880 USDC</p>
+										<p className="mt-2 text-xs leading-5 text-slate-400">Allocated to the Genesis node infrastructure seat.</p>
+									</div>
+									<div className="rounded-xl border border-white/10 bg-black/20 p-5">
+										<p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">First-year OPEX</p>
+										<p className="mt-2 text-xl font-semibold text-white">$120 USDC</p>
+										<p className="mt-2 text-xs leading-5 text-slate-400">Included in the $4,000 USDC total; paid through the current Base external-wallet flow.</p>
+									</div>
+								</div>
+							</div>
+							<p className="mt-6 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">The current purchase flow is governed by the CoNET Genesis Node Early Contributor Exemption &amp; Digital Rights Confirmation Agreement and its smart-contract settlement terms. It is an infrastructure-rights confirmation, not a transaction with a corporate issuer.</p>
+						</div>
 
-         <div className="hidden md:flex items-center gap-8">
-           {t.nav.map((item) => (
-             item.to ? (
-               <Link
-                 key={item.to}
-                 to={item.to}
-                 className="text-sm font-medium text-slate-500 hover:text-[#1562F0] transition-colors"
-               >
-                 {item.label}
-               </Link>
-             ) : (
-               <a
-                 key={item.href}
-                 href={`#${item.href}`}
-                 onClick={(e) => {
-                   e.preventDefault();
-                   scrollToHomeSection(item.href!);
-                 }}
-                 className="text-sm font-medium text-slate-500 hover:text-[#1562F0] transition-colors"
-               >
-                 {item.label}
-               </a>
-             )
-           ))}
-           <a href="https://biz.beamio.app/biz/" target="_blank" rel="noreferrer" className="bg-slate-900 text-white px-5 py-2 text-sm font-medium rounded hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20">
-             Beamio OS
-           </a>
-         </div>
+						<div className="mt-10 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+							<article className="rounded-2xl border border-purple-300/15 bg-purple-300/[0.06] p-6 sm:p-7">
+								<div className="flex items-center gap-3">
+									<RadioTower className="h-6 w-6 text-purple-300" aria-hidden="true" />
+									<h3 className="text-xl font-semibold text-white">Square-root declining node output</h3>
+								</div>
+								<p className="mt-3 text-sm leading-6 text-slate-400">Aggregate protocol emission grows in proportion to the square root of total staked $CNET, so per-node output declines as participation expands. At full capacity, the model caps aggregate annual output at approximately 262,000 $CNET—still within the absolute supply ceiling.</p>
+								<div className="mt-6 grid gap-3 sm:grid-cols-3">
+									{nodeIssuanceStages.map(({ stage, nodes, annual, apr }) => (
+										<div key={stage} className="rounded-xl border border-white/10 bg-black/20 p-4">
+											<p className="text-xs font-bold uppercase tracking-[0.12em] text-purple-200">{stage}</p>
+											<p className="mt-3 text-sm font-semibold text-white">{nodes}</p>
+											<p className="mt-2 text-xs leading-5 text-slate-300">{annual}</p>
+											<p className="mt-1 text-xs leading-5 text-slate-500">{apr}</p>
+										</div>
+									))}
+								</div>
+							</article>
 
+							<article className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.05] p-6 sm:p-7">
+								<ServerCog className="h-6 w-6 text-cyan-300" aria-hidden="true" />
+								<h3 className="mt-5 text-xl font-semibold text-white">Community return and Treasury flow</h3>
+								<ul className="mt-4 space-y-4 text-sm leading-6 text-slate-400">
+									<li><strong className="text-slate-200">300 historical genesis nodes:</strong> 100 $CNET each, initially locked and modelled to unlock linearly over six months from DEX trading activation.</li>
+									<li><strong className="text-slate-200">2,000 official backbone nodes:</strong> before the public allocation is fully activated, their output is modelled to return 100% to active community nodes according to active-node days.</li>
+									<li><strong className="text-slate-200">At full activation:</strong> the community-return phase becomes dormant and official-node output flows to the CoNET Treasury for protocol development, compliance, and decentralized liquidity reserves.</li>
+								</ul>
+							</article>
+						</div>
 
-         <button
-           type="button"
-           className="md:hidden text-slate-500"
-           aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-         >
-           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-         </button>
-       </div>
+						<div className="mt-4 rounded-2xl border border-orange-300/20 bg-orange-300/[0.06] p-6 sm:p-7">
+							<div className="grid gap-7 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+								<div>
+									<Coins className="h-7 w-7 text-orange-300" aria-hidden="true" />
+									<p className="mt-5 text-xs font-bold uppercase tracking-[0.15em] text-orange-200">Permanent burn engine</p>
+									<h3 className="mt-2 text-2xl font-semibold text-white">100% of the EIP-1559 base fee is burned.</h3>
+									<p className="mt-4 text-sm leading-6 text-slate-400">Every commercial state write on CoNET L1—including Beamio SaaS activity, Silent Pass privacy services, and future AI-agent micro-settlement—pays a base network fee. The base-fee portion is permanently removed from supply.</p>
+								</div>
+								<div className="grid gap-3 sm:grid-cols-2">
+									<div className="rounded-xl border border-white/10 bg-black/20 p-5">
+										<p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Deflation crossover</p>
+										<p className="mt-3 text-2xl font-semibold text-white">$31.50</p>
+										<p className="mt-2 text-xs leading-5 text-slate-400">At an assumed US$8.25M annual burn budget, this price burns approximately 262,000 tokens—the modelled full-network annual output.</p>
+									</div>
+									<div className="rounded-xl border border-white/10 bg-black/20 p-5">
+										<p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">High-deflation case</p>
+										<p className="mt-3 text-2xl font-semibold text-white">$15.00</p>
+										<p className="mt-2 text-xs leading-5 text-slate-400">The same assumed burn budget would remove approximately 550,000 $CNET in a year, exceeding the modelled annual output.</p>
+									</div>
+								</div>
+							</div>
+						</div>
 
-       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white/95">
-           <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3">
-             {t.nav.map((item) => (
-               item.to ? (
-                 <Link
-                   key={item.to}
-                   to={item.to}
-                   onClick={() => setMobileMenuOpen(false)}
-                   className="text-sm font-medium text-slate-600 hover:text-[#1562F0] transition-colors py-2"
-                 >
-                   {item.label}
-                 </Link>
-               ) : (
-                 <a
-                   key={item.href}
-                   href={`#${item.href}`}
-                   onClick={(e) => {
-                     e.preventDefault();
-                     scrollToHomeSection(item.href!);
-                   }}
-                   className="text-sm font-medium text-slate-600 hover:text-[#1562F0] transition-colors py-2"
-                 >
-                   {item.label}
-                 </a>
-               )
-             ))}
-             <a
-               href="https://biz.beamio.app/biz/"
-               target="_blank"
-               rel="noreferrer"
-               onClick={() => setMobileMenuOpen(false)}
-               className="self-start bg-slate-900 text-white px-5 py-2.5 text-sm font-medium rounded hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/20"
-             >
-               Beamio OS
-             </a>
-           </div>
-         </div>
-       )}
-     </nav>
+						<div className="mt-4 rounded-2xl border border-white/10 bg-[#18191f] p-6 sm:p-7">
+							<p className="text-xs font-bold uppercase tracking-[0.15em] text-cyan-300">Valuation sandbox</p>
+							<h3 className="mt-2 text-2xl font-semibold text-white">From mature operating profit to modelled FDV.</h3>
+							<p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">These scenarios translate a US$36.75M mature annual net-profit assumption into illustrative token values against the 1,000,000-token hard cap. They are sensitivity cases, not forecasts.</p>
+							<div className="mt-6 grid gap-4 md:grid-cols-3">
+								{valuationScenarios.map(({ label, value, copy }) => (
+									<div key={label} className="rounded-xl border border-white/10 bg-black/20 p-5">
+										<p className="text-xs font-bold uppercase tracking-[0.12em] text-cyan-200">{label}</p>
+										<p className="mt-3 text-2xl font-semibold text-white">{value}</p>
+										<p className="mt-2 text-xs leading-5 text-slate-400">{copy}</p>
+									</div>
+								))}
+							</div>
+							<p className="mt-6 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">All output, APR, burn, profit, valuation, price, unlock, and allocation figures above reproduce assumptions from the supplied macro-tokenomics model. They are not financial advice, guaranteed returns, a current sale, or evidence of realized revenue. Live contract state and published governance decisions take precedence.</p>
+						</div>
+					</div>
+				</section>
 
-
-     {/* Hero Section */}
-     <section className="relative pt-40 pb-32 md:pt-52 md:pb-40 px-6 overflow-hidden">
-       {/* Modern Bright Fintech Gradients */}
-       <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_45%,rgba(96,165,250,0.16),transparent_28rem),radial-gradient(circle_at_75%_45%,rgba(168,85,247,0.12),transparent_24rem),linear-gradient(180deg,#f9f9fe_0%,#ffffff_78%)] pointer-events-none"></div>
-
-       <div className="max-w-5xl mx-auto text-center relative z-10">
-         <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold text-slate-900 tracking-tight leading-[1.05] mb-8">
-           <>The deterministic rail for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1562F0] via-purple-500 to-orange-500">delegated commerce.</span></>
-         </h1>
-         <p className="text-lg md:text-2xl text-slate-500 max-w-2xl mx-auto mb-12 font-light">
-           {t.heroSub}
-         </p>
-         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-           <button onClick={() => document.getElementById('section-architecture')?.scrollIntoView({ behavior: 'smooth' })} className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-[#1562F0] to-purple-600 text-white rounded font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 group shadow-xl shadow-blue-500/25">
-             {t.ctaPrimary}
-             <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-           </button>
-           <button onClick={() => setCurrentPage('whitepaper')} className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-300 text-slate-700 rounded font-medium hover:bg-slate-50 transition-colors shadow-sm">
-             {t.ctaSecondary}
-           </button>
-         </div>
-       </div>
-     </section>
-
-
-     {/* Problem & Wedge Section */}
-     <section id="section-0" className="py-24 md:py-32 bg-white border-y border-slate-200">
-       <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-         <div>
-           <h3 className="text-purple-600 font-mono text-sm tracking-widest uppercase mb-4">{t.problemTitle}</h3>
-           <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
-             {t.problemHeadline}
-           </h2>
-           <p className="text-slate-500 text-lg mb-12">
-             {t.problemSub}
-           </p>
-
-
-           <div className="pl-6 border-l-4 border-purple-500">
-             <h3 className="text-slate-900 text-xl font-bold mb-3">{t.wedgeTitle}</h3>
-             <p className="text-slate-600 leading-relaxed">
-               {t.wedgeDesc}
-             </p>
-           </div>
-         </div>
-
-
-         <div className="relative h-[400px] rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden p-8 flex flex-col justify-center shadow-inner">
-            <div className="flex flex-col gap-6 relative">
-               <div className="flex items-center justify-between w-full relative z-10">
-                 <div className="h-2 bg-slate-200 w-[40%] rounded-l-full relative overflow-hidden">
-                   <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-slate-200 to-slate-400"></div>
-                 </div>
-                <Zap className="text-red-500 mx-4" size={32} />
-                 <div className="h-2 bg-slate-200 w-[40%] rounded-r-full relative overflow-hidden"></div>
-               </div>
-
-               <div className="flex justify-between text-xs font-mono text-slate-400 uppercase tracking-widest mt-2">
-                 <span>Authorization</span>
-                 <span>Fulfillment</span>
-               </div>
-
-
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 p-5 bg-gradient-to-br from-purple-600 to-[#1562F0] rounded-xl shadow-2xl shadow-purple-500/30 z-20 flex flex-col items-center justify-center text-center transform translate-y-8 border border-white/20">
-                  <Lock size={24} className="text-white mb-2" />
-                  <span className="text-white font-bold text-sm">isReserved</span>
-                  <span className="text-blue-100 text-xs mt-1">Deterministic Solvency</span>
-               </div>
-            </div>
-         </div>
-       </div>
-     </section>
-
-
-     {/* Protocol Architecture (Whitepaper Deep Dive) */}
-     <section id="section-architecture" className="py-24 md:py-32 bg-slate-50 relative overflow-hidden scroll-mt-24">
-        <div className="max-w-7xl mx-auto px-6 md:px-12">
-           <div className="mb-16">
-             <h3 className="text-orange-500 font-mono text-sm tracking-widest uppercase mb-4">{t.archTitle}</h3>
-             <h2 className="text-3xl md:text-5xl font-bold text-slate-900">{t.archHeadline}</h2>
-             <p className="mt-6 max-w-4xl text-lg md:text-xl text-slate-500 leading-relaxed">
-               {t.archSub}
-             </p>
-           </div>
-
-
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                 {t.archCards.map((card, idx) => (
-                   <div key={idx} className="p-6 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-purple-300 hover:shadow-xl transition-all group">
-                      <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-[#1562F0] group-hover:text-purple-600 transition-colors mb-5">
-                         {idx === 0 && <Layers size={22} />}
-                         {idx === 1 && <Box size={22} />}
-                         {idx === 2 && <Database size={22} />}
-                         {idx === 3 && <Code2 size={22} />}
-                      </div>
-                      <h4 className="text-slate-900 font-bold mb-3">{card.title}</h4>
-                      <p className="text-slate-500 text-sm leading-relaxed">{card.desc}</p>
-                   </div>
-                 ))}
-              </div>
-
-
-              {/* Kept dark specifically to look like a real terminal/code editor */}
-              <div className="rounded-xl border border-slate-800 bg-[#0F172A] overflow-hidden shadow-2xl shadow-slate-900/50">
-                 <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-800 bg-[#0B1120]">
-                    <div className="w-3 h-3 rounded-full bg-red-500/80 border border-red-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/80 border border-yellow-500"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500/80 border border-green-500"></div>
-                    <span className="ml-2 text-xs font-mono text-slate-400">agentic_clearing.ts</span>
-                 </div>
-                 <div className="p-6 md:p-8 text-sm md:text-base font-mono text-slate-300 overflow-x-auto">
-                    <pre className="leading-relaxed">
-<span className="text-slate-500">{'// BCP v3.2: AI Agent Autonomous Execution'}</span>{'\n'}
-<span className="text-purple-400">const</span> intent = <span className="text-purple-400">await</span> aiAgent.<span className="text-blue-400">parse</span>(request);{'\n'}
-{'\n'}
-<span className="text-slate-500">{'// 1. Lock funds via Atomic Asset Container'}</span>{'\n'}
-<span className="text-purple-400">const</span> tx = <span className="text-purple-400">await</span> beamio.<span className="text-blue-400">reserve</span>({'{'}{'\n'}
-{'  '}asset: <span className="text-green-400">{'"USDC"'}</span>,{'\n'}
-{'  '}amount: <span className="text-orange-400">100.00</span>,{'\n'}
-{'  '}recipient: merchant.<span className="text-blue-400">getBeamioTag</span>(),{'\n'}
-{'  '}ttl: <span className="text-green-400">{'"24h"'}</span>{'\n'}
-{'}'});{'\n'}
-{'\n'}
-<span className="text-slate-500">{'// 2. Deterministic Solvency Guaranteed'}</span>{'\n'}
-console.<span className="text-blue-400">log</span>(<span className="text-green-400">{'"Solvency locked:"'}</span>, tx.isReserved);{'\n'}
-{'\n'}
-<span className="text-slate-500">{'// 3. Execute zero-gas state sync on CoNET L1'}</span>{'\n'}
-<span className="text-purple-400">await</span> beamio.social.<span className="text-blue-400">syncReceipt</span>(tx.hash);
-                    </pre>
-                 </div>
-              </div>
-           </div>
-        </div>
-     </section>
-
-
-     {/* B-Units Economy Section */}
-     <section id="section-economy" className="py-24 bg-gradient-to-br from-orange-50 to-white border-y border-orange-100 overflow-hidden relative scroll-mt-24">
-      <div className="absolute -left-40 -top-40 w-[500px] h-[500px] bg-orange-400/10 rounded-full pointer-events-none"></div>
-       <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
-         <div className="order-2 lg:order-1 relative flex justify-center lg:justify-start">
-            {/* Abstract Orange Fuel Visualization */}
-            <div className="w-72 h-72 md:w-96 md:h-96 relative flex items-center justify-center">
-               <div className="absolute inset-0 bg-white rounded-full shadow-2xl border border-orange-100 flex items-center justify-center z-20">
-                  <div className="text-center">
-                     <Flame size={40} className="text-orange-500 mx-auto mb-2" />
-                     <span className="text-2xl font-black text-slate-900">B-Units</span>
-                     <p className="text-orange-500 font-mono text-xs mt-1 tracking-widest">SHADOW FUEL</p>
-                  </div>
-               </div>
-               {/* Orbiting Elements */}
-               <div className="absolute w-full h-full border-[1.5px] border-dashed border-orange-300 rounded-full animate-[spin_20s_linear_infinite]"></div>
-               <div className="absolute w-[120%] h-[120%] border-[1px] border-orange-200 rounded-full animate-[spin_30s_linear_infinite_reverse]">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white border border-orange-200 rounded-full flex items-center justify-center shadow-md">
-                    <Coins size={14} className="text-orange-500" />
-                  </div>
-               </div>
-            </div>
-         </div>
-
-         <div className="order-1 lg:order-2">
-           <h3 className="text-orange-500 font-mono text-sm tracking-widest uppercase mb-4">{t.economyTitle}</h3>
-           <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
-             {t.economyHeadline}
-           </h2>
-           <p className="text-base md:text-lg text-slate-500 mb-8 leading-relaxed">
-             {t.economyDesc}
-           </p>
-           <ul className="flex flex-col gap-4">
-             {t.economyItems.map((item, i) => (
-               <li
-                 key={i}
-                 className={`relative flex items-start gap-4 rounded-xl bg-white p-5 border shadow-sm overflow-hidden ${
-                   item.featured
-                     ? 'border-orange-200 shadow-orange-500/10'
-                     : 'border-slate-200'
-                 }`}
-               >
-                 {item.featured && <div className="absolute left-0 top-0 h-full w-1.5 bg-orange-500" />}
-                 <div className="mt-0.5 w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0">
-                   {i === 0 && <CheckCircle2 size={16} />}
-                   {i === 1 && <Zap size={16} />}
-                   {i === 2 && <MousePointerClick size={16} />}
-                   {i === 3 && <Box size={16} />}
-                 </div>
-                 <div className="min-w-0 flex-1">
-                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                     <h4 className="text-base font-bold text-slate-900">
-                       {item.title}
-                     </h4>
-                     {((item as { badges?: string[] }).badges?.length || item.badge) ? (
-                       <div className="flex flex-wrap items-center justify-end gap-1.5 self-start">
-                         {((item as { badges?: string[] }).badges ?? (item.badge ? [item.badge] : [])).map((badgeLabel) => (
-                           <span
-                             key={badgeLabel}
-                             className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] whitespace-nowrap ${
-                               item.featured
-                                 ? 'bg-orange-50 text-orange-600 border border-orange-100'
-                                 : 'text-slate-400'
-                             }`}
-                           >
-                             {badgeLabel}
-                           </span>
-                         ))}
-                       </div>
-                     ) : null}
-                   </div>
-                   <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                     {item.desc}
-                   </p>
-                 </div>
-               </li>
-             ))}
-           </ul>
-         </div>
-       </div>
-     </section>
-
-
-     {/* Flow Section (Verifiable Lifecycle) */}
-     <section id="section-flow" className="py-24 md:py-32 bg-white border-b border-slate-200 scroll-mt-24">
-       <div className="max-w-7xl mx-auto px-6 md:px-12 text-center">
-         <p className="text-[#1562F0] font-mono text-xs tracking-[0.35em] uppercase mb-4">
-           {t.flowKicker}
-         </p>
-         <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-20">
-           {t.flowTitle}
-         </h2>
-
-         <div className="relative max-w-6xl mx-auto">
-           <div className="hidden md:block absolute top-7 left-8 right-8 h-1 bg-gradient-to-r from-slate-200 via-blue-300 to-slate-200 rounded-full"></div>
-
-           <div className="relative grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-6">
-             {t.flowSteps.map((step, idx) => {
-               const isActive = idx === 1;
-
-               return (
-                 <div
-                   key={idx}
-                   className="group relative flex flex-col items-center bg-transparent border-0 p-0 text-center"
-                 >
-                   {idx !== t.flowSteps.length - 1 && <div className="md:hidden w-1 h-10 bg-slate-200 rounded-full order-2 my-3"></div>}
-
-                   <div className={`relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center border transition-all duration-300 ${
-                     isActive
-                       ? 'bg-[#1562F0] border-[#1562F0] text-white shadow-[0_0_38px_rgba(21,98,240,0.45)] ring-8 ring-blue-100/80'
-                       : 'bg-white border-slate-200 text-slate-400 shadow-sm group-hover:border-[#1562F0]/40 group-hover:text-[#1562F0]'
-                   }`}>
-                     <span className="text-base font-extrabold">{idx + 1}</span>
-                   </div>
-
-                   <h3 className={`mt-6 text-base font-extrabold tracking-tight ${
-                     isActive ? 'text-[#1562F0]' : 'text-slate-900'
-                   }`}>
-                     {step.title}
-                   </h3>
-                   {isActive ? (
-                     <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#1562F0]">
-                       <ShieldCheck size={11} />
-                       {step.desc}
-                     </span>
-                   ) : (
-                     <p className="mt-3 text-sm text-slate-500">
-                       {step.desc}
-                     </p>
-                   )}
-                 </div>
-               );
-             })}
-           </div>
-         </div>
-       </div>
-     </section>
-
-
-     {/* Already Live / Sandbox Section */}
-     <section id="section-1" className="py-24 md:py-32 bg-white border-b border-slate-200">
-       <div className="max-w-6xl mx-auto px-6 md:px-12">
-          <div className="text-center mb-16">
-             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-emerald-700 mb-6">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"></span>
-                {t.liveTitle}
-             </div>
-             <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-6">
-                {t.liveHeadline}
-             </h2>
-             <p className="max-w-3xl mx-auto text-base md:text-lg text-slate-500 leading-relaxed">
-                {t.liveSub}
-             </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-16">
-             {t.liveMetrics.map((metric, idx) => (
-               <div key={idx} className="relative overflow-hidden rounded-3xl border border-slate-200 bg-slate-50/60 px-8 py-10 text-center shadow-sm">
-                  <div className="absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-transparent via-[#1562F0] to-transparent"></div>
-                  <div className={`text-6xl md:text-7xl font-black tracking-tighter leading-none ${metric.accent ? 'text-[#1562F0]' : 'text-slate-900'}`}>
-                     {metric.value}<span className="text-3xl md:text-4xl">{metric.suffix}</span>
-                  </div>
-                  <div className="mt-4 text-[10px] md:text-xs font-extrabold uppercase tracking-[0.28em] text-slate-500">
-                     {metric.label}
-                  </div>
-               </div>
-             ))}
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 mb-20">
-             {t.liveItems.map((item, idx) => (
-               <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-8 md:p-10 shadow-sm hover:shadow-lg transition-shadow">
-                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 mb-10">
-                     {idx === 0 && <Store size={20} />}
-                     {idx === 1 && <CreditCard size={20} />}
-                     {idx === 2 && <Gift size={20} />}
-                     {idx === 3 && <Share2 size={20} />}
-                  </div>
-                  <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-900 mb-4">
-                     {item.title}
-                  </h3>
-                  <p className="text-sm md:text-base leading-relaxed text-slate-500">
-                     {item.desc}
-                  </p>
-               </div>
-             ))}
-          </div>
-
-          <div className="max-w-4xl mx-auto rounded-3xl border border-blue-100 bg-blue-50/70 px-8 py-8 md:px-12 md:py-10 shadow-xl shadow-blue-500/10 flex flex-col md:flex-row items-start gap-7">
-             <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#1562F0] flex-shrink-0 shadow-sm">
-                <ShieldCheck size={32} />
-             </div>
-             <div>
-                <h3 className="text-lg md:text-xl font-extrabold tracking-tight text-slate-900 mb-3">
-                   {t.liveMoatTitle}
-                </h3>
-                <p className="text-sm md:text-base leading-relaxed text-slate-600">
-                   {t.liveMoatDesc}
-                </p>
-             </div>
-          </div>
-       </div>
-     </section>
-
-
-     {/* Expansion Path */}
-     <section id="section-2" className="py-24 md:py-40 bg-white border-y border-slate-200 overflow-hidden">
-       <div className="max-w-7xl mx-auto px-6 md:px-12 text-center">
-         <p className="text-[#1562F0] font-mono text-xs tracking-[0.35em] uppercase mb-4">
-           {t.expansionKicker}
-         </p>
-         <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-6">
-           {t.expansionTitle}
-         </h2>
-         <p className="text-xl text-slate-500 mb-24">
-           {t.expansionHeadline}
-         </p>
-
-         <div className="relative">
-           <div className="hidden md:block absolute top-12 left-[12%] right-[12%] h-1 bg-gradient-to-r from-emerald-200 via-blue-200 to-purple-200 rounded-full"></div>
-
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-14 md:gap-10">
-             {t.expansionSteps.map((step, idx) => {
-               const expansionStepStyles = {
-                 emerald: {
-                   icon: 'text-emerald-600 shadow-emerald-500/20',
-                   badge: 'bg-emerald-50 text-emerald-600',
-                   dot: 'bg-emerald-500'
-                 },
-                 blue: {
-                   icon: 'text-[#1562F0] shadow-blue-500/20',
-                   badge: 'bg-blue-50 text-[#1562F0]',
-                   dot: 'bg-[#1562F0]'
-                 },
-                 purple: {
-                   icon: 'text-purple-600 shadow-purple-500/20',
-                   badge: 'bg-purple-50 text-purple-600',
-                   dot: 'bg-purple-500'
-                 }
-               };
-               const styles = expansionStepStyles[step.color as keyof typeof expansionStepStyles] ?? expansionStepStyles.blue;
-
-               return (
-                 <div key={idx} className="relative flex flex-col items-center text-center">
-                   <div className={`relative z-10 w-24 h-24 rounded-2xl bg-white border border-slate-200 shadow-2xl ${styles.icon} flex items-center justify-center mb-9`}>
-                     {idx === 0 && <Store size={38} />}
-                     {idx === 1 && <Smartphone size={38} />}
-                     {idx === 2 && <Cpu size={38} />}
-                   </div>
-                   <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] ${styles.badge} mb-5`}>
-                     <span className={`w-1.5 h-1.5 rounded-full ${styles.dot}`}></span>
-                     {step.phase}
-                   </div>
-                   <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 mb-4">
-                     {step.title}
-                   </h3>
-                   <p className="max-w-sm text-sm md:text-base leading-relaxed text-slate-500">
-                     {step.desc}
-                   </p>
-                 </div>
-               );
-             })}
-           </div>
-         </div>
-       </div>
-     </section>
-
-
-     {/* Footer / CTA */}
-     <footer className="bg-slate-50 pt-24 pb-12">
-       <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col items-center text-center">
-         <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-[#1562F0] mb-8 shadow-sm">
-           <Store size={28} />
-         </div>
-         <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-5 max-w-4xl leading-tight tracking-tight">
-           {t.footerTitle}
-         </h2>
-         <p className="max-w-2xl text-base md:text-lg text-slate-500 leading-relaxed mb-10">
-           {t.footerSub}
-         </p>
-
-         <div className="flex mb-24 w-full justify-center">
-            <Link to="/homeExample" className="inline-flex items-center gap-3 px-8 py-4 bg-[#1562F0] text-white rounded-full font-bold hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 hover:-translate-y-0.5">
-               {t.footerCta}
-               <ArrowRight size={18} />
-            </Link>
-         </div>
-
-
-         <div className="w-full flex flex-col md:flex-row justify-between items-center pt-8 border-t border-slate-200 text-xs font-mono text-slate-500">
-           <p>© 2026 Beamio Core. All rights reserved.</p>
-           <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="https://github.com/petersunquest/android-init-NDEF/tree/main/src" target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">GitHub</a>
-              <a href="https://x.com/beamioapp" target="_blank" rel="noreferrer" className="hover:text-slate-900 transition-colors">X</a>
-              <Link to="/contact" className="hover:text-slate-900 transition-colors">Contact</Link>
-              <a href="/terms" className="hover:text-slate-900 transition-colors">Terms</a>
-              <a href="/privacy" className="hover:text-slate-900 transition-colors">Privacy</a>
-           </div>
-         </div>
-       </div>
-     </footer>
-
-
-   </div>
- );
+				<section className="border-t border-white/10 bg-black px-4 py-16 text-white sm:px-6 lg:px-8">
+					<div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_1fr]">
+						<div>
+							<RadioTower className="h-7 w-7 text-cyan-200" aria-hidden="true" />
+							<h2 className="mt-5 text-3xl font-semibold tracking-tight">Participate with evidence in mind.</h2>
+							<p className="mt-4 max-w-xl leading-7 text-slate-300">Run a node, build a client, or examine a protocol. Use the GitBook for operational prerequisites and treat maturity labels as constraints, not marketing shorthand.</p>
+						</div>
+						<div className="grid content-start gap-3 sm:grid-cols-2">
+								<SiteExternalLink href="https://gitbook.conet.network/developers/l1-node.html" className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10">Run an L1 node <ArrowRight className="mt-4 h-4 w-4 text-cyan-200" aria-hidden="true" /></SiteExternalLink>
+								<SiteExternalLink href="https://gitbook.conet.network/developers/conet-l0d.html" className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10">conet-l0d Linux runtime <ArrowRight className="mt-4 h-4 w-4 text-cyan-200" aria-hidden="true" /></SiteExternalLink>
+								<SiteExternalLink href="https://gitbook.conet.network/developers/" className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10">Developer guides <ArrowRight className="mt-4 h-4 w-4 text-cyan-200" aria-hidden="true" /></SiteExternalLink>
+								<SiteExternalLink href="https://gitbook.conet.network/resources.html" className="rounded-2xl border border-white/15 bg-white/5 p-5 hover:bg-white/10">Endpoints and repositories <ArrowRight className="mt-4 h-4 w-4 text-cyan-200" aria-hidden="true" /></SiteExternalLink>
+						</div>
+					</div>
+				</section>
+			</main>
+		</ConetSiteShell>
+	)
 }
