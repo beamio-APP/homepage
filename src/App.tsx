@@ -8,6 +8,7 @@ import { getMarketingSite } from './utils/siteIdentity'
 
 const BeamioProtocolPage = lazy(() => import('./pages/BeamioProtocolPage'))
 const BeamioLandingPage = lazy(() => import('./pages/BeamioLandingPage'))
+const HomeExample = lazy(() => import('./pages/homeExample'))
 const Web3ProtocolPage = lazy(() => import('./pages/Web3ProtocolPage'))
 const TermsPage = lazy(() => import('./TermsPage'))
 const PrivacyPage = lazy(() => import('./PrivacyPage'))
@@ -98,7 +99,7 @@ const App: React.FC = () => {
 					<Route path="/" element={<MarketingHome />} />
 					<Route path="/home" element={<MarketingHome />} />
 					<Route path="/web3" element={<Web3ProtocolPage />} />
-					<Route path="/homeExample" element={<BeamioLandingPage />} />
+					<Route path="/homeExample" element={<HomeExample />} />
 					<Route path="/app-download" element={<AppDownloadPage />} />
 					<Route path="/contact" element={<ContactPage />} />
 					<Route path="/terms" element={<TermsPage />} />
