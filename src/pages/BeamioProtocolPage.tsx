@@ -85,9 +85,9 @@ const applications = [
         status: 'Public application',
     },
     {
-        title: 'DePIN Chat',
+        title: 'CoNET Chat',
         copy:
-            'Wallet-addressed messages, delivery receipts, presence, and encrypted history over Layer Minus.',
+            'Wallet-addressed, relationship-private communication: receipts, presence, and encrypted history over Layer Minus.',
         href:
             'https://gitbook.conet.network/applications/depin-chat.html',
         icon: LockKeyhole,
