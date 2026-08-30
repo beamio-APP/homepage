@@ -187,6 +187,18 @@
         root.style.colorScheme = conet ? 'dark' : 'light';
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', conet ? '#101115' : '#f9f9fe');
         document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', conet ? 'dark' : 'light');
+        if (conet) {
+          const iconHrefs = [
+            ['link[rel="icon"][sizes="any"]', '%PUBLIC_URL%/favicon-conet.ico'],
+            ['link[rel="icon"][sizes="32x32"]', '%PUBLIC_URL%/favicon-conet-32x32.png'],
+            ['link[rel="icon"][sizes="16x16"]', '%PUBLIC_URL%/favicon-conet-16x16.png'],
+            ['link[rel="shortcut icon"]', '%PUBLIC_URL%/favicon-conet.ico'],
+            ['link[rel="apple-touch-icon"]', '%PUBLIC_URL%/apple-touch-icon-conet.png'],
+          ];
+          for (const [sel, href] of iconHrefs) {
+            document.querySelector(sel)?.setAttribute('href', href);
+          }
+        }
       })();
     </script>
   </head>
