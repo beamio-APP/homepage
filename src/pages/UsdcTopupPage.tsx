@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type WheelEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem'
+import { createPublicClient, createWalletClient, custom, getAddress, http, type Address } from 'viem'
 import { base } from 'viem/chains'
 import { InstalledInjectedWalletPicker } from '../components/InstalledInjectedWalletPicker'
 import { MobileWalletPayPanel } from '../components/MobileWalletPayPanel'
 import { UsdcBaseCompositeIcon } from '../components/UsdcBaseCompositeIcon'
 import { UsdcTopupSiteHeader } from '../components/UsdcTopupSiteHeader'
-import { WalletAppDappIconButtons } from '../components/WalletAppDappIconButtons'
 import {
 	isMobileDeviceForWalletApps,
 	subscribeInstalledInjectedWallets,
 	type Eip1193Provider,
 	type InjectedWalletChoice,
 } from '../utils/mobileWalletApps'
-import { lookupFuelPack } from '../utils/fuelPackCatalog'
 import {
-	fetchUsdcBalanceOnBase,
-	fetchUsdcBalanceOnBaseViaWallet,
-} from '../utils/beamioUsdcBalance'
+	encodeX402PaymentPayload,
+	isDesktopCoinbaseWalletExtension,
+	requestEthSignTypedDataV4,
+	TRANSFER_WITH_AUTHORIZATION_TYPES,
+	wrapCoinbaseExtensionProvider,
+} from '../utils/coinbaseExtensionSafeSign'
+import { lookupFuelPack } from '../utils/fuelPackCatalog'
+import { fetchUsdcBalanceOnBase } from '../utils/beamioUsdcBalance'
 
 declare global {
 	interface Window {
@@ -29,12 +32,31 @@ const BEAMIO_API = 'https://beamio.app'
 const BASE_CHAIN_ID_HEX = '0x2105'
 const BASE_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address
 const BASE_CADD_ADDRESS = '0x16F93eBC5320C89EfC8701577efe49d14A276a06' as Address
+const WALLET_REQUEST_TIMEOUT_MS = 60_000
+const WALLET_SIGNATURE_TIMEOUT_MS = 120_000
+
+function withWalletTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+		promise.then(
+			(value) => {
+				window.clearTimeout(timer)
+				resolve(value)
+			},
+			(error) => {
+				window.clearTimeout(timer)
+				reject(error)
+			},
+		)
+	})
+}
 
 type Status =
 	| 'idle'
 	| 'connecting'
 	| 'switching-chain'
 	| 'quoting'
+	| 'preparing-payment'
 	| 'awaiting-signature'
 	| 'settling'
 	| 'success'
@@ -294,6 +316,210 @@ function applyMembershipPayFieldsToBody(bodyObj: Record<string, string>, p: Topu
 	bodyObj.membershipFeeFiat6 = p.membershipFeeFiat6
 }
 
+const X402_CHALLENGE_TTL_MS = 25_000
+const X402_PREFETCH_MS = 18_000
+const CADD_PREP_TTL_MS = 30_000
+
+type UsdcTopupBodyBuild =
+	| { ok: true; bodyObj: Record<string, string>; body: string; x402MaxValue: bigint }
+	| { ok: false; error: string }
+
+function buildUsdcNfcTopupBody(p: TopupParams, payAmount: string): UsdcTopupBodyBuild {
+	if (p.workflow === 'walletDeposit' && !payAmount) {
+		return { ok: false, error: 'Enter a valid USDC amount greater than 0' }
+	}
+	const amountAtomic6 = decimalToAtomic6(payAmount)
+	let x402MaxValue =
+		amountAtomic6 && BigInt(amountAtomic6) > 0n ? BigInt(amountAtomic6) : 1_000_000_000n
+	if (p.workflow === 'genesisNodeSeat' && p.qty > 0) {
+		const genesisFloor = BigInt(p.qty) * GENESIS_NODE_SEAT_USDC_PER_NODE6
+		if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
+	}
+	const bodyObj: Record<string, string> = {
+		amount: payAmount,
+		currency: p.currency,
+	}
+	if (p.workflow !== 'walletDeposit' && p.workflow !== 'fuelPack') {
+		bodyObj.cardAddress = p.cardAddress
+		bodyObj.cardOwner = p.cardOwner
+	}
+	if (p.workflow === 'treasuryBridge' && p.aa) {
+		bodyObj.aa = p.aa
+		bodyObj.workflow = 'treasuryBridge'
+	} else if (p.workflow === 'genesisNodeSeat' && p.beneficiary) {
+		bodyObj.beneficiary = p.beneficiary
+		bodyObj.qty = String(p.qty)
+		bodyObj.workflow = 'genesisNodeSeat'
+		if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
+	} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
+		bodyObj.beneficiary = p.beneficiary
+		bodyObj.workflow = 'walletDeposit'
+	} else if (p.workflow === 'fuelPack' && p.beneficiary) {
+		bodyObj.beneficiary = p.beneficiary
+		bodyObj.workflow = 'fuelPack'
+		if (p.packId) bodyObj.pack = p.packId
+	} else if (p.workflow === 'clientTopup' && p.beneficiary) {
+		bodyObj.beneficiary = p.beneficiary
+		bodyObj.workflow = 'clientTopup'
+	} else {
+		if (p.sid) bodyObj.sid = p.sid
+		if (p.pos) bodyObj.pos = p.pos
+		if (p.uid) {
+			bodyObj.uid = p.uid
+			bodyObj.e = p.e
+			bodyObj.c = p.c
+			bodyObj.m = p.m
+		}
+	}
+	applyMembershipPayFieldsToBody(bodyObj, p)
+	return { ok: true, bodyObj, body: JSON.stringify(bodyObj), x402MaxValue }
+}
+
+function caddPermitValueFromQuote(p: TopupParams, quote: QuoteResponse | null): string {
+	const effectiveCurrency = (quote?.currency ?? p.currency ?? '').trim().toUpperCase()
+	const caddCadDirect = effectiveCurrency === 'CAD' || effectiveCurrency === 'CADD'
+	if (caddCadDirect) return decimalToAtomic6(p.amount) ?? ''
+	const quoted = quote?.quotedUsdc6?.trim()
+	if (quoted && /^\d+$/.test(quoted) && BigInt(quoted) > 0n) return quoted
+	const n = Number(quote?.quotedUsdc ?? '')
+	return Number.isFinite(n) && n > 0 ? BigInt(Math.round(n * 1_000_000)).toString() : ''
+}
+
+type X402SelectedReq = {
+	maxAmountRequired: string
+	asset: string
+	extra?: { name?: string; version?: string }
+}
+
+type X402ChallengeCache = {
+	key: string
+	body: string
+	x402Version: number
+	selected: X402SelectedReq
+	usdcDomain: { name: string; version: string }
+	at: number
+}
+
+type CaddPrepCache = {
+	account: string
+	value: string
+	spender: string
+	nonce: string
+	domain: { name: string; version: string }
+	tokenAddress: Address
+	at: number
+}
+
+type X402ClientMods = {
+	selectPaymentRequirements: (reqs: unknown[], network: string, scheme: string) => unknown
+	preparePaymentHeader: (
+		from: string,
+		version: number,
+		selected: unknown,
+	) => {
+		x402Version: number
+		scheme: string
+		network: string
+		payload: { authorization: Record<string, string> }
+	}
+	createPaymentHeader: (
+		walletClient: unknown,
+		version: number,
+		selected: unknown,
+	) => Promise<string>
+	PaymentRequirementsSchema: { parse: (x: unknown) => unknown }
+	decodeXPaymentResponse: (header: string) => unknown
+}
+
+let x402ClientModsPromise: Promise<X402ClientMods> | null = null
+let x402ClientModsReady: X402ClientMods | null = null
+
+function loadX402ClientMods(): Promise<X402ClientMods> {
+	if (!x402ClientModsPromise) {
+		x402ClientModsPromise = Promise.all([
+			import('x402/client'),
+			import('x402/types'),
+			import('x402-fetch'),
+		]).then(([client, types, xf]) => {
+			const mods: X402ClientMods = {
+				selectPaymentRequirements: client.selectPaymentRequirements,
+				preparePaymentHeader: client.preparePaymentHeader,
+				createPaymentHeader: client.createPaymentHeader,
+				PaymentRequirementsSchema: types.PaymentRequirementsSchema,
+				decodeXPaymentResponse: xf.decodeXPaymentResponse,
+			}
+			x402ClientModsReady = mods
+			return mods
+		})
+	}
+	return x402ClientModsPromise
+}
+
+function desktopHasCoinbaseExtension(wallets: InjectedWalletChoice[]): boolean {
+	if (isMobileDeviceForWalletApps()) return false
+	return wallets.some((w) => isDesktopCoinbaseWalletExtension(w, w.provider))
+}
+
+function asX402Selected(raw: unknown): X402SelectedReq | null {
+	if (!raw || typeof raw !== 'object') return null
+	const o = raw as Record<string, unknown>
+	if (typeof o.maxAmountRequired !== 'string' || typeof o.asset !== 'string') return null
+	return raw as X402SelectedReq
+}
+
+function paymentBusyStatus(status: Status): boolean {
+	return (
+		status === 'preparing-payment' ||
+		status === 'awaiting-signature' ||
+		status === 'settling' ||
+		status === 'success'
+	)
+}
+
+/** First await is `eth_signTypedData_v4`. Call only after a user gesture with no prior await. */
+async function signCoinbaseUsdcX402Header(
+	mods: X402ClientMods,
+	provider: Eip1193Provider,
+	account: Address,
+	x402Version: number,
+	selected: X402SelectedReq,
+	usdcDomain: { name: string; version: string },
+): Promise<string> {
+	const unsigned = mods.preparePaymentHeader(account, x402Version, selected)
+	const auth = unsigned.payload.authorization
+	const signature = await withWalletTimeout(
+		requestEthSignTypedDataV4(provider, account, {
+			types: TRANSFER_WITH_AUTHORIZATION_TYPES,
+			primaryType: 'TransferWithAuthorization',
+			domain: {
+				name: usdcDomain.name,
+				version: usdcDomain.version,
+				chainId: 8453,
+				verifyingContract: getAddress(selected.asset),
+			},
+			message: {
+				from: getAddress(auth.from),
+				to: getAddress(auth.to),
+				value: auth.value,
+				validAfter: auth.validAfter,
+				validBefore: auth.validBefore,
+				nonce: auth.nonce,
+			},
+		}),
+		WALLET_SIGNATURE_TIMEOUT_MS,
+		'Wallet signature timed out. Open the Coinbase Wallet extension and approve the request, then try again.',
+	)
+	return encodeX402PaymentPayload({
+		x402Version: unsigned.x402Version,
+		scheme: unsigned.scheme,
+		network: unsigned.network,
+		payload: {
+			signature,
+			authorization: auth,
+		},
+	})
+}
+
 function formatCurrencyAmount(amount: string, currency: string): string {
 	const n = Number(amount)
 	if (!Number.isFinite(n)) return `${currency} ${amount}`
@@ -421,6 +647,7 @@ export default function UsdcTopupPage() {
 	const [status, setStatus] = useState<Status>('idle')
 	const [error, setError] = useState<string | null>(null)
 	const [activeProvider, setActiveProvider] = useState<Eip1193Provider | null>(null)
+	const [activeWalletChoice, setActiveWalletChoice] = useState<InjectedWalletChoice | null>(null)
 	const [installedWallets, setInstalledWallets] = useState<InjectedWalletChoice[]>([])
 	const [result, setResult] = useState<{
 		usdcTx?: string
@@ -438,7 +665,10 @@ export default function UsdcTopupPage() {
 	const statusRef = useRef<Status>('idle')
 	const errorRef = useRef<string | null>(null)
 	const accountRef = useRef<Address | null>(null)
+	const paymentAttemptRef = useRef(0)
 	const payerUsdcInFlightRef = useRef<Promise<number | null> | null>(null)
+	const x402ChallengeCacheRef = useRef<X402ChallengeCache | null>(null)
+	const caddPrepCacheRef = useRef<CaddPrepCache | null>(null)
 	statusRef.current = status
 	errorRef.current = error
 	accountRef.current = account
@@ -467,15 +697,13 @@ export default function UsdcTopupPage() {
 		const work = (async () => {
 			const stillSameAccount = () =>
 				(accountRef.current ?? '').toLowerCase() === requested.toLowerCase()
-			const viaWallet = await fetchUsdcBalanceOnBaseViaWallet(eth, requested)
-			if (viaWallet != null) {
-				if (stillSameAccount()) setPayerUsdcBalance(viaWallet)
-				return viaWallet
-			}
-			const viaRpc = await fetchUsdcBalanceOnBase(requested)
-			if (viaRpc != null) {
-				if (stillSameAccount()) setPayerUsdcBalance(viaRpc)
-				return viaRpc
+			// Never issue background eth_call requests through an injected wallet.
+			// Coinbase Wallet serializes provider requests, so an unresolved balance
+			// read can otherwise keep the user-initiated EIP-712 prompt queued.
+			const balance = await fetchUsdcBalanceOnBase(requested)
+			if (balance != null) {
+				if (stillSameAccount()) setPayerUsdcBalance(balance)
+				return balance
 			}
 			return null
 		})()
@@ -582,34 +810,6 @@ export default function UsdcTopupPage() {
 		walletDepositAmount,
 	])
 
-	// Re-sync only after the user selected a wallet. Calling eth_accounts on
-	// window.ethereum before that opens Phantom login on first page load.
-	useEffect(() => {
-		if (!activeProvider) return
-		const provider = activeProvider
-		const resync = () => {
-			void (async () => {
-				try {
-					const accounts = (await provider.request({ method: 'eth_accounts' })) as string[]
-					if (accounts?.[0]) setAccount(accounts[0] as Address)
-					const chain = (await provider.request({ method: 'eth_chainId' })) as string
-					if (chain) setChainIdHex(chain)
-				} catch {
-					/* ignore */
-				}
-			})()
-		}
-		const onVis = () => {
-			if (document.visibilityState === 'visible') resync()
-		}
-		window.addEventListener('pageshow', resync)
-		document.addEventListener('visibilitychange', onVis)
-		return () => {
-			window.removeEventListener('pageshow', resync)
-			document.removeEventListener('visibilitychange', onVis)
-		}
-	}, [activeProvider])
-
 	useEffect(() => {
 		if (!eth || !account || chainIdHex?.toLowerCase() !== BASE_CHAIN_ID_HEX) return
 		let cancelled = false
@@ -629,7 +829,12 @@ export default function UsdcTopupPage() {
 
 		const run = async () => {
 			if (cancelled) return
-			const busy = statusRef.current === 'awaiting-signature' || statusRef.current === 'settling'
+			const busy =
+				statusRef.current === 'preparing-payment' ||
+				statusRef.current === 'awaiting-signature' ||
+				statusRef.current === 'settling' ||
+				statusRef.current === 'connecting' ||
+				statusRef.current === 'quoting'
 			if (busy || document.visibilityState !== 'visible') return
 			const have = await refreshPayerUsdcBalance()
 			if (cancelled || have == null) return
@@ -661,16 +866,216 @@ export default function UsdcTopupPage() {
 		}
 	}, [eth, account, chainIdHex, needUsdcAmount, refreshPayerUsdcBalance])
 
+	useEffect(() => {
+		if (!parsed.ok || parsed.params.paymentToken !== 'USDC') return
+		if (
+			!desktopHasCoinbaseExtension(installedWallets) &&
+			!isDesktopCoinbaseWalletExtension(activeWalletChoice, eth)
+		) {
+			return
+		}
+		const payAmount =
+			parsed.params.workflow === 'walletDeposit' ? walletDepositAmount : parsed.params.amount
+		const built = buildUsdcNfcTopupBody(parsed.params, payAmount)
+		if (!built.ok) return
+		const { body, x402MaxValue } = built
+		let cancelled = false
+		let timer: ReturnType<typeof setTimeout> | undefined
+
+		const run = async () => {
+			if (cancelled) return
+			if (paymentBusyStatus(statusRef.current) || statusRef.current === 'success') return
+			if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+			try {
+				const mods = await loadX402ClientMods()
+				if (cancelled) return
+				const firstRes = await fetch(`${BEAMIO_API}/api/nfcUsdcTopup`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body,
+				})
+				if (cancelled || firstRes.status !== 402) return
+				const challenge = (await firstRes.json()) as { x402Version: number; accepts: unknown[] }
+				const parsedReqs = (challenge.accepts ?? []).map((x) =>
+					mods.PaymentRequirementsSchema.parse(x),
+				)
+				const selected = asX402Selected(
+					mods.selectPaymentRequirements(parsedReqs, 'base', 'exact'),
+				)
+				if (!selected) return
+				if (BigInt(selected.maxAmountRequired) > x402MaxValue) return
+				const extra = selected.extra ?? {}
+				let usdcDomain = {
+					name: extra.name || 'USD Coin',
+					version: extra.version || '2',
+				}
+				if (!extra.name || !extra.version) {
+					try {
+						const d = await resolveTokenDomain('USDC', tokenAddressBySymbol('USDC'))
+						usdcDomain = {
+							name: extra.name || d.name,
+							version: extra.version || d.version,
+						}
+					} catch {
+						/* keep EIP-712 fallback — Pay must not await domain on click */
+					}
+				}
+				if (cancelled) return
+				x402ChallengeCacheRef.current = {
+					key: body,
+					body,
+					x402Version: challenge.x402Version,
+					selected,
+					usdcDomain,
+					at: Date.now(),
+				}
+			} catch {
+				/* keep last trusted 402 challenge */
+			}
+		}
+
+		const schedule = () => {
+			timer = setTimeout(() => {
+				void (async () => {
+					if (cancelled) return
+					await run()
+					if (!cancelled) schedule()
+				})()
+			}, X402_PREFETCH_MS)
+		}
+
+		void run()
+		schedule()
+		return () => {
+			cancelled = true
+			if (timer !== undefined) clearTimeout(timer)
+		}
+	}, [
+		parsed.ok,
+		parsed.ok ? parsed.params.paymentToken : '',
+		parsed.ok ? parsed.params.amount : '',
+		parsed.ok ? parsed.params.currency : '',
+		parsed.ok ? parsed.params.workflow : '',
+		parsed.ok ? parsed.params.cardAddress : '',
+		parsed.ok ? parsed.params.cardOwner : '',
+		parsed.ok ? parsed.params.beneficiary : '',
+		parsed.ok ? parsed.params.packId : '',
+		parsed.ok ? parsed.params.aa : '',
+		parsed.ok ? parsed.params.qty : 0,
+		parsed.ok ? parsed.params.sid : '',
+		parsed.ok ? parsed.params.pos : '',
+		walletDepositAmount,
+		installedWallets,
+		activeWalletChoice,
+		eth,
+	])
+
+	useEffect(() => {
+		if (!parsed.ok || parsed.params.paymentToken !== 'CADD') return
+		if (!account || !eth) return
+		if (!isDesktopCoinbaseWalletExtension(activeWalletChoice, eth)) return
+		const spender = (quote?.permitSpender ?? '').trim()
+		if (!isEthAddress(spender)) return
+		const value = caddPermitValueFromQuote(parsed.params, quote)
+		if (!value) return
+		const tokenAddress = tokenAddressBySymbol('CADD')
+		let cancelled = false
+		let timer: ReturnType<typeof setTimeout> | undefined
+
+		const run = async () => {
+			if (cancelled) return
+			if (paymentBusyStatus(statusRef.current) || statusRef.current === 'success') return
+			if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+			try {
+				const domain = await resolveTokenDomain('CADD', tokenAddress)
+				const pc = createPublicClient({
+					chain: base,
+					transport: http('https://base-rpc.conet.network'),
+				})
+				const permitNonceOnChain = await pc.readContract({
+					address: tokenAddress,
+					abi: [
+						{
+							type: 'function',
+							name: 'nonces',
+							stateMutability: 'view',
+							inputs: [{ name: 'owner', type: 'address' }],
+							outputs: [{ type: 'uint256' }],
+						},
+					] as const,
+					functionName: 'nonces',
+					args: [account],
+				})
+				if (cancelled) return
+				caddPrepCacheRef.current = {
+					account: account.toLowerCase(),
+					value,
+					spender: spender.toLowerCase(),
+					nonce: permitNonceOnChain.toString(),
+					domain,
+					tokenAddress,
+					at: Date.now(),
+				}
+			} catch {
+				/* keep last trusted CADD nonce/domain */
+			}
+		}
+
+		const schedule = () => {
+			timer = setTimeout(() => {
+				void (async () => {
+					if (cancelled) return
+					await run()
+					if (!cancelled) schedule()
+				})()
+			}, X402_PREFETCH_MS)
+		}
+
+		void run()
+		schedule()
+		return () => {
+			cancelled = true
+			if (timer !== undefined) clearTimeout(timer)
+		}
+	}, [
+		parsed.ok,
+		parsed.ok ? parsed.params.paymentToken : '',
+		parsed.ok ? parsed.params.amount : '',
+		parsed.ok ? parsed.params.currency : '',
+		account,
+		eth,
+		activeWalletChoice,
+		quote,
+	])
+
 	const connectWallet = async (choice: InjectedWalletChoice) => {
-		const provider = choice.provider
-		if (!provider) return
+		const raw = choice.provider
+		if (!raw) return
+		const provider = isDesktopCoinbaseWalletExtension(choice, raw)
+			? wrapCoinbaseExtensionProvider(raw)
+			: raw
+		if (isDesktopCoinbaseWalletExtension(choice, provider)) {
+			void loadX402ClientMods()
+		}
 		setError(null)
 		setStatus('connecting')
+		setActiveWalletChoice(choice)
 		setActiveProvider(provider)
 		try {
-			const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[]
+			const accounts = (await withWalletTimeout(
+				provider.request({ method: 'eth_requestAccounts' }),
+				WALLET_REQUEST_TIMEOUT_MS,
+				'Wallet connection timed out. Open the wallet extension and approve the connection, then try again.',
+			)) as string[]
+			if (!accounts?.[0] || !isEthAddress(accounts[0])) {
+				throw new Error('Wallet did not provide an account.')
+			}
 			setAccount(accounts[0] as Address)
-			const chain = (await provider.request({ method: 'eth_chainId' })) as string
+			const chain = (await withWalletTimeout(
+				provider.request({ method: 'eth_chainId' }),
+				WALLET_REQUEST_TIMEOUT_MS,
+				'Wallet network request timed out. Open the wallet extension and try again.',
+			)) as string
 			setChainIdHex(chain)
 			setStatus('idle')
 		} catch (e: unknown) {
@@ -735,86 +1140,91 @@ export default function UsdcTopupPage() {
 
 	const payWithUsdc = async () => {
 		if (!parsed.ok || !eth || !account) return
+		const paymentAttempt = ++paymentAttemptRef.current
 		setError(null)
-		if (parsed.params.paymentToken === 'USDC' && needUsdcAmount > 0) {
-			const have = await refreshPayerUsdcBalance()
-			if (have != null && have + 1e-9 < needUsdcAmount) {
-				setError(formatInsufficientUsdcError(have, needUsdcAmount))
-				setStatus('error')
-				return
-			}
-		}
-		setStatus('awaiting-signature')
 		setResult(null)
+		// Do not set preparing-payment here. Coinbase's desktop extension drops
+		// Chrome user activation if we await fetch/import before eth_signTypedData_v4.
+		// Cache-hit: first await must be the signature. Cache-miss: prepare, then sign.
+		const useCoinbaseExt = isDesktopCoinbaseWalletExtension(activeWalletChoice, eth)
 		try {
-			const walletClient = createWalletClient({
-				account,
-				chain: base,
-				transport: custom(eth),
-			})
 			if (parsed.params.paymentToken === 'CADD') {
-				const effectiveCurrency = (quote?.currency ?? parsed.params.currency ?? '').trim().toUpperCase()
-				const caddCadDirect = effectiveCurrency === 'CAD' || effectiveCurrency === 'CADD'
-				const value = caddCadDirect
-					? (decimalToAtomic6(parsed.params.amount) ?? '')
-					: (() => {
-						const quoted = quote?.quotedUsdc6?.trim()
-						if (quoted && /^\d+$/.test(quoted) && BigInt(quoted) > 0n) return quoted
-						const n = Number(quote?.quotedUsdc ?? '')
-						return Number.isFinite(n) && n > 0 ? BigInt(Math.round(n * 1_000_000)).toString() : ''
-					})()
+				const value = caddPermitValueFromQuote(parsed.params, quote)
 				if (!value) {
 					setError('Missing CADD quote amount.')
 					setStatus('error')
 					return
 				}
-				const now = Math.floor(Date.now() / 1000)
-				const permitDeadline = (now + 120).toString()
+				const permitDeadline = String(Math.floor(Date.now() / 1000) + 120)
 				const tokenAddress = tokenAddressBySymbol('CADD')
-				const domain = await resolveTokenDomain('CADD', tokenAddress)
 				const spender = (quote?.permitSpender ?? '').trim()
 				if (!isEthAddress(spender)) {
 					setError('CADD permit spender is missing from quote response.')
 					setStatus('error')
 					return
 				}
-				const pc = createPublicClient({
-					chain: base,
-					transport: http('https://base-rpc.conet.network'),
-				})
-				const permitNonceOnChain = await pc.readContract({
-					address: tokenAddress,
-					abi: [{ type: 'function', name: 'nonces', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ type: 'uint256' }] }] as const,
-					functionName: 'nonces',
-					args: [account],
-				})
-				const permitNonce = permitNonceOnChain.toString()
-				const signatureRaw = await walletClient.signTypedData({
-					account,
-					domain: {
-						name: domain.name,
-						version: domain.version,
-						chainId: 8453,
-						verifyingContract: tokenAddress,
-					},
-					types: {
-						Permit: [
-							{ name: 'owner', type: 'address' },
-							{ name: 'spender', type: 'address' },
-							{ name: 'value', type: 'uint256' },
-							{ name: 'nonce', type: 'uint256' },
-							{ name: 'deadline', type: 'uint256' },
-						],
-					},
-					primaryType: 'Permit',
-					message: {
-						owner: account,
-						spender: spender as Address,
-						value: BigInt(value),
-						nonce: BigInt(permitNonce),
-						deadline: BigInt(permitDeadline),
-					},
-				})
+				const cachedCadd = caddPrepCacheRef.current
+				const caddCacheHit =
+					useCoinbaseExt &&
+					cachedCadd != null &&
+					Date.now() - cachedCadd.at < CADD_PREP_TTL_MS &&
+					cachedCadd.account === account.toLowerCase() &&
+					cachedCadd.value === value &&
+					cachedCadd.spender === spender.toLowerCase()
+				let domain: { name: string; version: string }
+				let permitNonce: string
+				if (caddCacheHit && cachedCadd) {
+					caddPrepCacheRef.current = null
+					domain = cachedCadd.domain
+					permitNonce = cachedCadd.nonce
+				} else {
+					setStatus('preparing-payment')
+					domain = await resolveTokenDomain('CADD', tokenAddress)
+					const pc = createPublicClient({
+						chain: base,
+						transport: http('https://base-rpc.conet.network'),
+					})
+					const permitNonceOnChain = await pc.readContract({
+						address: tokenAddress,
+						abi: [{ type: 'function', name: 'nonces', stateMutability: 'view', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ type: 'uint256' }] }] as const,
+						functionName: 'nonces',
+						args: [account],
+					})
+					permitNonce = permitNonceOnChain.toString()
+				}
+				setStatus('awaiting-signature')
+				const signatureRaw = await withWalletTimeout(
+					requestEthSignTypedDataV4(eth, account, {
+						types: {
+							Permit: [
+								{ name: 'owner', type: 'address' },
+								{ name: 'spender', type: 'address' },
+								{ name: 'value', type: 'uint256' },
+								{ name: 'nonce', type: 'uint256' },
+								{ name: 'deadline', type: 'uint256' },
+							],
+						},
+						primaryType: 'Permit',
+						domain: {
+							name: domain.name,
+							version: domain.version,
+							chainId: 8453,
+							verifyingContract: tokenAddress,
+						},
+						message: {
+							owner: account,
+							spender,
+							value,
+							nonce: permitNonce,
+							deadline: permitDeadline,
+						},
+					}),
+					WALLET_SIGNATURE_TIMEOUT_MS,
+					useCoinbaseExt
+						? 'Wallet signature timed out. Open the Coinbase Wallet extension and approve the request, then try again.'
+						: 'Wallet signature timed out. Open the wallet extension and approve the request, then try again.',
+				)
+				if (paymentAttempt !== paymentAttemptRef.current) return
 				const signature = normalizeTo65ByteSignature(signatureRaw)
 				if (!signature) {
 					setError('Wallet returned unsupported signature format.')
@@ -867,12 +1277,12 @@ export default function UsdcTopupPage() {
 					}
 				}
 				applyMembershipPayFieldsToBody(bodyObj, p)
+				setStatus('settling')
 				const response = await fetch(`${BEAMIO_API}/api/nfcUsdcTopup`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(bodyObj),
 				})
-				setStatus('settling')
 				const json = (await response.json().catch(() => ({}))) as {
 					success?: boolean
 					error?: string
@@ -895,121 +1305,127 @@ export default function UsdcTopupPage() {
 				setStatus('success')
 				return
 			}
-			const { createPaymentHeader, selectPaymentRequirements } = await import('x402/client')
-			const { PaymentRequirementsSchema } = await import('x402/types')
-			const { decodeXPaymentResponse } = await import('x402-fetch')
 			const p = parsed.params
 			const payAmount = p.workflow === 'walletDeposit' ? walletDepositAmount : p.amount
-			if (p.workflow === 'walletDeposit' && !payAmount) {
-				setError('Enter a valid USDC amount greater than 0')
+			const built = buildUsdcNfcTopupBody(p, payAmount)
+			if (!built.ok) {
+				setError(built.error)
 				setStatus('error')
 				return
 			}
-			const amountAtomic6 = decimalToAtomic6(payAmount)
-			let x402MaxValue =
-				amountAtomic6 && BigInt(amountAtomic6) > 0n ? BigInt(amountAtomic6) : 1_000_000_000n
-			if (p.workflow === 'genesisNodeSeat' && p.qty > 0) {
-				const genesisFloor = BigInt(p.qty) * GENESIS_NODE_SEAT_USDC_PER_NODE6
-				if (genesisFloor > x402MaxValue) x402MaxValue = genesisFloor
-			}
-			const bodyObj: Record<string, string> = {
-				amount: payAmount,
-				currency: p.currency,
-			}
-			if (p.workflow !== 'walletDeposit' && p.workflow !== 'fuelPack') {
-				bodyObj.cardAddress = p.cardAddress
-				bodyObj.cardOwner = p.cardOwner
-			}
-			if (p.workflow === 'treasuryBridge' && p.aa) {
-				bodyObj.aa = p.aa
-				bodyObj.workflow = 'treasuryBridge'
-			} else if (p.workflow === 'genesisNodeSeat' && p.beneficiary) {
-				bodyObj.beneficiary = p.beneficiary
-				bodyObj.qty = String(p.qty)
-				bodyObj.workflow = 'genesisNodeSeat'
-				if (p.referrerL0) bodyObj.referrerL0 = p.referrerL0
-			} else if (p.workflow === 'walletDeposit' && p.beneficiary) {
-				bodyObj.beneficiary = p.beneficiary
-				bodyObj.workflow = 'walletDeposit'
-			} else if (p.workflow === 'fuelPack' && p.beneficiary) {
-				bodyObj.beneficiary = p.beneficiary
-				bodyObj.workflow = 'fuelPack'
-				if (p.packId) bodyObj.pack = p.packId
-			} else if (p.workflow === 'clientTopup' && p.beneficiary) {
-				bodyObj.beneficiary = p.beneficiary
-				bodyObj.workflow = 'clientTopup'
-			} else {
-				if (p.sid) bodyObj.sid = p.sid
-				if (p.pos) bodyObj.pos = p.pos
-				if (p.uid) {
-					bodyObj.uid = p.uid
-					bodyObj.e = p.e
-					bodyObj.c = p.c
-					bodyObj.m = p.m
-				}
-			}
-			applyMembershipPayFieldsToBody(bodyObj, p)
-			const body = JSON.stringify(bodyObj)
+			const { body, x402MaxValue } = built
 			const topupUrl = `${BEAMIO_API}/api/nfcUsdcTopup`
-			// Two-phase x402 (not wrapFetchWithPayment): update UI to "settling" right after
-			// the wallet returns from signTypedData — critical for Base/MetaMask in-app browsers.
-			const firstRes = await fetch(topupUrl, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body,
-			})
-			if (firstRes.status !== 402) {
-				setStatus('settling')
-				const json = (await firstRes.json().catch(() => ({}))) as {
-					success?: boolean
-					error?: string
-					USDC_tx?: string
-					executeForAdmin_tx?: string
-					claimTx?: string
-					awaitingPosAuthorization?: boolean
-					awaitingBeneficiaryTap?: boolean
-				}
-				if (!firstRes.ok || json.success === false) {
-					await applyServerPayError(json.error ?? `Topup failed (HTTP ${firstRes.status})`)
+			const modsSync = x402ClientModsReady
+			const cachedX402 = x402ChallengeCacheRef.current
+			const x402CacheHit =
+				useCoinbaseExt &&
+				modsSync != null &&
+				cachedX402 != null &&
+				Date.now() - cachedX402.at < X402_CHALLENGE_TTL_MS &&
+				cachedX402.body === body
+			let paymentHeader: string
+			let decodeXPaymentResponse = modsSync?.decodeXPaymentResponse
+			if (x402CacheHit && cachedX402 && modsSync) {
+				x402ChallengeCacheRef.current = null
+				setStatus('awaiting-signature')
+				paymentHeader = await signCoinbaseUsdcX402Header(
+					modsSync,
+					eth,
+					account,
+					cachedX402.x402Version,
+					cachedX402.selected,
+					cachedX402.usdcDomain,
+				)
+			} else {
+				setStatus('preparing-payment')
+				const mods = modsSync ?? (await loadX402ClientMods())
+				decodeXPaymentResponse = mods.decodeXPaymentResponse
+				const firstRes = await withWalletTimeout(
+					fetch(topupUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body,
+					}),
+					WALLET_REQUEST_TIMEOUT_MS,
+					'Payment preparation timed out. Check your connection and try again.',
+				)
+				if (firstRes.status !== 402) {
+					setStatus('settling')
+					const json = (await firstRes.json().catch(() => ({}))) as {
+						success?: boolean
+						error?: string
+						USDC_tx?: string
+						executeForAdmin_tx?: string
+						claimTx?: string
+						awaitingPosAuthorization?: boolean
+						awaitingBeneficiaryTap?: boolean
+					}
+					if (!firstRes.ok || json.success === false) {
+						await applyServerPayError(json.error ?? `Topup failed (HTTP ${firstRes.status})`)
+						return
+					}
+					setResult({
+						usdcTx: json.USDC_tx,
+						topupTx: json.executeForAdmin_tx ?? json.claimTx,
+						awaitingPosAuthorization: json.awaitingPosAuthorization === true,
+						awaitingBeneficiaryTap: json.awaitingBeneficiaryTap === true,
+					})
+					setStatus('success')
 					return
 				}
-				setResult({
-					usdcTx: json.USDC_tx,
-					topupTx: json.executeForAdmin_tx ?? json.claimTx,
-					awaitingPosAuthorization: json.awaitingPosAuthorization === true,
-					awaitingBeneficiaryTap: json.awaitingBeneficiaryTap === true,
-				})
-				setStatus('success')
-				return
+				const challenge = (await firstRes.json()) as { x402Version: number; accepts: unknown[] }
+				const parsedReqs = (challenge.accepts ?? []).map((x) =>
+					mods.PaymentRequirementsSchema.parse(x),
+				)
+				const selected = asX402Selected(
+					mods.selectPaymentRequirements(parsedReqs, 'base', 'exact'),
+				)
+				if (!selected) {
+					setError('No compatible payment requirement from server.')
+					setStatus('error')
+					return
+				}
+				if (BigInt(selected.maxAmountRequired) > x402MaxValue) {
+					setError('Payment amount exceeds maximum allowed. Hard-refresh this page and try again.')
+					setStatus('error')
+					return
+				}
+				setStatus('awaiting-signature')
+				if (useCoinbaseExt) {
+					const extra = selected.extra ?? {}
+					paymentHeader = await signCoinbaseUsdcX402Header(mods, eth, account, challenge.x402Version, selected, {
+						name: extra.name || 'USD Coin',
+						version: extra.version || '2',
+					})
+				} else {
+					const walletClient = createWalletClient({
+						account,
+						chain: base,
+						transport: custom(eth),
+					})
+					paymentHeader = await withWalletTimeout(
+						mods.createPaymentHeader(walletClient, challenge.x402Version, selected),
+						WALLET_SIGNATURE_TIMEOUT_MS,
+						'Wallet signature timed out. Open the wallet extension and approve the request, then try again.',
+					)
+				}
 			}
-			const challenge = (await firstRes.json()) as { x402Version: number; accepts: unknown[] }
-			const parsedReqs = (challenge.accepts ?? []).map((x) => PaymentRequirementsSchema.parse(x))
-			const selected = selectPaymentRequirements(parsedReqs, 'base', 'exact')
-			if (!selected) {
-				setError('No compatible payment requirement from server.')
-				setStatus('error')
-				return
-			}
-			if (BigInt(selected.maxAmountRequired) > x402MaxValue) {
-				setError('Payment amount exceeds maximum allowed. Hard-refresh this page and try again.')
-				setStatus('error')
-				return
-			}
-			const paymentHeader = await createPaymentHeader(
-				walletClient as unknown as Parameters<typeof createPaymentHeader>[0],
-				challenge.x402Version,
-				selected,
-			)
+			if (paymentAttempt !== paymentAttemptRef.current) return
 			setStatus('settling')
-			const response = await fetch(topupUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-PAYMENT': paymentHeader,
-					'Access-Control-Expose-Headers': 'X-PAYMENT-RESPONSE',
-				},
-				body,
-			})
+			const response = await withWalletTimeout(
+				fetch(topupUrl, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-PAYMENT': paymentHeader,
+						'Access-Control-Expose-Headers': 'X-PAYMENT-RESPONSE',
+					},
+					body,
+				}),
+				WALLET_REQUEST_TIMEOUT_MS,
+				'Payment confirmation timed out. Check your connection and try again.',
+			)
+			if (paymentAttempt !== paymentAttemptRef.current) return
 			const json = (await response.json().catch(() => ({}))) as {
 				success?: boolean
 				error?: string
@@ -1022,7 +1438,8 @@ export default function UsdcTopupPage() {
 			let decoded: unknown = null
 			try {
 				const xPayResp = response.headers.get('x-payment-response')
-				decoded = xPayResp ? decodeXPaymentResponse(xPayResp) : null
+				decoded =
+					xPayResp && decodeXPaymentResponse ? decodeXPaymentResponse(xPayResp) : null
 			} catch {
 				decoded = null
 			}
@@ -1039,10 +1456,17 @@ export default function UsdcTopupPage() {
 			})
 			setStatus('success')
 		} catch (e: unknown) {
+			if (paymentAttempt !== paymentAttemptRef.current) return
 			const msg = e instanceof Error ? e.message : String(e)
 			setError(msg)
 			setStatus('error')
 		}
+	}
+
+	const cancelPaymentWait = () => {
+		paymentAttemptRef.current += 1
+		setError('Payment request cancelled. You can try again when your wallet is ready.')
+		setStatus('error')
 	}
 
 	if (!parsed.ok) {
@@ -1083,13 +1507,16 @@ export default function UsdcTopupPage() {
 	const onBase = chainIdHex?.toLowerCase() === BASE_CHAIN_ID_HEX
 	const hasInjectedWallet = installedWallets.length > 0
 	const ready = !!activeProvider && !!account && onBase
+	const coinbaseExt = isDesktopCoinbaseWalletExtension(activeWalletChoice, eth)
 
 	const quotedUsdcLabel = formatUsdc(quote?.quotedUsdc ?? quote?.quotedUsdc6).replace(/USDC/g, parsed.params.paymentToken)
 
 	return (
 		<div className="min-h-dvh bg-background text-on-surface antialiased">
 			<UsdcTopupSiteHeader />
-			{(status === 'awaiting-signature' || status === 'settling') && (
+			{(status === 'preparing-payment' ||
+				status === 'awaiting-signature' ||
+				status === 'settling') && (
 				<div
 					className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#f9f9fe]/95 px-6 text-center backdrop-blur-sm"
 					role="status"
@@ -1101,13 +1528,32 @@ export default function UsdcTopupPage() {
 						aria-hidden
 					/>
 					<p className="text-lg font-bold text-[#1a1c1f]">
-						{status === 'awaiting-signature' ? 'Waiting for wallet signature…' : 'Confirming payment…'}
+						{status === 'preparing-payment'
+							? 'Preparing payment…'
+							: status === 'awaiting-signature'
+								? coinbaseExt
+									? 'Approve in Coinbase Wallet extension…'
+									: 'Waiting for wallet signature…'
+								: 'Confirming payment…'}
 					</p>
 					<p className="max-w-sm text-sm text-slate-500">
-						{status === 'awaiting-signature'
-							? 'Approve the USDC payment in your wallet. This page will update when you return.'
-							: 'Settling on Base. Keep this page open.'}
+						{status === 'preparing-payment'
+							? 'Contacting the payment server. This usually takes a few seconds.'
+							: status === 'awaiting-signature'
+								? coinbaseExt
+									? 'Check the Coinbase Wallet extension popup in this browser and approve the signature. This page will update when you confirm.'
+									: 'Approve the payment in your browser wallet extension popup. This page will update when you confirm.'
+								: 'Settling on Base. Keep this page open.'}
 					</p>
+					{status === 'preparing-payment' || status === 'awaiting-signature' ? (
+						<button
+							type="button"
+							onClick={cancelPaymentWait}
+							className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+						>
+							Cancel
+						</button>
+					) : null}
 				</div>
 			)}
 			<main className="pt-24 pb-12">
@@ -1293,13 +1739,16 @@ export default function UsdcTopupPage() {
 								disabled={
 									status === 'awaiting-signature' ||
 									status === 'settling' ||
+									status === 'preparing-payment' ||
 									status === 'quoting' ||
 									!quote ||
 									(isWalletDeposit && !walletDepositAmount)
 								}
 								className="w-full rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
 							>
-								{status === 'awaiting-signature' && 'Waiting for wallet signature…'}
+								{status === 'preparing-payment' && 'Preparing payment…'}
+								{status === 'awaiting-signature' &&
+									(coinbaseExt ? 'Waiting for extension…' : 'Waiting for wallet signature…')}
 								{status === 'settling' && 'Settling on-chain…'}
 								{status === 'quoting' && 'Loading quote…'}
 								{(status === 'idle' || status === 'error') && `Pay ${quotedUsdcLabel}`}
@@ -1359,16 +1808,20 @@ function Divider() {
 	return <div className="my-1 h-px w-full bg-outline-variant/20" />
 }
 
-/** Desktop / laptop only (mobile uses `MobileWalletPayPanel` instead). */
+/**
+ * Desktop / laptop only (mobile uses `MobileWalletPayPanel` instead).
+ * Do not offer go.cb-w.com / cbwallet://dapp icon buttons here — those wrappers
+ * hang Coinbase Wallet extension on "Initializing". Extensions connect via the
+ * injected picker once `coinbaseWalletExtension` / EIP-6963 is detected.
+ */
 function NoWalletPanel() {
 	return (
 		<div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100">
 			<p className="text-sm font-semibold">No browser wallet detected</p>
 			<p className="mt-1 text-xs leading-relaxed opacity-90">
-				Open this page inside your wallet&apos;s built-in browser to pay with USDC on Base. Tap an icon to open the
-				app or store.
+				Install the Coinbase Wallet or MetaMask browser extension, unlock it, then refresh this page. You can also
+				open this link on your phone and pay inside the wallet app&apos;s built-in browser.
 			</p>
-			<WalletAppDappIconButtons className="mt-5" />
 		</div>
 	)
 }

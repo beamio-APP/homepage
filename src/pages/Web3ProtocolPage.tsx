@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Blocks, CheckCircle2, Cloud, FileKey2, Layers3, LockKeyhole, MessageSquareCode, RadioTower, ServerCog, ShieldAlert, Waypoints } from 'lucide-react'
+import { Blocks, Bot, CheckCircle2, Cloud, FileKey2, Layers3, LockKeyhole, MessageSquareCode, Radio, RadioTower, ServerCog, ShieldAlert, Waypoints } from 'lucide-react'
 import { ConetSiteShell, ExternalLink } from '../components/ConetSiteShell'
 
 const protocolUrl = 'https://gitbook.conet.network/l0/web3-application-protocol.html'
@@ -25,7 +25,7 @@ export default function Web3ProtocolPage() {
 					<div className="mx-auto max-w-4xl">
 						<p className="inline-flex rounded-full border border-cyan-200/25 bg-cyan-300/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.17em] text-cyan-100">Draft with implemented v1 components</p>
 						<h1 className="mt-6 text-4xl font-semibold tracking-[-0.045em] sm:text-6xl">web3:// Application Protocol</h1>
-						<p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">A wallet-addressed application protocol for resolving an EOA or exact tag, making caller-signed requests, and receiving request-correlated encrypted responses over CoNET Layer Minus.</p>
+						<p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">A wallet-addressed application protocol for resolving an EOA or exact tag, making caller-signed requests, and receiving request-correlated encrypted responses over CoNET Layer Minus — including Web, API, AI, TCP, and UDP services.</p>
 						<div className="mt-8 flex flex-wrap gap-3">
 							<ExternalLink href={protocolUrl} className="rounded-xl bg-gradient-to-r from-cyan-300 to-purple-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-[0_0_28px_rgba(103,232,249,0.18)] hover:brightness-110">Read the specification</ExternalLink>
 							<ExternalLink href={runtimeUrl} className="rounded-full border border-white/25 px-5 py-3 text-sm font-semibold hover:bg-white/10">conet-l0d runtime guide</ExternalLink>
@@ -35,15 +35,18 @@ export default function Web3ProtocolPage() {
 
 				<section className="border-b border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8">
 					<div className="mx-auto max-w-5xl">
-						<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Where web3:// fits</p>
-						<h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white">A private-server protocol built above the decentralized cloud.</h2>
-						<p className="mt-5 max-w-3xl leading-7 text-slate-400">CoNET L0 supplies decentralized forwarding, ciphertext storage, service hosting, and compute resources. Layer Minus composes those resources into wallet-addressed private communication. web3:// then gives applications a portable way to address and authorize a server by wallet identity rather than exposing its public IP as the application name.</p>
-						<div className="mt-9 grid gap-4 md:grid-cols-4">
+						<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">L0 → Layer Minus → L1 → DLE L2 → web3:// → Privacy-first Applications</p>
+						<h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white">Three decentralized foundation.</h2>
+						<p className="mt-5 max-w-3xl leading-7 text-slate-400">From decentralized encrypted storage and CPU/GPU resources, to private communication, EVM execution, high-speed L2 infrastructure, private application servers, and privacy-first decentralized application, CoNET builds a zero-trust cloud where wallet addresses become the native identity and addressing layer for decentralized resources and applications.</p>
+						<p className="mt-4 max-w-3xl text-sm font-medium leading-6 text-slate-300">One wallet-addressed architecture. From infrastructure to private-first applications.</p>
+						<div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 							{[
-								['L0 cloud', 'Forward · store · host · compute', Cloud],
-								['Layer Minus', 'Private wallet-addressed communication', Waypoints],
-								['L1 + DLE L2', 'Privacy-routed peer and mining gossip', Blocks],
-								['web3://', 'Wallet-addressed private servers', ServerCog],
+								['L0', 'CoNET L0 provides the underlying decentralized cloud: data forward, fragmented encrypted storage, SaaS execution, and distributed CPU/GPU capacity—without relying on a centralized cloud provider.', Cloud],
+								['Layer Minus', 'Wallet-addressed, zero-trust, fragmented private communication', Waypoints],
+								['L1', 'A privacy-routed-gossip EVM L1', Blocks],
+								['DLE L2', 'A cluster-, event-, and atomic-chain-based ultra-high-speed L2. Idle participants join on demand as ultra-lightweight miners.', Layers3],
+								['web3://', 'A decentralized domain name system for wallet-addressed private servers: Web, API, AI, TCP, and UDP', ServerCog],
+								['Privacy-first Applications', 'Model builders, raw-data acquisition, and user-authorized agents stay separate above user privacy', Bot],
 							].map(([title, copy, Icon]) => {
 								const ContextIcon = Icon as typeof Cloud
 								return <article key={title as string} className="rounded-2xl border border-white/10 bg-[#18191f] p-5">
@@ -79,9 +82,9 @@ export default function Web3ProtocolPage() {
 
 				<section className="border-y border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8">
 					<div className="mx-auto max-w-5xl">
-						<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Two interaction models</p>
-						<h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Resources and persistent duplex streams.</h2>
-						<div className="mt-9 grid gap-4 md:grid-cols-2">
+						<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Three interaction models</p>
+						<h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">Resources, duplex streams, and UDP frames.</h2>
+						<div className="mt-9 grid gap-4 md:grid-cols-3">
 							<article className="rounded-2xl border border-white/10 bg-[#18191f] p-6">
 								<MessageSquareCode className="h-7 w-7 text-cyan-300" aria-hidden="true" />
 								<h3 className="mt-6 text-xl font-semibold text-white">Resource request</h3>
@@ -90,7 +93,12 @@ export default function Web3ProtocolPage() {
 							<article className="rounded-2xl border border-white/10 bg-[#18191f] p-6">
 								<RadioTower className="h-7 w-7 text-purple-300" aria-hidden="true" />
 								<h3 className="mt-6 text-xl font-semibold text-white">Persistent duplex stream</h3>
-								<p className="mt-3 text-sm leading-6 text-slate-400">A long-lived interaction model for applications that need ongoing bidirectional exchange after protocol-level addressing and authorization.</p>
+								<p className="mt-3 text-sm leading-6 text-slate-400">A long-lived TCP interaction model for applications that need ongoing bidirectional exchange after protocol-level addressing and authorization.</p>
+							</article>
+							<article className="rounded-2xl border border-white/10 bg-[#18191f] p-6">
+								<Radio className="h-7 w-7 text-cyan-300" aria-hidden="true" />
+								<h3 className="mt-6 text-xl font-semibold text-white">UDP frames</h3>
+								<p className="mt-3 text-sm leading-6 text-slate-400">Privacy-routed datagram-shaped frames: subscribe with the UDP server&apos;s user PGP, then relay AES-encrypted UDP through Layer Minus without exposing the session key to the mailbox.</p>
 							</article>
 						</div>
 					</div>

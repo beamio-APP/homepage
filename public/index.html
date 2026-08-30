@@ -113,6 +113,7 @@
         object-fit: contain;
         box-shadow: 0 22px 54px rgba(37, 99, 235, 0.32);
       }
+      .boot-loading__conet-icon,
       .boot-loading__conet-logo {
         display: none;
       }
@@ -125,15 +126,15 @@
       html.conet-site .boot-loading__beamio-logo {
         display: none;
       }
-      html.conet-site .boot-loading__conet-logo {
-        display: grid;
-        place-items: center;
-        background: #101115;
-        border: 1px solid rgba(103, 232, 249, 0.65);
-        color: #ffffff;
-        font-size: 28px;
-        font-weight: 900;
+      html.conet-site .boot-loading__conet-icon {
+        display: block;
+        background: transparent;
+        border: none;
+        border-radius: 0;
         box-shadow: 0 0 32px rgba(103, 232, 249, 0.18);
+      }
+      html.conet-site .boot-loading__conet-logo {
+        display: inline;
       }
       html.conet-site .boot-loading__title {
         color: #ffffff;
@@ -204,7 +205,16 @@
           decoding="sync"
           fetchpriority="high"
         />
-        <div class="boot-loading__logo boot-loading__conet-logo" aria-hidden="true">C</div>
+        <img
+          class="boot-loading__logo boot-loading__conet-icon"
+          src="%PUBLIC_URL%/network_icon_dark.svg"
+          alt="CoNET"
+          width="76"
+          height="76"
+          loading="eager"
+          decoding="sync"
+          fetchpriority="high"
+        />
         <div class="boot-loading__title"><span class="boot-loading__beamio-logo">Beamio</span><span class="boot-loading__conet-logo">CoNET</span></div>
         <div class="boot-loading__text">Loading...</div>
         <div class="boot-loading__spinner" aria-hidden="true"></div>

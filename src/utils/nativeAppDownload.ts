@@ -11,8 +11,9 @@ export const BEAMIO_IOS_STORE_URL =
 	'https://apps.apple.com/us/app/beamio-smart-local-pass/id6755375110'
 
 /**
- * Consumer custom scheme (`CashTrees_iOS` / CaehTrees).
- * Must not target SoftPOS / Beamio POS — those use separate store listings and packages.
+ * Consumer custom scheme (`CashTrees_iOS` / CaehTrees, bundle `com.beamio.beamio`).
+ * BeamioPOS must use `beamiopos://` only — iOS cannot pin a bundle ID on a custom scheme,
+ * so a shared `beamio://` opens POS when Consumer is not installed.
  */
 const IOS_OPEN_SCHEME = 'beamio://open'
 const ANDROID_SCHEME = 'beamio'
@@ -84,10 +85,17 @@ export function isKnownInAppBrowserUa(ua: string = typeof navigator !== 'undefin
 
 /**
  * Share landings: skip silent `beamio://` install probe.
- * Telegram (explicit): never auto-open custom scheme — user confirmed skip silent detect.
+ *
+ * iOS: always skip. Custom schemes cannot pin Consumer (`com.beamio.beamio`).
+ * Historic BeamioPOS also registered `beamio://`, so a silent probe opened POS
+ * when Consumer was not installed. Incoming Universal Links (`/app`, `/app-download`)
+ * open Consumer when installed; otherwise stay on this page / App Store.
+ *
+ * Telegram / in-app browsers: never auto-open custom scheme.
  */
 export function shouldSkipSilentNativeAppProbe(): boolean {
 	if (isBeamioNativeShell()) return true
+	if (isIosDevice()) return true
 	if (typeof navigator === 'undefined') return false
 	const ua = navigator.userAgent || ''
 	if (isKnownInAppBrowserUa(ua)) return true
@@ -283,7 +291,10 @@ export async function attemptOpenNativeBeamioApp(
 	}
 
 	if (isIosDevice()) {
-		return waitForNativeAppOpenOrTimeout(buildBeamioOpenUrl(search), timeoutMs, useLocationNavigation)
+		// Do not navigate to `beamio://` on iOS. POS historically claimed the same
+		// scheme; iOS would open BeamioPOS when Consumer was missing. Universal
+		// Links + App Store are the Consumer-only paths.
+		return 'not_installed'
 	}
 
 	return 'not_installed'
@@ -327,7 +338,7 @@ export type OpenBeamioAppOrStoreOptions = OpenBeamioAppStoreOptions & {
 /**
  * 「Open in App」 CTA (user gesture):
  * 1. Stash deep link (merchant/coupon + `ref=`)
- * 2. Try to open **Consumer** Beamio (`beamio://` / Android Intent `package=com.beamio.app`)
+ * 2. Android: Intent `package=com.beamio.app`. iOS: skip custom scheme (App Store / Universal Links).
  * 3. Only if the page stays in the foreground → open App Store / Play Store
  *
  * Unlike page-load silent probe, this always attempts open (including Telegram) because the

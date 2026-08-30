@@ -1,13 +1,56 @@
 import React, { ReactNode, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, BookOpen, Menu, X } from 'lucide-react'
 import ConetBrandMark from './ConetBrandMark'
+import { queueScrollToPageSection } from '../utils/scrollToPageSection'
 
 type ConetSiteShellProps = {
 	children: ReactNode
 }
 
 const docsUrl = 'https://gitbook.conet.network/'
+const HOME_PATHS = new Set(['/', '/home'])
+
+function SectionNavLink({
+	sectionId,
+	className,
+	children,
+	onNavigate,
+}: {
+	sectionId: string
+	className?: string
+	children: ReactNode
+	onNavigate?: () => void
+}) {
+	const location = useLocation()
+	const navigate = useNavigate()
+	const hashHref = `/#${sectionId}`
+
+	if (!HOME_PATHS.has(location.pathname)) {
+		return (
+			<Link to={hashHref} className={className} onClick={onNavigate}>
+				{children}
+			</Link>
+		)
+	}
+
+	return (
+		<a
+			href={`#${sectionId}`}
+			className={className}
+			onClick={(event) => {
+				event.preventDefault()
+				onNavigate?.()
+				if (location.hash !== `#${sectionId}`) {
+					navigate(hashHref, { preventScrollReset: true })
+				}
+				queueScrollToPageSection(sectionId)
+			}}
+		>
+			{children}
+		</a>
+	)
+}
 
 function ExternalLink({
 	href,
@@ -35,6 +78,8 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 		`rounded-full px-3 py-2 text-sm font-medium transition-colors ${
 			active ? 'bg-white/10 text-cyan-100' : 'text-slate-300 hover:bg-white/5 hover:text-white'
 		}`
+	const outlineAppButtonClass =
+		'inline-flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:border-cyan-200/50 hover:bg-white/5'
 
 	return (
 		<div className="min-h-screen overflow-x-hidden bg-[#101115] text-white selection:bg-cyan-300 selection:text-slate-950">
@@ -45,26 +90,26 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 					</Link>
 
 					<nav className="hidden items-center gap-1 lg:flex" aria-label="Primary navigation">
-						<Link to="/#layers" className={navClass(!isWeb3)} aria-current={!isWeb3 ? 'page' : undefined}>
+						<SectionNavLink sectionId="layers" className={navClass(!isWeb3)}>
 							Stack
-						</Link>
-						<Link to="/#applications" className={navClass(false)}>
+						</SectionNavLink>
+						<SectionNavLink sectionId="applications" className={navClass(false)}>
 							Applications
-						</Link>
+						</SectionNavLink>
 						<Link to="/web3" className={navClass(isWeb3)} aria-current={isWeb3 ? 'page' : undefined}>
 							web3://
 						</Link>
-						<Link to="/#token-economy" className={navClass(false)}>
+						<SectionNavLink sectionId="token-economy" className={navClass(false)}>
 							Economics
-						</Link>
+						</SectionNavLink>
 					</nav>
 
 					<div className="hidden items-center gap-3 lg:flex">
-						<ExternalLink
-							href="https://beamio.app/"
-							className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:border-cyan-200/50 hover:bg-white/5"
-						>
+						<ExternalLink href="https://beamio.app/" className={outlineAppButtonClass}>
 							Open Beamio <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+						</ExternalLink>
+						<ExternalLink href="https://silentpass.io/" className={outlineAppButtonClass}>
+							Open SilentPass <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
 						</ExternalLink>
 						<ExternalLink
 							href={docsUrl}
@@ -89,20 +134,23 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 				{menuOpen ? (
 					<nav className="border-t border-white/10 bg-[#101115] px-4 py-4 lg:hidden" aria-label="Mobile navigation">
 						<div className="mx-auto flex max-w-7xl flex-col gap-1">
-							<Link onClick={closeMenu} to="/#layers" className={navClass(!isWeb3)}>
+							<SectionNavLink onNavigate={closeMenu} sectionId="layers" className={navClass(!isWeb3)}>
 								Stack
-							</Link>
-							<Link onClick={closeMenu} to="/#applications" className={navClass(false)}>
+							</SectionNavLink>
+							<SectionNavLink onNavigate={closeMenu} sectionId="applications" className={navClass(false)}>
 								Applications
-							</Link>
+							</SectionNavLink>
 							<Link onClick={closeMenu} to="/web3" className={navClass(isWeb3)}>
 								web3://
 							</Link>
-							<Link onClick={closeMenu} to="/#token-economy" className={navClass(false)}>
+							<SectionNavLink onNavigate={closeMenu} sectionId="token-economy" className={navClass(false)}>
 								Economics
-							</Link>
+							</SectionNavLink>
 							<ExternalLink href="https://beamio.app/" className={navClass(false)}>
 								Open Beamio
+							</ExternalLink>
+							<ExternalLink href="https://silentpass.io/" className={navClass(false)}>
+								Open SilentPass
 							</ExternalLink>
 						</div>
 					</nav>
@@ -120,7 +168,7 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 					<div>
 						<h2 className="text-sm font-semibold text-white">Explore</h2>
 						<div className="mt-3 flex flex-col items-start gap-2 text-sm">
-							<Link to="/#layers" className="hover:text-white">Three-layer stack</Link>
+							<SectionNavLink sectionId="layers" className="hover:text-white">Three-layer stack</SectionNavLink>
 							<Link to="/web3" className="hover:text-white">web3:// protocol</Link>
 							<ExternalLink href="https://gitbook.conet.network/resources.html" className="hover:text-white">Resources</ExternalLink>
 						</div>
@@ -129,6 +177,7 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 						<h2 className="text-sm font-semibold text-white">Related</h2>
 						<div className="mt-3 flex flex-col items-start gap-2 text-sm">
 							<ExternalLink href="https://beamio.app/" className="hover:text-white">Beamio application</ExternalLink>
+							<ExternalLink href="https://silentpass.io/" className="hover:text-white">SilentPass application</ExternalLink>
 							<Link to="/contact" className="hover:text-white">Contact</Link>
 							<Link to="/terms" className="hover:text-white">Terms</Link>
 							<Link to="/privacy" className="hover:text-white">Privacy</Link>

@@ -4,6 +4,10 @@ import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Link, Routes, Route } from "react-router-dom"
 import AppDownloadPage from './pages/AppDownloadPage'
 import UsdcTopupPage from './pages/UsdcTopupPage'
+import {
+	CONET_NETWORK_ICON_DARK_OFFICIAL,
+	CONET_NETWORK_ICON_DARK_SRC,
+} from './components/ConetBrandMark'
 import { getMarketingSite } from './utils/siteIdentity'
 
 const BeamioProtocolPage = lazy(() => import('./pages/BeamioProtocolPage'))
@@ -17,15 +21,37 @@ const ContactPage = lazy(() => import('./pages/ContactPage'))
 
 
 function RouteLoading() {
+	const conet = getMarketingSite() === 'conet'
 	return (
-		<div className="fixed inset-0 z-[2147483647] flex min-h-dvh items-center justify-center bg-[#f9f9fe] px-6 text-center text-[#1a1c1f]">
+		<div className={conet
+			? 'fixed inset-0 z-[2147483647] flex min-h-dvh items-center justify-center bg-[#071126] px-6 text-center text-white'
+			: 'fixed inset-0 z-[2147483647] flex min-h-dvh items-center justify-center bg-[#f9f9fe] px-6 text-center text-[#1a1c1f]'}
+		>
 			<div className="flex flex-col items-center gap-4">
-				<div className="grid h-[76px] w-[76px] place-items-center rounded-3xl bg-[#071126] text-2xl font-black text-white shadow-[0_22px_54px_rgba(37,99,235,0.32)]">
-					{getMarketingSite() === 'conet' ? 'C' : 'B'}
-				</div>
-				<div className="text-[22px] font-extrabold leading-none tracking-[-0.03em]">{getMarketingSite() === 'conet' ? 'CoNET' : 'Beamio'}</div>
-				<div className="text-[13px] font-semibold text-slate-500">Loading...</div>
-				<div className="h-[30px] w-[30px] animate-spin rounded-full border-[3px] border-blue-600/20 border-t-blue-600" />
+				{conet ? (
+					<img
+						src={CONET_NETWORK_ICON_DARK_OFFICIAL}
+						alt=""
+						width={76}
+						height={76}
+						className="h-[76px] w-[76px] object-contain"
+						onError={(event) => {
+							const img = event.currentTarget
+							if (img.src.endsWith(CONET_NETWORK_ICON_DARK_SRC)) return
+							img.src = CONET_NETWORK_ICON_DARK_SRC
+						}}
+					/>
+				) : (
+					<div className="grid h-[76px] w-[76px] place-items-center rounded-3xl bg-[#071126] text-2xl font-black text-white shadow-[0_22px_54px_rgba(37,99,235,0.32)]">
+						B
+					</div>
+				)}
+				<div className="text-[22px] font-extrabold leading-none tracking-[-0.03em]">{conet ? 'CoNET' : 'Beamio'}</div>
+				<div className={conet ? 'text-[13px] font-semibold text-white/55' : 'text-[13px] font-semibold text-slate-500'}>Loading...</div>
+				<div className={conet
+					? 'h-[30px] w-[30px] animate-spin rounded-full border-[3px] border-cyan-300/20 border-t-cyan-300'
+					: 'h-[30px] w-[30px] animate-spin rounded-full border-[3px] border-blue-600/20 border-t-blue-600'}
+				/>
 			</div>
 		</div>
 	)

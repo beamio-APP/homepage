@@ -810,7 +810,7 @@ export default function AppDownloadPage() {
 	const location = useLocation()
 	const targetUrl = useMemo(() => resolveBeamioAppTarget(location.search), [location.search])
 	const shareUrl = useMemo(() => buildAppDownloadShareUrl(location.search), [location.search])
-	/** Telegram / in-app: skip probe → install; Safari/Chrome: start checking for silent probe. */
+	/** iOS / Telegram / in-app: skip silent `beamio://` probe → install. Android may silent-probe. */
 	const [phase, setPhase] = useState<PagePhase>(() => {
 		if (!isMobileDevice()) return 'desktop'
 		if (shouldSkipSilentNativeAppProbe()) return 'install'
@@ -828,9 +828,9 @@ export default function AppDownloadPage() {
 	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
 
 	/**
-	 * Open in App: probe Consumer Beamio first (user gesture → `beamio://` / Intent).
-	 * If already installed → open app with merchant/coupon + `ref=`.
-	 * If not → stash deep link and open App Store / Play Store.
+	 * Open in App: Android Intent pins Consumer (`com.beamio.app`).
+	 * iOS never probes `beamio://` (POS historically claimed that scheme).
+	 * Installed Consumer is opened via Universal Links; otherwise App Store.
 	 */
 	const handleOpenInApp = useCallback(() => {
 		if (openInAppBusy) return
@@ -1056,7 +1056,7 @@ export default function AppDownloadPage() {
 				return
 			}
 
-			/** Telegram / in-app browsers: skip silent beamio:// probe (cannot be silent; often opens POS). */
+			/** iOS / Telegram / in-app: skip silent `beamio://` (iOS cannot pin Consumer; POS used to claim it). */
 			if (shouldSkipSilentNativeAppProbe()) {
 				setPhase('install')
 				return

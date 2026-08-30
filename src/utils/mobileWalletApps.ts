@@ -154,6 +154,61 @@ function collectLegacyNamespaceProviders(win: WindowWithWalletNamespaces): Injec
 	return out
 }
 
+/**
+ * Read a window data property without invoking Phantom / ethereum getters
+ * (those getters can open a login popup on first access).
+ */
+function readWindowDataProperty(win: object, key: string): unknown {
+	try {
+		const desc = Object.getOwnPropertyDescriptor(win, key)
+		if (!desc || typeof desc.get === 'function') return undefined
+		return desc.value
+	} catch {
+		return undefined
+	}
+}
+
+/**
+ * Ordinary desktop browser: Coinbase / OKX / TokenPocket (+ ethereum only if it is a
+ * plain data property). Never touch Phantom getters — they auto-open login.
+ */
+function collectSafeBrowserExtensionProviders(win: WindowWithWalletNamespaces): InjectedWalletChoice[] {
+	const out: InjectedWalletChoice[] = []
+	const push = (choice: InjectedWalletChoice) => {
+		out.push(choice)
+	}
+
+	const okxRaw = readWindowDataProperty(win, 'okxwallet') as { ethereum?: unknown } | undefined
+	const okx = asProvider(okxRaw?.ethereum) ?? asProvider(okxRaw)
+	if (okx) {
+		push({ id: 'okx', label: 'OKX Wallet', provider: okx, rdns: 'com.okx.wallet' })
+	}
+
+	const coinbaseExt = asProvider(readWindowDataProperty(win, 'coinbaseWalletExtension'))
+	if (coinbaseExt) {
+		push({ id: 'base', label: 'Coinbase Wallet', provider: coinbaseExt, rdns: 'com.coinbase.wallet' })
+	}
+
+	const tp =
+		asProvider(readWindowDataProperty(win, 'tokenpocket')) ?? asProvider(readWindowDataProperty(win, 'tp'))
+	if (tp) {
+		push({ id: 'tp', label: 'TokenPocket', provider: tp, rdns: 'pro.tokenpocket' })
+	}
+
+	const ethereum = asProvider(readWindowDataProperty(win, 'ethereum'))
+	if (ethereum) {
+		const multi = Array.isArray(ethereum.providers)
+			? ethereum.providers.map((item) => asProvider(item)).filter((item): item is Eip1193Provider => item != null)
+			: []
+		const list = multi.length > 0 ? multi : [ethereum]
+		for (const provider of list) {
+			push(classifyByFlags(provider))
+		}
+	}
+
+	return out
+}
+
 function preferWalletChoice(a: InjectedWalletChoice, b: InjectedWalletChoice): InjectedWalletChoice {
 	// Prefer EIP-6963 (icon / rdns) over bare legacy flags.
 	if (!a.iconUrl && b.iconUrl) return b
@@ -203,18 +258,22 @@ export function isLikelyWalletInAppBrowser(): boolean {
 
 /**
  * Snapshot of installed EVM wallets.
- * Desktop: EIP-6963 only (do not touch `window.ethereum` / `window.phantom` — Phantom login).
- * Wallet in-app UA: may include legacy namespaces for the host wallet.
+ * Desktop: EIP-6963 + safe extension data props (`coinbaseWalletExtension`, …).
+ * Never invoke Phantom / ethereum getters (they can open login).
+ * Wallet in-app UA: full legacy namespaces for the host wallet.
  */
 export function listInstalledInjectedWallets(): InjectedWalletChoice[] {
 	if (typeof window === 'undefined') return []
-	if (!isLikelyWalletInAppBrowser()) return []
-	return mergeWalletChoices(collectLegacyNamespaceProviders(window as WindowWithWalletNamespaces))
+	const win = window as WindowWithWalletNamespaces
+	const legacy = isLikelyWalletInAppBrowser()
+		? collectLegacyNamespaceProviders(win)
+		: collectSafeBrowserExtensionProviders(win)
+	return mergeWalletChoices(legacy)
 }
 
 /**
- * Live discovery via EIP-6963 only (desktop). Never auto-requests accounts.
- * Legacy `window.ethereum` / `window.phantom` are read only inside a wallet in-app browser.
+ * Live discovery via EIP-6963 + safe desktop extension props. Never auto-requests accounts.
+ * Full legacy `window.ethereum` / `window.phantom` only inside a wallet in-app browser.
  */
 export function subscribeInstalledInjectedWallets(
 	onChange: (wallets: InjectedWalletChoice[]) => void
@@ -228,7 +287,9 @@ export function subscribeInstalledInjectedWallets(
 	const from6963 = new Map<string, InjectedWalletChoice>()
 
 	const publish = () => {
-		const legacy = isLikelyWalletInAppBrowser() ? collectLegacyNamespaceProviders(win) : []
+		const legacy = isLikelyWalletInAppBrowser()
+			? collectLegacyNamespaceProviders(win)
+			: collectSafeBrowserExtensionProviders(win)
 		onChange(mergeWalletChoices([...from6963.values(), ...legacy]))
 	}
 
@@ -407,9 +468,14 @@ export function buildMobileWalletDappLinks(): Record<MobileWalletId, string> {
  * iOS Safari: Base Wallet universal link may only wake app (stay on Home) on some versions/devices.
  * This actively tries deep-link into wallet browser first, then falls back to universal link.
  * Must be called from a direct user click/tap handler.
+ *
+ * Desktop: do not wrap this page in go.cb-w.com / cbwallet://dapp — Coinbase Wallet
+ * extension (and Base App shell) often sticks on "Initializing" forever. Desktop users
+ * must connect via the injected extension picker instead.
  */
 export function openBaseWalletDappWithFallback(): void {
 	if (typeof window === 'undefined' || typeof document === 'undefined') return
+	if (!isMobileDeviceForWalletApps()) return
 	const host = window.location.host
 	const path = window.location.pathname
 	const search = window.location.search
