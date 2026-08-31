@@ -11,12 +11,15 @@ import {
     Computer,
     Database,
     ExternalLink,
+    Eye,
     Layers3,
     LockKeyhole,
     Network,
     RadioTower,
+    ScanSearch,
     ServerCog,
     ShieldCheck,
+    SlidersHorizontal,
 } from 'lucide-react'
 
 import { Link, useLocation } from 'react-router-dom'
@@ -93,6 +96,15 @@ const applications = [
         icon: LockKeyhole,
         status: 'Integrated capability',
     },
+    {
+        title: 'Privacy-first Decentralized AI',
+        copy:
+            'Three independent roles. One open intelligence economy: private application paths plus micropayments keep models, data, and agents independent.',
+        href:
+            'https://gitbook.conet.network/applications/privacy-first-ai.html',
+        icon: Bot,
+        status: 'Design direction',
+    },
 ]
 
 const infrastructureFlow = [
@@ -134,7 +146,7 @@ const infrastructureFlow = [
         kicker: 'Destination',
         title: 'Privacy-first Decentralized Applications',
         copy:
-            'Whether a traditional C/S app or a decentralized dAPP, the Foundation above enables privacy-first identity by wallet address, high-speed micropayment settlement, and web trust.',
+            'Whether a traditional C/S app or a decentralized dAPP, independent wallet-addressed roles can keep models, data, and agents apart. Layer Minus and web3:// reduce the need for one network intermediary to observe the complete user–service relationship; that benefit is conditional. CoNET-DLE is designed so each measurable contribution can be paid without one party owning the stack.',
         icon: Bot,
     },
 ]
@@ -155,24 +167,57 @@ const applicationModelPath = [
     'Private Application',
 ] as const
 
+const aiStages = [
+    {
+        title: 'Observation',
+        capability: 'Collects behavioral and relational metadata',
+        risk: 'Privacy and power asymmetry',
+        icon: Eye,
+    },
+    {
+        title: 'Prediction',
+        capability: 'Infers preference, risk, and the next action',
+        risk: 'Covert classification and differential treatment',
+        icon: ScanSearch,
+    },
+    {
+        title: 'Intervention',
+        capability: 'Changes ranking, price, content, or agent action',
+        risk: "The user's choice environment is manipulated",
+        icon: SlidersHorizontal,
+    },
+]
+
 const aiSeparation = [
     {
         title: 'Model builders',
-        copy:
-            'Build and publish models without controlling the raw-data collection plane or the user-facing agent.',
+        copy: 'Build intelligence without owning the user.',
         icon: Computer,
     },
     {
-        title: 'Raw-data acquisition',
-        copy:
-            'Independent data contributors gather and attest inputs while encrypted fragmentation limits what any single operator can reconstruct.',
+        title: 'Data providers',
+        copy: 'Contribute data without surrendering control.',
         icon: Database,
     },
     {
         title: 'AI agents',
-        copy:
-            'User-authorized agents request work, protect private context, verify outputs, and return results encrypted to the user.',
+        copy: 'Act for users without becoming the platform.',
         icon: Bot,
+    },
+]
+
+const aiCoordination = [
+    {
+        title: 'Private coordination',
+        copy:
+            'Layer Minus forwarding is an implemented L0 capability. web3:// has implemented v1 components; complete cross-platform handling and public hosting remain under development. In the proposed application model, the durable owner is a wallet identity. Layer Minus routing also depends on OpenPGP and mailbox-route bindings; an exact @BeamioTag may be an alias. Applications should encrypt and fragment sensitive state so no single storage provider can reconstruct the whole—fragmentation is not automatic for all L0 traffic. Layer Minus and web3:// reduce the need for one network intermediary to observe the complete user–service relationship. That benefit is conditional on operator separation, client-side key control, route diversity, limited identifier reuse, and the absence of collusion.',
+        icon: Network,
+    },
+    {
+        title: 'Economic coordination',
+        copy:
+            'CoNET-DLE is designed for small, frequent payments among agents, models, data providers, and infrastructure operators. The one-basis-point protocol-value fee is a target for specified value movement, not a universal all-in fee for every AI task. AI event classes are proposed, not frozen DLE tip classes. A future AI payment should prove only the service right, amount, and settlement condition. Wallet payments and DLE do not provide that automatically; a public-chain micropayment can add metadata rather than hide it.',
+        icon: Coins,
     },
 ]
 
@@ -706,17 +751,157 @@ export default function BeamioProtocolPage() {
                             </p>
 
                             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
-                                Three independent powers above user privacy.
+                                Three independent roles. One open intelligence
+                                economy.
                             </h2>
 
-                            <p className="mt-5 leading-7 text-slate-400">
-                                Privacy-first decentralized AI on CoNET uses
-                                contributed L0 GPU capacity while separating
-                                model construction, raw-data acquisition, and
-                                AI-agent operation. No single role should own
-                                the model, the complete private input, and the
-                                user relationship at once.
+                            <p className="mt-4 text-lg leading-7 text-slate-200">
+                                From users who are observed and predicted, to
+                                autonomous intelligence subjects who hold data
+                                rights, model choice, and their own AI agents.
                             </p>
+
+                            <p className="mt-5 leading-7 text-slate-400">
+                                Centralized AI combines models, data, and user
+                                agents under one platform. The operator that
+                                answers a question can also observe the user
+                                over time, infer preference, predict the next
+                                action, and reshape the choice environment.
+                                Those are related stages of one loop, not one
+                                undifferentiated act. CoNET separates the
+                                roles across independent wallet-addressed
+                                participants—and uses private application
+                                paths and programmable micropayments to make
+                                that separation economically sustainable.
+                            </p>
+
+                            <p className="mt-4 leading-7 text-slate-400">
+                                Models, data, and AI agents need neither mutual
+                                trust nor ownership by the same platform.{' '}
+                                <code className="text-purple-200">
+                                    web3://
+                                </code>{' '}
+                                and Layer Minus reduce the need for one
+                                network intermediary to observe the complete
+                                user–service relationship. That benefit is
+                                conditional. CoNET-DLE micropayments are
+                                designed so value can move among independent
+                                participants for each measurable contribution.
+                                The one-basis-point protocol-value fee is a
+                                target for specified value movement, not a
+                                universal all-in fee for every AI task. AI
+                                event classes are proposed, not frozen DLE tip
+                                classes. Privacy-preserving settlement is a
+                                design requirement: prove only the service
+                                right, amount, and settlement condition. Wallet
+                                payments and DLE do not provide that
+                                automatically.
+                            </p>
+
+                            <p className="mt-4 leading-7 text-slate-400">
+                                That is why the three-role split is not only a
+                                technical architecture. It can become an AI
+                                production relationship that economic
+                                incentives keep in place.
+                            </p>
+                        </div>
+
+                        <aside className="mt-8 max-w-4xl rounded-2xl border border-purple-300/20 bg-[#18191f] p-5 sm:p-6">
+                            <p className="text-xs font-bold uppercase tracking-[0.16em] text-purple-200">
+                                Design principle
+                            </p>
+                            <p className="mt-3 leading-7 text-slate-200">
+                                Do not ask users to trust a platform that
+                                calls itself neutral. Make bias, interest, and
+                                authority visible enough to compare, refuse,
+                                and replace.
+                            </p>
+                            <p className="mt-3 text-sm leading-6 text-slate-400">
+                                The goal is not neutral intelligence. It is
+                                contestable intelligence: an intelligence
+                                market in which no single participant
+                                simultaneously controls observation,
+                                interpretation, and action.
+                            </p>
+                        </aside>
+
+                        <div className="mt-10 max-w-3xl">
+                            <h3 className="text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl">
+                                Observation, prediction, and intervention
+                            </h3>
+                            <p className="mt-3 leading-7 text-slate-400">
+                                Platform analysis, prediction, and
+                                choice-shaping are related, but they are not
+                                the same capability.
+                            </p>
+                        </div>
+
+                        <div className="mt-6 grid gap-4 md:grid-cols-3">
+                            {aiStages.map(
+                                ({
+                                    title,
+                                    capability,
+                                    risk,
+                                    icon: Icon,
+                                }) => (
+                                    <article
+                                        key={title}
+                                        className="rounded-2xl border border-white/10 bg-[#18191f] p-5 sm:p-6"
+                                    >
+                                        <Icon
+                                            className="h-6 w-6 text-purple-300"
+                                            aria-hidden="true"
+                                        />
+                                        <h4 className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-purple-200">
+                                            {title}
+                                        </h4>
+                                        <p className="mt-3 text-sm font-semibold leading-6 text-white">
+                                            {capability}
+                                        </p>
+                                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                                            {risk}
+                                        </p>
+                                    </article>
+                                ),
+                            )}
+                        </div>
+
+                        <div className="mt-6 max-w-4xl space-y-3">
+                            <p className="leading-7 text-slate-200">
+                                Prediction is not intervention. The
+                                governance risk becomes more severe when
+                                the same actor that predicts a user also
+                                controls the ranking, price, recommendation,
+                                or agent action presented to that user.
+                            </p>
+                            <p className="text-sm leading-6 text-slate-400">
+                                Independent prediction is not automatically
+                                manipulation. The power loop closes when
+                                observation, prediction, and intervention sit
+                                in one control domain.
+                            </p>
+                        </div>
+
+                        <div className="mt-8 grid gap-4 md:grid-cols-2">
+                            <article className="rounded-2xl border border-purple-300/15 bg-[#18191f] p-5 sm:p-6">
+                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-purple-200">
+                                    Model
+                                </p>
+                                <p className="mt-3 leading-7 text-white">
+                                    A model can be packaged and replaced as a
+                                    capability.
+                                </p>
+                            </article>
+                            <article className="rounded-2xl border border-purple-300/15 bg-[#18191f] p-5 sm:p-6">
+                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-purple-200">
+                                    Agent
+                                </p>
+                                <p className="mt-3 leading-7 text-white">
+                                    An agent is a continuing relationship: it
+                                    retains context, holds authority, selects
+                                    services, and mediates action over time.
+                                </p>
+                            </article>
                         </div>
 
                         <div className="mt-10 grid gap-4 md:grid-cols-3">
@@ -731,7 +916,31 @@ export default function BeamioProtocolPage() {
                                             aria-hidden="true"
                                         />
 
-                                        <h3 className="mt-6 text-xl font-semibold text-white">
+                                        <h3 className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-purple-200">
+                                            {title}
+                                        </h3>
+
+                                        <p className="mt-3 text-base font-semibold leading-6 text-white">
+                                            {copy}
+                                        </p>
+                                    </article>
+                                ),
+                            )}
+                        </div>
+
+                        <div className="mt-10 grid gap-4 md:grid-cols-2">
+                            {aiCoordination.map(
+                                ({ title, copy, icon: Icon }) => (
+                                    <article
+                                        key={title}
+                                        className="rounded-2xl border border-white/10 bg-[#18191f] p-6 sm:p-7"
+                                    >
+                                        <Icon
+                                            className="h-7 w-7 text-purple-300"
+                                            aria-hidden="true"
+                                        />
+
+                                        <h3 className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-purple-200">
                                             {title}
                                         </h3>
 
@@ -743,11 +952,67 @@ export default function BeamioProtocolPage() {
                             )}
                         </div>
 
+                        <div className="mt-10 max-w-3xl">
+                            <p className="text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+                                Privacy creates independence.
+                            </p>
+                            <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+                                Micropayments make independence sustainable.
+                            </p>
+                        </div>
+
                         <p className="mt-6 max-w-4xl text-sm leading-6 text-slate-500">
                             This is a future architecture direction, not a
                             claim that a general GPU marketplace or
                             decentralized AI product is already in production.
+                            Layer Minus and web3:// reduce the need for one
+                            network intermediary to observe the complete
+                            user–service relationship. That benefit is
+                            conditional. Protocol-role separation alone does
+                            not prove legal-entity or infrastructure
+                            independence, and it does not guarantee
+                            anonymity. web3:// v1 components exist; complete
+                            cross-platform handling and general public
+                            hosting remain under development. Application
+                            identity is not only a wallet address. Layer
+                            Minus does not automatically fragment all
+                            traffic. Wallet payments and DLE do not
+                            automatically hide prompts, dataset identifiers,
+                            long-term agent identity, or the complete
+                            service graph. The one-basis-point
+                            protocol-value fee is not a universal all-in
+                            fee for every AI task. AI event classes are
+                            proposed, not frozen DLE tip classes.
+                            Prediction is not automatically intervention.
+                            The full paper defines contestable
+                            intelligence, a threat model, and a staged
+                            research roadmap. It is on GitBook.
                         </p>
+
+                        <div className="mt-6 flex flex-col items-start gap-3">
+                            <SiteExternalLink
+                                href="https://gitbook.conet.network/applications/privacy-first-ai.html"
+                                className="inline-flex items-center gap-2 text-sm font-semibold text-purple-200 hover:text-purple-100"
+                            >
+                                Read the architecture direction
+
+                                <ArrowRight
+                                    className="h-4 w-4"
+                                    aria-hidden="true"
+                                />
+                            </SiteExternalLink>
+                            <SiteExternalLink
+                                href="https://gitbook.conet.network/applications/privacy-first-ai-whitepaper.html"
+                                className="inline-flex items-center gap-2 text-sm font-semibold text-purple-200 hover:text-purple-100"
+                            >
+                                Read the whitepaper
+
+                                <ArrowRight
+                                    className="h-4 w-4"
+                                    aria-hidden="true"
+                                />
+                            </SiteExternalLink>
+                        </div>
                     </div>
                 </section>
 
@@ -784,7 +1049,7 @@ export default function BeamioProtocolPage() {
                             </SiteExternalLink>
                         </div>
 
-                        <div className="mt-9 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {applications.map(
                                 ({
                                     title,
