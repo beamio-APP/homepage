@@ -46,7 +46,7 @@ export default function Web3ProtocolPage() {
 								['L1', 'A privacy-routed-gossip EVM L1', Blocks],
 								['DLE L2', 'A cluster-, event-, and atomic-chain-based ultra-high-speed L2. Idle participants join on demand as ultra-lightweight miners.', Layers3],
 								['web3://', 'A decentralized domain name system for wallet-addressed private servers: Web, API, AI, TCP, and UDP', ServerCog],
-								['Privacy-first Applications', 'Model builders, raw-data acquisition, and user-authorized agents stay separate above user privacy', Bot],
+								['Privacy-first Applications', 'Three independent roles. One open intelligence economy: private paths plus micropayments keep models, data, and agents independent.', Bot],
 							].map(([title, copy, Icon]) => {
 								const ContextIcon = Icon as typeof Cloud
 								return <article key={title as string} className="rounded-2xl border border-white/10 bg-[#18191f] p-5">

@@ -198,6 +198,9 @@
           for (const [sel, href] of iconHrefs) {
             document.querySelector(sel)?.setAttribute('href', href);
           }
+          document.querySelectorAll('link[href*="logo192.png"]').forEach((el) => {
+            el.setAttribute('href', '%PUBLIC_URL%/logo192-conet.png');
+          });
         }
       })();
     </script>

@@ -52,9 +52,9 @@ const layers = [
     },
     {
         kicker: 'L2 · CoNET-DLE',
-        title: 'Application-led execution research',
+        title: 'Parallel application-ledger design',
         copy:
-            'A cluster-, event-, atomic-chain-, and parallel-multi-chain-based ultra-high-speed L2. Idle participants join on demand as ultra-lightweight miners. A low, fixed 0.01% gas fee.',
+            'An event-driven L2 research architecture for independently advancing application ledgers, with explicit archive, finality, availability, and settlement rules.',
         icon: Layers3,
         status: 'Normative design · laboratory evidence',
         statusHref: 'https://dle.conet.network',
@@ -129,17 +129,17 @@ const infrastructureFlow = [
         icon: Blocks,
     },
     {
-        kicker: 'High-speed L2',
+        kicker: 'Application-led L2',
         title: 'CoNET-DLE',
         copy:
-            'A cluster-, event-, atomic-chain-, and parallel-multi-chain-based ultra-high-speed L2. Idle participants join on demand as ultra-lightweight miners. A low, fixed 0.01% gas fee.',
+            'An event-driven L2 research architecture for independently advancing application ledgers, with explicit archive, finality, availability, and settlement rules.',
         icon: Layers3,
     },
     {
         kicker: 'Application server',
         title: 'web3://',
         copy:
-            'A decentralized domain name system for wallet-addressed private servers: resolve a wallet or exact tag, authenticate the caller, and reach Web, API, AI, TCP, or UDP services through Layer Minus.',
+            'A wallet-addressed private application protocol: resolve a wallet or exact tag, authenticate the caller, and reach Web, API, AI, TCP, or UDP services through Layer Minus.',
         icon: ServerCog,
     },
     {
@@ -191,17 +191,25 @@ const aiStages = [
 const aiSeparation = [
     {
         title: 'Model builders',
-        copy: 'Build intelligence without owning the user.',
+        capability: 'Provide independently selectable inference.',
+        incentive:
+            'Earn from authorized model calls—not ownership of the user graph.',
         icon: Computer,
     },
     {
         title: 'Data providers',
-        copy: 'Contribute data without surrendering control.',
+        capability:
+            'Offer independently sourced data under declared provenance and license.',
+        incentive:
+            'Earn from scoped access—not permanent surrender of the dataset.',
         icon: Database,
     },
     {
-        title: 'AI agents',
-        copy: 'Act for users without becoming the platform.',
+        title: 'User AI agents',
+        capability:
+            'Choose models and data services under limited, revocable authority.',
+        incentive:
+            'Serve the user without becoming the model, data custodian, or payment platform.',
         icon: Bot,
     },
 ]
@@ -210,13 +218,13 @@ const aiCoordination = [
     {
         title: 'Private coordination',
         copy:
-            'Layer Minus forwarding is an implemented L0 capability. web3:// has implemented v1 components; complete cross-platform handling and public hosting remain under development. In the proposed application model, the durable owner is a wallet identity. Layer Minus routing also depends on OpenPGP and mailbox-route bindings; an exact @BeamioTag may be an alias. Applications should encrypt and fragment sensitive state so no single storage provider can reconstruct the whole—fragmentation is not automatic for all L0 traffic. Layer Minus and web3:// reduce the need for one network intermediary to observe the complete user–service relationship. That benefit is conditional on operator separation, client-side key control, route diversity, limited identifier reuse, and the absence of collusion.',
+            'Layer Minus provides implemented wallet/OpenPGP-addressed encrypted forwarding. web3:// adds wallet-addressed application requests, encrypted response correlation, and persistent service streams. The design reduces the need for one network intermediary to observe the complete user–service relationship. It does not guarantee anonymity, operator independence, or automatic data fragmentation.',
         icon: Network,
     },
     {
         title: 'Economic coordination',
         copy:
-            'CoNET-DLE is designed for small, frequent payments among agents, models, data providers, and infrastructure operators. The one-basis-point protocol-value fee is a target for specified value movement, not a universal all-in fee for every AI task. AI event classes are proposed, not frozen DLE tip classes. A future AI payment should prove only the service right, amount, and settlement condition. Wallet payments and DLE do not provide that automatically; a public-chain micropayment can add metadata rather than hide it.',
+            'CoNET-DLE is designed for small, frequent value exchange among agents, model builders, data providers, and infrastructure operators. AI payment events remain proposed classes, not production DLE tip classes. The one-basis-point protocol fee applies only to specified value movement; execution, data, proof, storage, and availability may carry separate measured costs. Micropayments make independent roles economically sustainable without requiring one platform to own the entire stack.',
         icon: Coins,
     },
 ]
@@ -751,58 +759,31 @@ export default function BeamioProtocolPage() {
                             </p>
 
                             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
-                                Three independent roles. One open intelligence
+                                Three independent roles. One contestable intelligence
                                 economy.
                             </h2>
 
                             <p className="mt-4 text-lg leading-7 text-slate-200">
-                                From users who are observed and predicted, to
-                                autonomous intelligence subjects who hold data
-                                rights, model choice, and their own AI agents.
+                                From users who are observed and predicted to
+                                users who control their data, model choice,
+                                private memory, and AI agents.
                             </p>
 
                             <p className="mt-5 leading-7 text-slate-400">
-                                Centralized AI combines models, data, and user
-                                agents under one platform. The operator that
-                                answers a question can also observe the user
-                                over time, infer preference, predict the next
-                                action, and reshape the choice environment.
-                                Those are related stages of one loop, not one
-                                undifferentiated act. CoNET separates the
-                                roles across independent wallet-addressed
-                                participants—and uses private application
-                                paths and programmable micropayments to make
-                                that separation economically sustainable.
+                                Centralized AI places data collection, model
+                                training, user memory, and agent action inside
+                                one platform. The same operator can observe the
+                                user, predict the next action, and control the
+                                choices presented in response.
                             </p>
 
                             <p className="mt-4 leading-7 text-slate-400">
-                                Models, data, and AI agents need neither mutual
-                                trust nor ownership by the same platform.{' '}
-                                <code className="text-purple-200">
-                                    web3://
-                                </code>{' '}
-                                and Layer Minus reduce the need for one
-                                network intermediary to observe the complete
-                                user–service relationship. That benefit is
-                                conditional. CoNET-DLE micropayments are
-                                designed so value can move among independent
-                                participants for each measurable contribution.
-                                The one-basis-point protocol-value fee is a
-                                target for specified value movement, not a
-                                universal all-in fee for every AI task. AI
-                                event classes are proposed, not frozen DLE tip
-                                classes. Privacy-preserving settlement is a
-                                design requirement: prove only the service
-                                right, amount, and settlement condition. Wallet
-                                payments and DLE do not provide that
-                                automatically.
-                            </p>
-
-                            <p className="mt-4 leading-7 text-slate-400">
-                                That is why the three-role split is not only a
-                                technical architecture. It can become an AI
-                                production relationship that economic
-                                incentives keep in place.
+                                CoNET separates data providers, model builders,
+                                and user-controlled AI agents. Private
+                                application paths reduce concentrated
+                                relationship metadata, while programmable
+                                micropayments are designed to let value follow
+                                each verified contribution.
                             </p>
                         </div>
 
@@ -811,17 +792,13 @@ export default function BeamioProtocolPage() {
                                 Design principle
                             </p>
                             <p className="mt-3 leading-7 text-slate-200">
-                                Do not ask users to trust a platform that
-                                calls itself neutral. Make bias, interest, and
-                                authority visible enough to compare, refuse,
-                                and replace.
+                                Do not trust a platform merely because it calls
+                                itself neutral.
                             </p>
                             <p className="mt-3 text-sm leading-6 text-slate-400">
-                                The goal is not neutral intelligence. It is
-                                contestable intelligence: an intelligence
-                                market in which no single participant
-                                simultaneously controls observation,
-                                interpretation, and action.
+                                Make data provenance, model interests, and
+                                agent authority visible enough to compare,
+                                refuse, and replace.
                             </p>
                         </aside>
 
@@ -830,9 +807,9 @@ export default function BeamioProtocolPage() {
                                 Observation, prediction, and intervention
                             </h3>
                             <p className="mt-3 leading-7 text-slate-400">
-                                Platform analysis, prediction, and
-                                choice-shaping are related, but they are not
-                                the same capability.
+                                The power loop closes when observation,
+                                prediction, and intervention sit in one control
+                                domain.
                             </p>
                         </div>
 
@@ -906,7 +883,7 @@ export default function BeamioProtocolPage() {
 
                         <div className="mt-10 grid gap-4 md:grid-cols-3">
                             {aiSeparation.map(
-                                ({ title, copy, icon: Icon }) => (
+                                ({ title, capability, incentive, icon: Icon }) => (
                                     <article
                                         key={title}
                                         className="rounded-2xl border border-purple-300/15 bg-[#18191f] p-6 sm:p-7"
@@ -921,7 +898,10 @@ export default function BeamioProtocolPage() {
                                         </h3>
 
                                         <p className="mt-3 text-base font-semibold leading-6 text-white">
-                                            {copy}
+                                            {capability}
+                                        </p>
+                                        <p className="mt-3 border-t border-white/10 pt-3 text-sm leading-6 text-slate-400">
+                                            {incentive}
                                         </p>
                                     </article>
                                 ),
@@ -961,40 +941,26 @@ export default function BeamioProtocolPage() {
                             </p>
                         </div>
 
-                        <p className="mt-6 max-w-4xl text-sm leading-6 text-slate-500">
-                            This is a future architecture direction, not a
-                            claim that a general GPU marketplace or
-                            decentralized AI product is already in production.
-                            Layer Minus and web3:// reduce the need for one
-                            network intermediary to observe the complete
-                            user–service relationship. That benefit is
-                            conditional. Protocol-role separation alone does
-                            not prove legal-entity or infrastructure
-                            independence, and it does not guarantee
-                            anonymity. web3:// v1 components exist; complete
-                            cross-platform handling and general public
-                            hosting remain under development. Application
-                            identity is not only a wallet address. Layer
-                            Minus does not automatically fragment all
-                            traffic. Wallet payments and DLE do not
-                            automatically hide prompts, dataset identifiers,
-                            long-term agent identity, or the complete
-                            service graph. The one-basis-point
-                            protocol-value fee is not a universal all-in
-                            fee for every AI task. AI event classes are
-                            proposed, not frozen DLE tip classes.
-                            Prediction is not automatically intervention.
-                            The full paper defines contestable
-                            intelligence, a threat model, and a staged
-                            research roadmap. It is on GitBook.
-                        </p>
+                        <aside className="mt-8 max-w-4xl rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6">
+                            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-300">
+                                Design direction
+                            </p>
+                            <p className="mt-3 text-sm leading-6 text-slate-400">
+                                Layer Minus is implemented. web3:// has
+                                implemented v1 components and remains under
+                                development. CoNET-DLE AI settlement, data
+                                markets, multi-model agent markets, and
+                                privacy-preserving payment sessions are
+                                proposed work—not production services.
+                            </p>
+                        </aside>
 
                         <div className="mt-6 flex flex-col items-start gap-3">
                             <SiteExternalLink
                                 href="https://gitbook.conet.network/applications/privacy-first-ai.html"
                                 className="inline-flex items-center gap-2 text-sm font-semibold text-purple-200 hover:text-purple-100"
                             >
-                                Read the architecture direction
+                                Explore the architecture
 
                                 <ArrowRight
                                     className="h-4 w-4"

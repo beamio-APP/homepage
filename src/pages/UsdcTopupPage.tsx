@@ -316,8 +316,9 @@ function applyMembershipPayFieldsToBody(bodyObj: Record<string, string>, p: Topu
 	bodyObj.membershipFeeFiat6 = p.membershipFeeFiat6
 }
 
-const X402_CHALLENGE_TTL_MS = 25_000
-const X402_PREFETCH_MS = 18_000
+/** Long enough for quote review; Coinbase Pay must hit a warm challenge (no await before sign). */
+const X402_CHALLENGE_TTL_MS = 90_000
+const X402_PREFETCH_MS = 12_000
 const CADD_PREP_TTL_MS = 30_000
 
 type UsdcTopupBodyBuild =
@@ -507,7 +508,7 @@ async function signCoinbaseUsdcX402Header(
 			},
 		}),
 		WALLET_SIGNATURE_TIMEOUT_MS,
-		'Wallet signature timed out. Open the Coinbase Wallet extension and approve the request, then try again.',
+		'Wallet signature timed out. If the Coinbase popup stayed blank, close it and pay with MetaMask, or unlock Coinbase from the toolbar and tap Pay again.',
 	)
 	return encodeX402PaymentPayload({
 		x402Version: unsigned.x402Version,
@@ -669,6 +670,8 @@ export default function UsdcTopupPage() {
 	const payerUsdcInFlightRef = useRef<Promise<number | null> | null>(null)
 	const x402ChallengeCacheRef = useRef<X402ChallengeCache | null>(null)
 	const caddPrepCacheRef = useRef<CaddPrepCache | null>(null)
+	/** Coinbase extension: Pay only when 402 challenge + x402 mods are warm (user-gesture sign). */
+	const [coinbaseX402Ready, setCoinbaseX402Ready] = useState(false)
 	statusRef.current = status
 	errorRef.current = error
 	accountRef.current = account
@@ -867,20 +870,37 @@ export default function UsdcTopupPage() {
 	}, [eth, account, chainIdHex, needUsdcAmount, refreshPayerUsdcBalance])
 
 	useEffect(() => {
-		if (!parsed.ok || parsed.params.paymentToken !== 'USDC') return
+		if (!parsed.ok || parsed.params.paymentToken !== 'USDC') {
+			setCoinbaseX402Ready(false)
+			return
+		}
 		if (
 			!desktopHasCoinbaseExtension(installedWallets) &&
 			!isDesktopCoinbaseWalletExtension(activeWalletChoice, eth)
 		) {
+			setCoinbaseX402Ready(false)
 			return
 		}
 		const payAmount =
 			parsed.params.workflow === 'walletDeposit' ? walletDepositAmount : parsed.params.amount
 		const built = buildUsdcNfcTopupBody(parsed.params, payAmount)
-		if (!built.ok) return
+		if (!built.ok) {
+			setCoinbaseX402Ready(false)
+			return
+		}
 		const { body, x402MaxValue } = built
 		let cancelled = false
 		let timer: ReturnType<typeof setTimeout> | undefined
+
+		const markReadyIfWarm = () => {
+			const c = x402ChallengeCacheRef.current
+			const warm =
+				x402ClientModsReady != null &&
+				c != null &&
+				c.body === body &&
+				Date.now() - c.at < X402_CHALLENGE_TTL_MS
+			if (!cancelled) setCoinbaseX402Ready(warm)
+		}
 
 		const run = async () => {
 			if (cancelled) return
@@ -894,7 +914,10 @@ export default function UsdcTopupPage() {
 					headers: { 'Content-Type': 'application/json' },
 					body,
 				})
-				if (cancelled || firstRes.status !== 402) return
+				if (cancelled || firstRes.status !== 402) {
+					markReadyIfWarm()
+					return
+				}
 				const challenge = (await firstRes.json()) as { x402Version: number; accepts: unknown[] }
 				const parsedReqs = (challenge.accepts ?? []).map((x) =>
 					mods.PaymentRequirementsSchema.parse(x),
@@ -902,8 +925,14 @@ export default function UsdcTopupPage() {
 				const selected = asX402Selected(
 					mods.selectPaymentRequirements(parsedReqs, 'base', 'exact'),
 				)
-				if (!selected) return
-				if (BigInt(selected.maxAmountRequired) > x402MaxValue) return
+				if (!selected) {
+					markReadyIfWarm()
+					return
+				}
+				if (BigInt(selected.maxAmountRequired) > x402MaxValue) {
+					markReadyIfWarm()
+					return
+				}
 				const extra = selected.extra ?? {}
 				let usdcDomain = {
 					name: extra.name || 'USD Coin',
@@ -929,8 +958,10 @@ export default function UsdcTopupPage() {
 					usdcDomain,
 					at: Date.now(),
 				}
+				markReadyIfWarm()
 			} catch {
 				/* keep last trusted 402 challenge */
+				markReadyIfWarm()
 			}
 		}
 
@@ -944,6 +975,7 @@ export default function UsdcTopupPage() {
 			}, X402_PREFETCH_MS)
 		}
 
+		markReadyIfWarm()
 		void run()
 		schedule()
 		return () => {
@@ -1051,21 +1083,25 @@ export default function UsdcTopupPage() {
 	const connectWallet = async (choice: InjectedWalletChoice) => {
 		const raw = choice.provider
 		if (!raw) return
-		const provider = isDesktopCoinbaseWalletExtension(choice, raw)
-			? wrapCoinbaseExtensionProvider(raw)
-			: raw
-		if (isDesktopCoinbaseWalletExtension(choice, provider)) {
+		const useCoinbase = isDesktopCoinbaseWalletExtension(choice, raw)
+		const provider = useCoinbase ? wrapCoinbaseExtensionProvider(raw) : raw
+		if (useCoinbase) {
 			void loadX402ClientMods()
 		}
 		setError(null)
-		setStatus('connecting')
 		setActiveWalletChoice(choice)
 		setActiveProvider(provider)
+		/*
+		 * Coinbase extension: first await after the click must be eth_requestAccounts.
+		 * setStatus('connecting') before request is fine (sync), but never await fetch/import first.
+		 */
+		const accountsPromise = provider.request({ method: 'eth_requestAccounts' })
+		setStatus('connecting')
 		try {
 			const accounts = (await withWalletTimeout(
-				provider.request({ method: 'eth_requestAccounts' }),
+				accountsPromise,
 				WALLET_REQUEST_TIMEOUT_MS,
-				'Wallet connection timed out. Open the wallet extension and approve the connection, then try again.',
+				'Wallet connection timed out. Close any stuck Coinbase popup (Initializing / portfolio), open the extension, approve the connection, then try again.',
 			)) as string[]
 			if (!accounts?.[0] || !isEthAddress(accounts[0])) {
 				throw new Error('Wallet did not provide an account.')
@@ -1325,10 +1361,45 @@ export default function UsdcTopupPage() {
 				cachedX402.body === body
 			let paymentHeader: string
 			let decodeXPaymentResponse = modsSync?.decodeXPaymentResponse
-			if (x402CacheHit && cachedX402 && modsSync) {
-				x402ChallengeCacheRef.current = null
-				setStatus('awaiting-signature')
-				paymentHeader = await signCoinbaseUsdcX402Header(
+
+			const cacheWarmChallenge = async (
+				mods: X402ClientMods,
+				challenge: { x402Version: number; accepts: unknown[] },
+				selected: X402SelectedReq,
+			) => {
+				const extra = selected.extra ?? {}
+				let usdcDomain = {
+					name: extra.name || 'USD Coin',
+					version: extra.version || '2',
+				}
+				if (!extra.name || !extra.version) {
+					try {
+						const d = await resolveTokenDomain('USDC', tokenAddressBySymbol('USDC'))
+						usdcDomain = {
+							name: extra.name || d.name,
+							version: extra.version || d.version,
+						}
+					} catch {
+						/* EIP-712 fallback names are fine for Pay click */
+					}
+				}
+				x402ChallengeCacheRef.current = {
+					key: body,
+					body,
+					x402Version: challenge.x402Version,
+					selected,
+					usdcDomain,
+					at: Date.now(),
+				}
+				setCoinbaseX402Ready(true)
+			}
+
+			if (useCoinbaseExt && x402CacheHit && cachedX402 && modsSync) {
+				/*
+				 * Coinbase: first await after click MUST be eth_signTypedData_v4.
+				 * Start the sign promise before setStatus so React paint cannot run first.
+				 */
+				const signPromise = signCoinbaseUsdcX402Header(
 					modsSync,
 					eth,
 					account,
@@ -1336,6 +1407,73 @@ export default function UsdcTopupPage() {
 					cachedX402.selected,
 					cachedX402.usdcDomain,
 				)
+				setStatus('awaiting-signature')
+				paymentHeader = await signPromise
+			} else if (useCoinbaseExt) {
+				/*
+				 * Never open the extension after awaiting fetch/import — gesture is lost and Coinbase
+				 * stays on the startup loading screen. Warm 402 + mods, then ask for a second tap.
+				 */
+				setStatus('preparing-payment')
+				setCoinbaseX402Ready(false)
+				const mods = modsSync ?? (await loadX402ClientMods())
+				decodeXPaymentResponse = mods.decodeXPaymentResponse
+				const firstRes = await withWalletTimeout(
+					fetch(topupUrl, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body,
+					}),
+					WALLET_REQUEST_TIMEOUT_MS,
+					'Payment preparation timed out. Check your connection and try again.',
+				)
+				if (paymentAttempt !== paymentAttemptRef.current) return
+				if (firstRes.status !== 402) {
+					setStatus('settling')
+					const json = (await firstRes.json().catch(() => ({}))) as {
+						success?: boolean
+						error?: string
+						USDC_tx?: string
+						executeForAdmin_tx?: string
+						claimTx?: string
+						awaitingPosAuthorization?: boolean
+						awaitingBeneficiaryTap?: boolean
+					}
+					if (!firstRes.ok || json.success === false) {
+						await applyServerPayError(json.error ?? `Topup failed (HTTP ${firstRes.status})`)
+						return
+					}
+					setResult({
+						usdcTx: json.USDC_tx,
+						topupTx: json.executeForAdmin_tx ?? json.claimTx,
+						awaitingPosAuthorization: json.awaitingPosAuthorization === true,
+						awaitingBeneficiaryTap: json.awaitingBeneficiaryTap === true,
+					})
+					setStatus('success')
+					return
+				}
+				const challenge = (await firstRes.json()) as { x402Version: number; accepts: unknown[] }
+				const parsedReqs = (challenge.accepts ?? []).map((x) =>
+					mods.PaymentRequirementsSchema.parse(x),
+				)
+				const selected = asX402Selected(
+					mods.selectPaymentRequirements(parsedReqs, 'base', 'exact'),
+				)
+				if (!selected) {
+					setError('No compatible payment requirement from server.')
+					setStatus('error')
+					return
+				}
+				if (BigInt(selected.maxAmountRequired) > x402MaxValue) {
+					setError('Payment amount exceeds maximum allowed. Hard-refresh this page and try again.')
+					setStatus('error')
+					return
+				}
+				await cacheWarmChallenge(mods, challenge, selected)
+				if (paymentAttempt !== paymentAttemptRef.current) return
+				setError(null)
+				setStatus('idle')
+				return
 			} else {
 				setStatus('preparing-payment')
 				const mods = modsSync ?? (await loadX402ClientMods())
@@ -1391,24 +1529,16 @@ export default function UsdcTopupPage() {
 					return
 				}
 				setStatus('awaiting-signature')
-				if (useCoinbaseExt) {
-					const extra = selected.extra ?? {}
-					paymentHeader = await signCoinbaseUsdcX402Header(mods, eth, account, challenge.x402Version, selected, {
-						name: extra.name || 'USD Coin',
-						version: extra.version || '2',
-					})
-				} else {
-					const walletClient = createWalletClient({
-						account,
-						chain: base,
-						transport: custom(eth),
-					})
-					paymentHeader = await withWalletTimeout(
-						mods.createPaymentHeader(walletClient, challenge.x402Version, selected),
-						WALLET_SIGNATURE_TIMEOUT_MS,
-						'Wallet signature timed out. Open the wallet extension and approve the request, then try again.',
-					)
-				}
+				const walletClient = createWalletClient({
+					account,
+					chain: base,
+					transport: custom(eth),
+				})
+				paymentHeader = await withWalletTimeout(
+					mods.createPaymentHeader(walletClient, challenge.x402Version, selected),
+					WALLET_SIGNATURE_TIMEOUT_MS,
+					'Wallet signature timed out. Open the wallet extension and approve the request, then try again.',
+				)
 			}
 			if (paymentAttempt !== paymentAttemptRef.current) return
 			setStatus('settling')
@@ -1447,6 +1577,8 @@ export default function UsdcTopupPage() {
 				await applyServerPayError(json.error ?? `Topup failed (HTTP ${response.status})`)
 				return
 			}
+			x402ChallengeCacheRef.current = null
+			setCoinbaseX402Ready(false)
 			setResult({
 				usdcTx: json.USDC_tx,
 				topupTx: json.executeForAdmin_tx ?? json.claimTx,
@@ -1468,6 +1600,37 @@ export default function UsdcTopupPage() {
 		setError('Payment request cancelled. You can try again when your wallet is ready.')
 		setStatus('error')
 	}
+
+	const cancelWalletConnect = () => {
+		setError(
+			'Wallet connection cancelled. If Coinbase is stuck on Initializing, close that popup and tap Connect again. (Coinbase analytics errors like as.coinbase.com/amp 400 are unrelated.)',
+		)
+		setStatus('error')
+		setAccount(null)
+		setActiveProvider(null)
+		setActiveWalletChoice(null)
+	}
+
+	/** Coinbase extension ports die if the page hits bfcache while awaiting signature. */
+	useEffect(() => {
+		if (status !== 'awaiting-signature') return
+		const onBeforeUnload = (e: BeforeUnloadEvent) => {
+			e.preventDefault()
+			e.returnValue = ''
+		}
+		const onPageShow = (e: PageTransitionEvent) => {
+			if (!e.persisted) return
+			paymentAttemptRef.current += 1
+			setError('Wallet connection was interrupted. Tap Pay again to continue.')
+			setStatus('error')
+		}
+		window.addEventListener('beforeunload', onBeforeUnload)
+		window.addEventListener('pageshow', onPageShow)
+		return () => {
+			window.removeEventListener('beforeunload', onBeforeUnload)
+			window.removeEventListener('pageshow', onPageShow)
+		}
+	}, [status])
 
 	if (!parsed.ok) {
 		return (
@@ -1514,6 +1677,35 @@ export default function UsdcTopupPage() {
 	return (
 		<div className="min-h-dvh bg-background text-on-surface antialiased">
 			<UsdcTopupSiteHeader />
+			{status === 'connecting' && (
+				<div
+					className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-[#f9f9fe]/95 px-6 text-center backdrop-blur-sm"
+					role="status"
+					aria-live="polite"
+					aria-busy="true"
+				>
+					<div
+						className="h-10 w-10 animate-spin rounded-full border-[3px] border-blue-600/20 border-t-blue-600"
+						aria-hidden
+					/>
+					<p className="text-lg font-bold text-[#1a1c1f]">
+						{coinbaseExt || activeWalletChoice?.id === 'coinbase' || activeWalletChoice?.id === 'base'
+							? 'Approve in Coinbase Wallet extension…'
+							: 'Connecting wallet…'}
+					</p>
+					<p className="max-w-sm text-sm text-slate-500">
+						Open the wallet extension popup in this browser and approve the connection. If Coinbase
+						stays on Initializing / portfolio loading, close that window and try Connect again.
+					</p>
+					<button
+						type="button"
+						onClick={cancelWalletConnect}
+						className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+					>
+						Cancel
+					</button>
+				</div>
+			)}
 			{(status === 'preparing-payment' ||
 				status === 'awaiting-signature' ||
 				status === 'settling') && (
@@ -1541,7 +1733,7 @@ export default function UsdcTopupPage() {
 							? 'Contacting the payment server. This usually takes a few seconds.'
 							: status === 'awaiting-signature'
 								? coinbaseExt
-									? 'Check the Coinbase Wallet extension popup in this browser and approve the signature. This page will update when you confirm.'
+									? 'Approve USDC TransferWithAuthorization in the Coinbase popup. If that window stays white with only a spinner, close it, Cancel here, then Connect with MetaMask and pay again.'
 									: 'Approve the payment in your browser wallet extension popup. This page will update when you confirm.'
 								: 'Settling on Base. Keep this page open.'}
 					</p>
@@ -1742,7 +1934,10 @@ export default function UsdcTopupPage() {
 									status === 'preparing-payment' ||
 									status === 'quoting' ||
 									!quote ||
-									(isWalletDeposit && !walletDepositAmount)
+									(isWalletDeposit && !walletDepositAmount) ||
+									(coinbaseExt &&
+										parsed.params.paymentToken === 'USDC' &&
+										!coinbaseX402Ready)
 								}
 								className="w-full rounded-full bg-blue-600 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
 							>
@@ -1751,7 +1946,12 @@ export default function UsdcTopupPage() {
 									(coinbaseExt ? 'Waiting for extension…' : 'Waiting for wallet signature…')}
 								{status === 'settling' && 'Settling on-chain…'}
 								{status === 'quoting' && 'Loading quote…'}
-								{(status === 'idle' || status === 'error') && `Pay ${quotedUsdcLabel}`}
+								{(status === 'idle' || status === 'error') &&
+									(coinbaseExt &&
+									parsed.params.paymentToken === 'USDC' &&
+									!coinbaseX402Ready
+										? 'Preparing wallet…'
+										: `Pay ${quotedUsdcLabel}`)}
 							</button>
 						)}
 						{ready && account ? (
