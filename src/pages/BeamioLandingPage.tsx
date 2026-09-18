@@ -428,7 +428,7 @@ export default function BeamioLandingPage() {
 			<footer className="border-t border-white/10 bg-[#171717] text-white">
 				<div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-8">
 					<div>
-						<div className="flex items-center gap-2.5"><BeamioBrandLogo className="h-9 w-9 rounded-xl" /><span className="font-bold">Beamio</span></div>
+						<div className="flex items-center gap-2.5"><BeamioBrandLogo className="h-9 w-9 rounded-full object-cover" /><span className="font-bold">Beamio</span></div>
 						<p className="mt-4 max-w-sm text-sm leading-6 text-white/45">Direct settlement, merchant programs, and customer relationships built with CoNET infrastructure.</p>
 					</div>
 					<div>
