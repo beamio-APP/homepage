@@ -90,11 +90,11 @@ const applications = [
     {
         title: 'CoNET Chat',
         copy:
-            'Wallet-addressed, relationship-private communication: receipts, presence, and encrypted history over Layer Minus.',
+            'Relationship-private messaging and encrypted real-time voice: sender wallets stay inside recipient-only ciphertext, while Layer Minus separates user IP, mailbox state, and message content across different roles.',
         href:
             'https://gitbook.conet.network/applications/depin-chat.html',
         icon: LockKeyhole,
-        status: 'Integrated capability',
+        status: 'Messaging and voice integrated',
     },
     {
         title: 'Privacy-first Decentralized AI',
@@ -979,6 +979,107 @@ export default function BeamioProtocolPage() {
                                 />
                             </SiteExternalLink>
                         </div>
+                    </div>
+                </section>
+
+                {/* =========================================================
+                    CONET CHAT
+                   ========================================================= */}
+
+                <section className="border-y border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+                    <div className="mx-auto max-w-7xl">
+                        <div className="max-w-3xl">
+                            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">
+                                CoNET Chat
+                            </p>
+
+                            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
+                                Protect the relationship, not only the message.
+                            </h2>
+
+                            <p className="mt-5 text-lg leading-8 text-slate-200">
+                                The sender wallet is signed inside the
+                                application envelope, then encrypted to the
+                                recipient&apos;s user PGP key. Forwarding nodes
+                                relay ciphertext; only the recipient can
+                                decrypt the envelope and learn which wallet
+                                signed it.
+                            </p>
+
+                            <p className="mt-4 leading-7 text-slate-400">
+                                Layer Minus separates the entry that sees a
+                                network connection from the mailbox that knows
+                                the destination route. The intended design
+                                breaks three direct links: sender wallet to
+                                recipient, message content to relay, and user IP
+                                to communication identity. An entry still sees
+                                the IP that connects to it, and colluding or
+                                global observers remain outside this guarantee.
+                            </p>
+                        </div>
+
+                        <div className="mt-9 grid gap-4 md:grid-cols-3">
+                            <article className="rounded-2xl border border-cyan-300/15 bg-[#18191f] p-6">
+                                <LockKeyhole
+                                    className="h-7 w-7 text-cyan-300"
+                                    aria-hidden="true"
+                                />
+                                <h3 className="mt-5 text-lg font-semibold text-white">
+                                    Sender identity inside ciphertext
+                                </h3>
+                                <p className="mt-3 text-sm leading-6 text-slate-400">
+                                    The relay receives recipient-addressed
+                                    OpenPGP armor, not a plaintext sender-wallet
+                                    field. The recipient verifies the sender
+                                    only after local decryption.
+                                </p>
+                            </article>
+
+                            <article className="rounded-2xl border border-purple-300/15 bg-[#18191f] p-6">
+                                <Network
+                                    className="h-7 w-7 text-purple-300"
+                                    aria-hidden="true"
+                                />
+                                <h3 className="mt-5 text-lg font-semibold text-white">
+                                    IP and wallet roles separated
+                                </h3>
+                                <p className="mt-3 text-sm leading-6 text-slate-400">
+                                    Entry A or C sees the connecting IP.
+                                    Mailbox B sees route and listen state, but
+                                    receives the connection from the entry
+                                    instead of directly from the user.
+                                </p>
+                            </article>
+
+                            <article className="rounded-2xl border border-cyan-300/15 bg-[#18191f] p-6">
+                                <RadioTower
+                                    className="h-7 w-7 text-cyan-300"
+                                    aria-hidden="true"
+                                />
+                                <h3 className="mt-5 text-lg font-semibold text-white">
+                                    Encrypted real-time voice
+                                </h3>
+                                <p className="mt-3 text-sm leading-6 text-slate-400">
+                                    Temporary voice SSE sessions relay
+                                    AES-GCM ciphertext without a direct peer
+                                    socket or WebRTC IP-candidate exchange.
+                                    Field visibility—not the mere existence of
+                                    a relay—defines the privacy boundary.
+                                </p>
+                            </article>
+                        </div>
+
+                        <SiteExternalLink
+                            href="https://gitbook.conet.network/applications/depin-chat.html"
+                            className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100"
+                        >
+                            Read the CoNET Chat privacy model
+
+                            <ArrowRight
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                            />
+                        </SiteExternalLink>
                     </div>
                 </section>
 
