@@ -155,12 +155,12 @@ export default function BeamioLandingPage() {
 						<div className="relative z-10 max-w-5xl">
 							<p className="text-xs font-black uppercase tracking-[0.2em] text-[#2f73e0]">Direct commerce infrastructure</p>
 							<h1 className="mt-5 max-w-sm text-[3rem] font-black leading-[0.9] tracking-[-0.075em] sm:max-w-none sm:text-7xl lg:text-[7rem]">
-								Own the relationship.
+								Build direct relationships.
 								<br />
 								Move value directly.
 							</h1>
 							<p className="mt-8 max-w-2xl text-lg font-medium leading-8 text-black/65 sm:text-xl">
-								Bring stablecoin settlement, Stripe payments, and Reward PT into one merchant program—without making Beamio the custodian, the counterparty, or the owner of the customer relationship.
+								Bring stablecoin settlement, Stripe payments, and Reward PT into one merchant program. Supported flows keep customer signing authority and merchant payment accounts distinct from Beamio&apos;s application, relay, and program services.
 							</p>
 							<div className="mt-9 flex flex-wrap gap-3">
 								<ExternalLink href="https://biz.beamio.app/" className="inline-flex items-center gap-2 rounded-full bg-[#171717] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#2f73e0]">
@@ -176,7 +176,7 @@ export default function BeamioLandingPage() {
 							{[
 								['No blockchain expertise required', 'Use managed applications and gas-sponsored writes.'],
 								['Your Stripe account', 'Card proceeds settle to the connected merchant account.'],
-								['Your customer relationship', 'Programs and assets connect merchants and customers directly.'],
+								['Your merchant program', 'Program rules and eligible assets connect merchants and customers, while Beamio processes the service data required to operate the applications.'],
 							].map(([title, copy]) => (
 								<div key={title} className="bg-white/95 p-5 backdrop-blur sm:p-6">
 									<Check className="h-5 w-5 text-[#2f73e0]" strokeWidth={3} aria-hidden />
@@ -198,7 +198,7 @@ export default function BeamioLandingPage() {
 								</h2>
 							</div>
 							<p className="max-w-xl text-base leading-7 text-white/60 lg:justify-self-end">
-								Like the strongest local payment platforms, Beamio connects settlement with retention. Unlike a closed stored-value operator, it keeps merchant programs, customer wallets, and asset ownership visible and distinct.
+								Beamio connects settlement with retention while keeping merchant programs, customer wallets, asset ownership, and Beamio&apos;s own service role visible and distinct.
 							</p>
 						</div>
 						<div className="mt-14 grid gap-px overflow-hidden rounded-[2rem] bg-white/15 lg:grid-cols-3">
@@ -228,7 +228,7 @@ export default function BeamioLandingPage() {
 							</div>
 							<div className="space-y-4">
 								{[
-									[Wallet, 'Self-custody by design', 'Customer wallet material stays on the customer device. Merchant assets remain attached to the merchant program—not pooled in a Beamio balance.'],
+									[Wallet, 'Self-custody for supported wallets', 'Released clients are designed to keep signing keys on the customer device. Merchant assets remain attached to the applicable merchant program rather than pooled in a Beamio user balance.'],
 									[ShieldCheck, 'Gas-sponsored application writes', 'Supported USDC actions use offline authorization and sponsored submission. Beamio relays the approved instruction without receiving the user private key.'],
 									[Globe2, 'A practical path into on-chain settlement', 'Consumer, POS, and Merchant OS provide the workflows. The underlying contracts preserve verifiable ownership and program state.'],
 								].map(([Icon, title, copy], index) => {
@@ -255,7 +255,7 @@ export default function BeamioLandingPage() {
 							<div className="inline-flex items-center gap-2 rounded-full bg-[#635bff]/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#5148e5]">
 								<CreditCard className="h-4 w-4" aria-hidden /> Stripe connected commerce
 							</div>
-							<h2 className="mt-6 text-4xl font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl">Online or offline. One merchant relationship.</h2>
+							<h2 className="mt-6 text-4xl font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl">Online or offline. One disclosed merchant program.</h2>
 							<p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-black/60">
 								Connect an existing Stripe account without learning a new payment stack. Beamio minimizes the payment data it handles and starts program fulfillment only after a trusted payment confirmation.
 							</p>
@@ -315,10 +315,10 @@ export default function BeamioLandingPage() {
 				<section className="bg-white py-20 sm:py-28">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<div className="mx-auto max-w-4xl text-center">
-							<p className="text-xs font-black uppercase tracking-[0.2em] text-[#2f73e0]">Not the man in the middle</p>
-							<h2 className="mt-5 text-4xl font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl">Beamio supports the transaction. It does not become the transaction.</h2>
+							<p className="text-xs font-black uppercase tracking-[0.2em] text-[#2f73e0]">Clear service and ownership boundaries</p>
+							<h2 className="mt-5 text-4xl font-black leading-[0.96] tracking-[-0.055em] sm:text-6xl">Beamio coordinates supported transactions without taking the user&apos;s signing key.</h2>
 							<p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-black/60">
-								Beamio provides applications, verification, routing, and gas sponsorship. It is not the merchant, the customer, or the beneficial owner of their assets.
+								Beamio provides applications, APIs, verification, routing, program records, and gas sponsorship. On-chain ownership, merchant payment processing, and Beamio&apos;s service role remain separate and are disclosed for each supported flow.
 							</p>
 						</div>
 
@@ -327,7 +327,7 @@ export default function BeamioLandingPage() {
 								<div className="rounded-3xl bg-white p-6 text-center shadow-sm">
 									<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#e9edff] text-[#0051d1]"><Users className="h-6 w-6" aria-hidden /></div>
 									<h3 className="mt-4 text-xl font-bold">Customer</h3>
-									<p className="mt-2 text-sm text-black/50">Owns wallet, identity, memberships, Store Credit, and Reward PT.</p>
+									<p className="mt-2 text-sm text-black/50">Controls the compatible wallet and signing authority; eligible memberships, Store Credit, and Reward PT follow their contract and program rules.</p>
 								</div>
 								<div className="flex items-center justify-center gap-2 text-[#2f73e0] md:flex-col">
 									<ArrowRight className="h-7 w-7 md:rotate-0" aria-hidden />
@@ -337,7 +337,7 @@ export default function BeamioLandingPage() {
 								<div className="rounded-3xl bg-white p-6 text-center shadow-sm">
 									<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f5ecff] text-[#8d3a8b]"><Store className="h-6 w-6" aria-hidden /></div>
 									<h3 className="mt-4 text-xl font-bold">Merchant</h3>
-									<p className="mt-2 text-sm text-black/50">Owns the program, connected payment account, rules, and customer relationship.</p>
+									<p className="mt-2 text-sm text-black/50">Controls the merchant program, connected payment account, and program rules; Beamio still processes the data needed to provide its services.</p>
 								</div>
 							</div>
 							<div className="mt-4 rounded-3xl bg-[#171717] p-6 text-white sm:flex sm:items-center sm:justify-between sm:gap-8">
@@ -346,14 +346,14 @@ export default function BeamioLandingPage() {
 									<p className="mt-2 text-sm leading-6 text-white/60">Applications · authorization checks · transaction routing · gas sponsorship · program tooling</p>
 								</div>
 								<div className="mt-5 flex shrink-0 flex-wrap gap-2 sm:mt-0">
-									{['No pooled merchant funds', 'No Beamio-issued IOU', 'No user private keys'].map((item) => (
+									{['No pooled merchant funds in supported flows', 'No Beamio-issued IOU', 'Clients do not send private keys to Beamio'].map((item) => (
 										<span key={item} className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75">{item}</span>
 									))}
 								</div>
 							</div>
 						</div>
 						<p className="mx-auto mt-5 max-w-3xl text-center text-xs leading-5 text-black/45">
-							Card payments still use Stripe as the payment processor, and supported cross-chain flows use their documented contracts. “Direct” describes asset ownership and the merchant–customer relationship; it does not erase those disclosed technical service providers.
+							Card payments still use Stripe as the payment processor. Beamio also operates application infrastructure, APIs, relays, and program services, and supported cross-chain flows use their documented contracts. “Direct” describes the intended ownership and authorization boundary; it does not mean zero intermediaries, zero metadata, or zero legal responsibility.
 						</p>
 					</div>
 				</section>
@@ -412,8 +412,8 @@ export default function BeamioLandingPage() {
 							<div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
 								<div>
 									<div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-blue-100"><HeartHandshake className="h-4 w-4" aria-hidden /> Build a direct merchant economy</div>
-									<h2 className="mt-4 text-4xl font-black leading-[0.96] tracking-[-0.05em] sm:text-5xl">Settlement, loyalty, and ownership—without a payment middleman.</h2>
-									<p className="mt-5 max-w-2xl text-sm leading-6 text-blue-100/80">Start with Merchant OS, explore the Consumer experience, or read the product whitepaper and trust boundaries.</p>
+									<h2 className="mt-4 text-4xl font-black leading-[0.96] tracking-[-0.05em] sm:text-5xl">Settlement, loyalty, and ownership—with explicit service boundaries.</h2>
+									<p className="mt-5 max-w-2xl text-sm leading-6 text-blue-100/80">Start with Merchant OS, explore the Consumer experience, or review the product documentation, data practices, and trust boundaries.</p>
 								</div>
 								<div className="flex flex-col gap-3">
 									<ExternalLink href="https://biz.beamio.app/" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0051d1]">Start as a merchant <ArrowRight className="h-4 w-4" aria-hidden /></ExternalLink>
@@ -429,7 +429,7 @@ export default function BeamioLandingPage() {
 				<div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-8">
 					<div>
 						<div className="flex items-center gap-2.5"><BeamioBrandLogo className="h-9 w-9 rounded-full object-cover" /><span className="font-bold">Beamio</span></div>
-						<p className="mt-4 max-w-sm text-sm leading-6 text-white/45">Direct settlement, merchant programs, and customer relationships built with CoNET infrastructure.</p>
+						<p className="mt-4 max-w-sm text-sm leading-6 text-white/45">Direct authorization, merchant programs, and disclosed service boundaries built with CoNET infrastructure.</p>
 					</div>
 					<div>
 						<h2 className="text-sm font-semibold">Products</h2>

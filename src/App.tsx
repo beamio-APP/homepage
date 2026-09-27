@@ -95,8 +95,8 @@ function useMarketingMetadata() {
 	useEffect(() => {
 		const conet = getMarketingSite() === 'conet'
 		const description = conet
-			? 'CoNET combines a live EVM-compatible L1 with wallet-addressed encrypted transport research, while CoNET-DLE is specified on the same DePIN gossip foundation.'
-			: 'Beamio provides consumer, merchant, and POS application experiences built with CoNET infrastructure.'
+			? 'CoNET combines a live EVM-compatible L1 with privacy-oriented, wallet-addressed application routing and an explicit metadata and deployment threat model.'
+			: 'Beamio provides consumer, merchant, and POS applications with self-custody for supported wallets, disclosed payment providers, and explicit data and service boundaries.'
 		const descriptionTag = document.querySelector('meta[name="description"]')
 		const ogTitle = document.querySelector('meta[property="og:title"]')
 		const ogDescription = document.querySelector('meta[property="og:description"]')

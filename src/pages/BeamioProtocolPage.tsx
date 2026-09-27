@@ -35,9 +35,9 @@ const gitbook = 'https://gitbook.conet.network/'
 const layers = [
     {
         kicker: 'L0 · CoNET DePIN',
-        title: 'Decentralized cloud infrastructure',
+        title: 'Distributed cloud-resource infrastructure',
         copy:
-            'CoNET L0 provides the underlying decentralized cloud: data forwarding, fragmented encrypted storage, SaaS execution, and distributed CPU/GPU capacity—without relying on a centralized cloud provider. Providers earn GB for useful cloud work, while GB serves as the L0 resource-accounting and settlement unit.',
+            'CoNET L0 provides forwarding, capability-specific encrypted storage, SaaS execution, and distributed CPU/GPU capacity. Independent providers may earn GB for measured work. Current production admission and some aggregation remain administrator-controlled; permissionless participation is a target architecture, not the deployed state.',
         icon: Cloud,
         status: 'Implemented capability',
     },
@@ -90,7 +90,7 @@ const applications = [
     {
         title: 'CoNET Chat',
         copy:
-            'Relationship-private messaging and encrypted real-time voice: sender wallets stay inside recipient-only ciphertext, while Layer Minus separates user IP, mailbox state, and message content across different roles.',
+            'Relationship-minimizing messaging and encrypted real-time voice: sender identity can remain inside recipient-addressed ciphertext, while Layer Minus separates entry, mailbox, and content roles. IP, timing, volume, wallet, and collusion risks remain.',
         href:
             'https://gitbook.conet.network/applications/depin-chat.html',
         icon: LockKeyhole,
@@ -99,7 +99,7 @@ const applications = [
     {
         title: 'Privacy-first Decentralized AI',
         copy:
-            'Three independent roles. One open intelligence economy: private application paths plus micropayments keep models, data, and agents independent.',
+            'Separately defined model, data, and agent roles. Independence depends on actual operators, infrastructure, governance, and non-collusion; different role names alone do not establish it.',
         href:
             'https://gitbook.conet.network/applications/privacy-first-ai.html',
         icon: Bot,
@@ -110,16 +110,16 @@ const applications = [
 const infrastructureFlow = [
     {
         kicker: 'Foundation',
-        title: 'CoNET L0 zero-trust decentralized cloud',
+        title: 'CoNET L0 zero-trust resource plane',
         copy:
-            'CoNET L0 provides the underlying decentralized cloud: data forwarding, fragmented encrypted storage, SaaS execution, and distributed CPU/GPU capacity. Providers earn GB for useful cloud work, and applications settle measurable cloud-resource consumption in GB.',
+            'CoNET L0 provides forwarding, capability-specific encrypted storage, SaaS execution, and distributed CPU/GPU capacity. Providers may earn GB for measured work under the applicable admission, measurement, and settlement rules.',
         icon: Cloud,
     },
     {
         kicker: 'Privacy protocol',
         title: 'Layer Minus',
         copy:
-            'Layer Minus turns these decentralized L0 resources into wallet-addressed, zero-trust, fragmented private communication, allowing private data and communication to be distributed across the network rather than concentrated in a single server or database.',
+            'Layer Minus uses wallet-addressed, encrypted application routing and separated roles to reduce the information available to one intermediary. It does not eliminate IP networking or metadata, and fragmentation applies only where a released capability implements it.',
         icon: ShieldCheck,
     },
     {
@@ -146,7 +146,7 @@ const infrastructureFlow = [
         kicker: 'Destination',
         title: 'Privacy-first Decentralized Applications',
         copy:
-            'Whether a traditional C/S app or a decentralized dAPP, independent wallet-addressed roles can keep models, data, and agents apart. Layer Minus and web3:// reduce the need for one network intermediary to observe the complete user–service relationship; that benefit is conditional. CoNET-DLE is designed so each measurable contribution can be paid without one party owning the stack.',
+            'Whether a traditional C/S app or a distributed dAPP, separately operated wallet-addressed roles can reduce concentration of models, data, and agents. Layer Minus and web3:// reduce the need for one network intermediary to observe the complete user–service relationship only when deployment diversity and non-collusion assumptions hold.',
         icon: Bot,
     },
 ]
@@ -337,14 +337,13 @@ export default function BeamioProtocolPage() {
                             </h1>
 
                             <h2 className="mt-5 max-w-3xl text-xl font-medium leading-8 tracking-tight text-slate-100 sm:text-2xl">
-                                One decentralized resource plane. From network
-                                infrastructure to private applications.
+                                One distributed resource direction. From network
+                                infrastructure to privacy-oriented applications.
                             </h2>
 
                             <div className="mt-5 max-w-3xl space-y-5 text-base leading-7 text-slate-300 sm:text-lg">
                                 <p>
-                                    CoNET L0 is more than a decentralized
-                                    network. It is a decentralized resource
+                                    CoNET L0 is more than a network. It is a distributed resource
                                     plane providing forwarding, encrypted
                                     storage, service hosting, and distributed
                                     compute.
@@ -361,7 +360,7 @@ export default function BeamioProtocolPage() {
                                     conventional centralized server endpoints.
                                     Requests can be caller-signed, resources
                                     can remain distributed, and application
-                                    communication can use the same zero-trust
+                                    communication can use the same verify-first
                                     infrastructure that powers CoNET&apos;s
                                     underlying network.
                                 </p>
@@ -391,7 +390,7 @@ export default function BeamioProtocolPage() {
                                 <p>
                                     Instead of separating the network, cloud
                                     infrastructure, and application server
-                                    into different centralized layers, CoNET
+                                    into separately controlled layers, CoNET
                                     connects them through one wallet-addressed
                                     foundation.
                                 </p>
@@ -407,8 +406,8 @@ export default function BeamioProtocolPage() {
 
                                 <p>
                                     The wallet becomes more than an account.
-                                    It becomes the address of a decentralized
-                                    application environment.
+                                    It can address an application environment
+                                    without becoming an anonymity guarantee.
                                 </p>
                             </div>
 
@@ -453,7 +452,7 @@ export default function BeamioProtocolPage() {
                             </p>
 
                             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
-                                One decentralized foundation.
+                                One composable foundation with explicit boundaries.
                             </h2>
                         </div>
 
@@ -759,7 +758,7 @@ export default function BeamioProtocolPage() {
                             </p>
 
                             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
-                                Three independent roles. One contestable intelligence
+                                Three separately operated roles. One contestable intelligence
                                 economy.
                             </h2>
 
@@ -998,23 +997,24 @@ export default function BeamioProtocolPage() {
                             </h2>
 
                             <p className="mt-5 text-lg leading-8 text-slate-200">
-                                The sender wallet is signed inside the
+                                The sender wallet can be signed inside the
                                 application envelope, then encrypted to the
                                 recipient&apos;s user PGP key. Forwarding nodes
-                                relay ciphertext; only the recipient can
-                                decrypt the envelope and learn which wallet
-                                signed it.
+                                relay ciphertext; the holder of the intended
+                                recipient key can decrypt the envelope and
+                                verify which wallet signed it.
                             </p>
 
                             <p className="mt-4 leading-7 text-slate-400">
                                 Layer Minus separates the entry that sees a
                                 network connection from the mailbox that knows
                                 the destination route. The intended design
-                                breaks three direct links: sender wallet to
-                                recipient, message content to relay, and user IP
-                                to communication identity. An entry still sees
-                                the IP that connects to it, and colluding or
-                                global observers remain outside this guarantee.
+                                is designed to reduce three direct associations:
+                                sender wallet to recipient, message content to
+                                relay, and user IP to mailbox identity. An entry
+                                still sees the IP that connects to it; mailbox,
+                                timing, volume, wallet reuse, colluding roles,
+                                and global observation remain correlation risks.
                             </p>
                         </div>
 

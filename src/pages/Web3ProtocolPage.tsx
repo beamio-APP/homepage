@@ -36,17 +36,17 @@ export default function Web3ProtocolPage() {
 				<section className="border-b border-white/10 bg-[#15161d] px-4 py-16 sm:px-6 lg:px-8">
 					<div className="mx-auto max-w-5xl">
 						<p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">L0 → Layer Minus → L1 → DLE L2 → web3:// → Privacy-first Applications</p>
-						<h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white">Three decentralized foundation.</h2>
-						<p className="mt-5 max-w-3xl leading-7 text-slate-400">From decentralized encrypted storage and CPU/GPU resources, to private communication, EVM execution, high-speed L2 infrastructure, private application servers, and privacy-first decentralized application, CoNET builds a zero-trust cloud where wallet addresses become the native identity and addressing layer for decentralized resources and applications.</p>
-						<p className="mt-4 max-w-3xl text-sm font-medium leading-6 text-slate-300">One wallet-addressed architecture. From infrastructure to private-first applications.</p>
+						<h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight text-white">A composable stack with explicit trust boundaries.</h2>
+						<p className="mt-5 max-w-3xl leading-7 text-slate-400">CoNET combines distributed resources, encrypted application routing, EVM execution, L2 research, and wallet-addressed application services. Wallet identity supplements TCP/IP; it does not eliminate network metadata or make operators independent.</p>
+						<p className="mt-4 max-w-3xl text-sm font-medium leading-6 text-slate-300">One wallet-addressed direction, with maturity and deployment limits stated per layer.</p>
 						<div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 							{[
-								['L0', 'CoNET L0 provides the underlying decentralized cloud: data forward, fragmented encrypted storage, SaaS execution, and distributed CPU/GPU capacity—without relying on a centralized cloud provider.', Cloud],
-								['Layer Minus', 'Wallet-addressed, zero-trust, fragmented private communication', Waypoints],
+								['L0', 'Distributed forwarding, capability-specific encrypted storage, SaaS execution, and CPU/GPU resources. Current admission and some aggregation remain controlled.', Cloud],
+								['Layer Minus', 'Wallet-addressed encrypted application routing with role separation; IP, timing, volume, and correlation metadata remain.', Waypoints],
 								['L1', 'A privacy-routed-gossip EVM L1', Blocks],
 								['DLE L2', 'A cluster-, event-, and atomic-chain-based ultra-high-speed L2. Idle participants join on demand as ultra-lightweight miners.', Layers3],
-								['web3://', 'A decentralized domain name system for wallet-addressed private servers: Web, API, AI, TCP, and UDP', ServerCog],
-								['Privacy-first Applications', 'Three independent roles. One open intelligence economy: private paths plus micropayments keep models, data, and agents independent.', Bot],
+								['web3://', 'A wallet-addressed application locator and request protocol for Web, API, AI, TCP, and UDP services—not DNS or an anonymity layer.', ServerCog],
+								['Privacy-first Applications', 'Separately defined roles can reduce concentration when operators, infrastructure, governance, and telemetry are actually separated.', Bot],
 							].map(([title, copy, Icon]) => {
 								const ContextIcon = Icon as typeof Cloud
 								return <article key={title as string} className="rounded-2xl border border-white/10 bg-[#18191f] p-5">
