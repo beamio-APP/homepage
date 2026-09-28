@@ -676,6 +676,85 @@ export default function BeamioProtocolPage() {
                 </section>
 
                 {/* =========================================================
+                    CROSS-CHAIN SECURITY
+                   ========================================================= */}
+
+                <section
+                    id="bridge-security"
+                    className="border-y border-white/10 bg-black px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
+                >
+                    <div className="mx-auto max-w-7xl">
+                        <div className="max-w-3xl">
+                            <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">
+                                Base ↔ CoNET cross-chain security
+                            </p>
+
+                            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
+                                Production observation is live. Asset custody has not moved.
+                            </h2>
+
+                            <p className="mt-5 leading-7 text-slate-300">
+                                bridgeAAC v0.16.0 runs a production-approved read-only Shadow. It compares two Base readers and two CoNET reader paths, verifies matching block and receipt commitments at the lower finalized height, persists its cursor, and pages on reader divergence.
+                            </p>
+                        </div>
+
+                        <div className="mt-10 grid gap-4 lg:grid-cols-2">
+                            <article className="rounded-2xl border border-cyan-300/20 bg-[#18191f] p-6 sm:p-8">
+                                <ScanSearch
+                                    className="h-7 w-7 text-cyan-300"
+                                    aria-hidden="true"
+                                />
+
+                                <p className="mt-6 text-xs font-bold uppercase tracking-[0.15em] text-cyan-200">
+                                    Approved production scope
+                                </p>
+
+                                <h3 className="mt-2 text-xl font-semibold text-white">
+                                    Read-only Shadow
+                                </h3>
+
+                                <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-400">
+                                    <li>Two unique readers per chain and per-block hash, state-root, and receipts-root agreement.</li>
+                                    <li>Deployment floor, persistent cursor, lower-head scanning, and a 256-block stability hold.</li>
+                                    <li>Reader-lag alerts stay open even when the lower agreed chain is safe to scan.</li>
+                                </ul>
+                            </article>
+
+                            <article className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] p-6 sm:p-8">
+                                <LockKeyhole
+                                    className="h-7 w-7 text-amber-300"
+                                    aria-hidden="true"
+                                />
+
+                                <p className="mt-6 text-xs font-bold uppercase tracking-[0.15em] text-amber-200">
+                                    Not approved
+                                </p>
+
+                                <h3 className="mt-2 text-xl font-semibold text-white">
+                                    AAC custody, mint, and release remain closed
+                                </h3>
+
+                                <p className="mt-4 text-sm leading-6 text-slate-400">
+                                    The Shadow does not broadcast, settle, reserve, mint, or release. It is not a light client and does not yet verify Base finality from Ethereum L1 output/fault-proof evidence or CONET consensus signatures. Production settlement remains on the existing Treasury and paid-GB miner-vote paths.
+                                </p>
+                            </article>
+                        </div>
+
+                        <SiteExternalLink
+                            href="https://gitbook.conet.network/l1/aac-cross-chain.html"
+                            className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100"
+                        >
+                            Read the AAC security and maturity boundary
+
+                            <ArrowRight
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                            />
+                        </SiteExternalLink>
+                    </div>
+                </section>
+
+                {/* =========================================================
                     WEB3
                    ========================================================= */}
 

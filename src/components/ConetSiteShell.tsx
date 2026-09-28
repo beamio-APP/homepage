@@ -93,6 +93,9 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 						<SectionNavLink sectionId="layers" className={navClass(!isWeb3)}>
 							Stack
 						</SectionNavLink>
+						<SectionNavLink sectionId="bridge-security" className={navClass(false)}>
+							Bridge security
+						</SectionNavLink>
 						<SectionNavLink sectionId="applications" className={navClass(false)}>
 							Applications
 						</SectionNavLink>
@@ -137,6 +140,9 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 							<SectionNavLink onNavigate={closeMenu} sectionId="layers" className={navClass(!isWeb3)}>
 								Stack
 							</SectionNavLink>
+							<SectionNavLink onNavigate={closeMenu} sectionId="bridge-security" className={navClass(false)}>
+								Bridge security
+							</SectionNavLink>
 							<SectionNavLink onNavigate={closeMenu} sectionId="applications" className={navClass(false)}>
 								Applications
 							</SectionNavLink>
@@ -169,6 +175,7 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 						<h2 className="text-sm font-semibold text-white">Explore</h2>
 						<div className="mt-3 flex flex-col items-start gap-2 text-sm">
 							<SectionNavLink sectionId="layers" className="hover:text-white">Three-layer stack</SectionNavLink>
+							<SectionNavLink sectionId="bridge-security" className="hover:text-white">Cross-chain security</SectionNavLink>
 							<Link to="/web3" className="hover:text-white">web3:// protocol</Link>
 							<ExternalLink href="https://gitbook.conet.network/resources.html" className="hover:text-white">Resources</ExternalLink>
 						</div>
