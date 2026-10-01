@@ -38,6 +38,7 @@ export type DiscoverMerchantTierPreview = {
 	name: string
 	thresholdLabel: string
 	discountLabel: string
+	backgroundImage: string
 }
 
 export type DiscoverMerchantCouponSeriesRow = {
@@ -56,6 +57,7 @@ export type DiscoverMerchantLandingModel = {
 	subtitle: string
 	programName: string
 	heroImage: string
+	tierBackgroundImage: string
 	logoUrl: string | null
 	currency: string
 	categoryId: string | null
@@ -151,6 +153,24 @@ function parseTierDiscountPct(description: string): number {
 	return m ? Number.parseFloat(m[1]) : 0
 }
 
+function readTierBackgroundImage(tier: Record<string, unknown>, nested: Record<string, unknown> | null): string {
+	const image = asRecord(tier.image) ?? asRecord(nested?.image)
+	return (
+		readString(tier.backgroundImage) ||
+		readString(tier.backgroundImageUrl) ||
+		readString(tier.imageUrl) ||
+		readString(tier.background) ||
+		readString(nested?.backgroundImage) ||
+		readString(nested?.backgroundImageUrl) ||
+		readString(nested?.imageUrl) ||
+		readString(nested?.background) ||
+		readString(image?.url) ||
+		readString(image?.uri) ||
+		readString(tier.image) ||
+		readString(nested?.image)
+	)
+}
+
 function fiatPrefix(code: string): string {
 	const c = code.toUpperCase()
 	if (c === 'CAD') return 'CA$'
@@ -186,7 +206,12 @@ function parseRewardTiers(meta: Record<string, unknown> | null, currency: string
 		const tierName = typeof nameRaw === 'string' && nameRaw.trim() ? nameRaw.trim() : 'Tier'
 		const descRaw = o.description ?? nested?.description
 		const description = typeof descRaw === 'string' ? descRaw : ''
-		rows.push({ name: tierName, minUsdc6, discountPct: parseTierDiscountPct(description) })
+		rows.push({
+			name: tierName,
+			minUsdc6,
+			discountPct: parseTierDiscountPct(description),
+			backgroundImage: readTierBackgroundImage(o, nested),
+		})
 	}
 	rows.sort((a, b) => (a.minUsdc6 < b.minUsdc6 ? -1 : a.minUsdc6 > b.minUsdc6 ? 1 : 0))
 	if (rows.length <= 1) return []
@@ -202,7 +227,31 @@ function parseRewardTiers(meta: Record<string, unknown> | null, currency: string
 					: '—',
 			discountLabel:
 				row.discountPct > 0 ? `${Math.round(row.discountPct)}% DISCOUNT` : 'Member pricing',
+			backgroundImage: row.backgroundImage,
 		}))
+}
+
+function readFirstTierBackgroundImage(meta: Record<string, unknown> | null): string {
+	if (!meta) return ''
+	// The canonical membership mapping is:
+	// index 0 = baseMembership, index 1+ = tiers[index - 1].
+	// app-download has no selected higher-tier context, so its landing card
+	// must present the base membership artwork first.
+	const baseMembership = asRecord(meta.baseMembership)
+	if (baseMembership) {
+		const nested = asRecord(baseMembership.properties)
+		const image = readTierBackgroundImage(baseMembership, nested)
+		if (image) return image
+	}
+	const tiers = Array.isArray(meta.tiers) ? meta.tiers : []
+	for (const item of tiers) {
+		const tier = asRecord(item)
+		if (!tier) continue
+		const nested = asRecord(tier.properties)
+		const image = readTierBackgroundImage(tier, nested)
+		if (image) return image
+	}
+	return ''
 }
 
 function readMetadataCouponId(meta: Record<string, unknown> | null): string {
@@ -507,6 +556,7 @@ export async function loadDiscoverMerchantLanding(
 	const discoverAbout = parseDiscoverAbout(metadata)
 	const merchantInfoPanel = resolveDiscoverMerchantInfoPanel(title, discoverAbout)
 	const rewardTiers = metadata ? parseRewardTiers(metadata, currency) : []
+	const tierBackgroundImage = readFirstTierBackgroundImage(metadata)
 	const categoryId = readCategoryId(metadata)
 
 	return {
@@ -515,6 +565,7 @@ export async function loadDiscoverMerchantLanding(
 		subtitle,
 		programName,
 		heroImage,
+		tierBackgroundImage,
 		logoUrl,
 		currency,
 		categoryId,

@@ -20,7 +20,6 @@ import {
 	Store,
 	Ticket,
 	UtensilsCrossed,
-	UsersRound,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { CouponClaimShareMeta } from '../utils/couponClaimShare'
@@ -663,6 +662,7 @@ export function DiscoverMerchantShareDetail({
 }: DiscoverMerchantShareDetailProps) {
 	const [model, setModel] = useState<DiscoverMerchantLandingModel | null>(null)
 	const [loading, setLoading] = useState(true)
+	const [landingLogoLoaded, setLandingLogoLoaded] = useState(false)
 	const [issuerProfile, setIssuerProfile] = useState<DiscoverIssuerProfile | null>(null)
 	const [issuerProfileLoading, setIssuerProfileLoading] = useState(false)
 	const [chainCardSocialPromotion, setChainCardSocialPromotion] = useState<
@@ -935,6 +935,19 @@ export function DiscoverMerchantShareDetail({
 	const brandSubtitle = isCcca
 		? 'Community · Diversity · Unity'
 		: view.subtitle?.trim() || 'Connect with this merchant on Beamio'
+	// Do not render the share fallback card while metadata is still loading.
+	// That caused a visible flash from the fallback text panel to the tier image.
+	const tierBackgroundImage =
+		model?.tierBackgroundImage?.trim() ||
+		model?.rewardTiers?.find((tier) => tier.backgroundImage.trim())?.backgroundImage.trim() ||
+		''
+	const showLandingCardPlaceholder = loading
+	const landingContentReady = !loading
+	const landingLogoUrl = landingContentReady ? view.logoUrl?.trim() || '' : ''
+
+	useEffect(() => {
+		setLandingLogoLoaded(false)
+	}, [landingLogoUrl])
 
 	// The share URL is a connection landing page. Keep the existing data/claim
 	// loading above, but present the focused join experience before the legacy
@@ -943,41 +956,69 @@ export function DiscoverMerchantShareDetail({
 		return (
 			<div className="min-h-[100dvh] w-full min-w-0 bg-[#f5f7f9] px-5 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-[max(2.5rem,env(safe-area-inset-top,0px))] text-center text-[#1f2328] sm:px-8">
 				<div className="mx-auto flex w-full max-w-[660px] flex-col items-center">
-					<div className="flex h-[116px] w-[116px] items-center justify-center rounded-[30px] bg-[#eef3fc] text-[#1562f0]">
-						{view.logoUrl?.trim() ? (
-							<img
-								src={view.logoUrl}
-								alt={`${merchantTitle} logo`}
-								className="h-full w-full rounded-[30px] object-contain p-3"
-								draggable={false}
-							/>
+					<div className="mt-8 flex h-[4.5rem] w-full items-center justify-center overflow-hidden">
+						{landingContentReady ? (
+							<h1 className="whitespace-nowrap text-[clamp(2rem,7vw,3.25rem)] font-bold leading-none tracking-[-0.04em] text-[#1f2937]">
+								{joinTitle}
+							</h1>
 						) : (
-							<UsersRound className="h-12 w-12" strokeWidth={1.8} aria-hidden />
+							<div className="h-[3.25rem] w-[min(15rem,72vw)] animate-pulse rounded-xl bg-slate-200/80" aria-hidden />
 						)}
 					</div>
-					<h1 className="mt-8 whitespace-nowrap text-[clamp(2rem,7vw,3.25rem)] font-bold tracking-[-0.04em] text-[#1f2937]">
-						{joinTitle}
-					</h1>
-					<p className="mt-4 whitespace-nowrap text-[clamp(1rem,3.7vw,1.5rem)] font-medium text-[#68727d]">
-						{merchantTitle}
-					</p>
-
-					<div
-						className="relative mt-12 w-full overflow-hidden rounded-[30px] border px-10 py-14 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)]"
-						style={{
-							backgroundColor: `${shareMeta.backgroundColorHex || '#e5f0eb'}22`,
-							borderColor: `${shareMeta.backgroundColorHex || '#b8d1c5'}66`,
-							color: shareMeta.backgroundColorHex || '#2e6651',
-						}}
-					>
-						<div className="absolute -bottom-24 -right-20 h-56 w-56 rounded-full border border-current opacity-20" aria-hidden />
-						<p className="relative z-[1] text-[clamp(1.8rem,5vw,2.7rem)] font-semibold leading-tight">
-							{brandTitle}
-						</p>
-						<p className="relative z-[1] mt-6 text-[clamp(1rem,2.8vw,1.25rem)] font-medium opacity-75">
-							{brandSubtitle}
-						</p>
+					<div className="mt-4 flex h-8 w-full items-center justify-center overflow-hidden">
+						{landingContentReady ? (
+							<p className="whitespace-nowrap text-[clamp(1rem,3.7vw,1.5rem)] font-medium leading-none text-[#68727d]">
+								{merchantTitle}
+							</p>
+						) : (
+							<div className="h-5 w-[min(20rem,80vw)] animate-pulse rounded-lg bg-slate-200/70" aria-hidden />
+						)}
 					</div>
+
+					{tierBackgroundImage ? (
+						<img
+							src={tierBackgroundImage}
+							alt={`${merchantTitle} membership tier`}
+							className="mt-12 block max-h-[420px] w-full rounded-[30px] object-contain shadow-[0_8px_22px_rgba(15,23,42,0.12)]"
+							draggable={false}
+						/>
+					) : showLandingCardPlaceholder ? (
+						<div
+							className="mt-12 h-[222px] w-full animate-pulse rounded-[30px] border border-slate-200/70 bg-slate-100/80 shadow-[0_8px_22px_rgba(15,23,42,0.05)]"
+							aria-label="Loading merchant card"
+							role="status"
+						/>
+					) : (
+						<div
+							className="relative mt-12 w-full overflow-hidden rounded-[30px] border px-10 py-14 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)]"
+							style={{
+								backgroundColor: `${shareMeta.backgroundColorHex || '#e5f0eb'}22`,
+								borderColor: `${shareMeta.backgroundColorHex || '#b8d1c5'}66`,
+								color: shareMeta.backgroundColorHex || '#2e6651',
+							}}
+						>
+							<div className="absolute -bottom-24 -right-20 h-56 w-56 rounded-full border border-current opacity-20" aria-hidden />
+							{landingLogoUrl ? (
+								<img
+									src={landingLogoUrl}
+									alt={`${merchantTitle} logo`}
+									width={80}
+									height={80}
+									className={`relative z-[1] mx-auto mb-6 h-20 w-20 rounded-2xl bg-white/75 object-contain p-2 transition-opacity duration-150 ${
+										landingLogoLoaded ? 'opacity-100' : 'opacity-0'
+									}`}
+									onLoad={() => setLandingLogoLoaded(true)}
+									draggable={false}
+								/>
+							) : null}
+							<p className="relative z-[1] text-center text-[clamp(1.8rem,5vw,2.7rem)] font-semibold leading-tight">
+								{brandTitle}
+							</p>
+							<p className="relative z-[1] mt-6 text-center text-[clamp(1rem,2.8vw,1.25rem)] font-medium opacity-75">
+								{brandSubtitle}
+							</p>
+						</div>
+					)}
 
 					<button
 						type="button"
