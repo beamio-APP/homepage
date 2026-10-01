@@ -517,6 +517,7 @@ async function fetchMerchantCoupons(cardAddress: string): Promise<MerchantCoupon
 export async function loadDiscoverMerchantLanding(
 	cardAddress: string,
 	shareFallback: CouponClaimShareMeta | null,
+	onCriticalModel?: (model: DiscoverMerchantLandingModel) => void,
 ): Promise<DiscoverMerchantLandingModel | null> {
 	let addr: string
 	try {
@@ -525,17 +526,15 @@ export async function loadDiscoverMerchantLanding(
 		return null
 	}
 
-	const [latestRow, cardMetaRow, couponRows, socialStats] = await Promise.all([
+	// The tier image is the first-paint asset. Do not make it wait for
+	// coupons or social statistics, which are below the fold.
+	const [latestRow, cardMetaRow] = await Promise.all([
 		fetchLatestCardsMetadata(addr),
 		fetchCardMetadata(addr),
-		fetchMerchantCoupons(addr),
-		fetchCardProgramSocialSummary(addr),
 	])
 
 	const metadata = cardMetaRow.metadata ?? latestRow.metadata
 	const currency = cardMetaRow.currency || latestRow.currency || 'USD'
-	const coupons = couponRows.coupons
-	const couponSeries = couponRows.series
 
 	const businessName = readBusinessName(metadata)
 	const programName = readProgramName(metadata)
@@ -559,7 +558,7 @@ export async function loadDiscoverMerchantLanding(
 	const tierBackgroundImage = readFirstTierBackgroundImage(metadata)
 	const categoryId = readCategoryId(metadata)
 
-	return {
+	const criticalModel: DiscoverMerchantLandingModel = {
 		cardAddress: addr,
 		title,
 		subtitle,
@@ -573,10 +572,24 @@ export async function loadDiscoverMerchantLanding(
 		metadataRoot: metadata,
 		discoverAbout,
 		merchantInfoPanel,
-		coupons,
-		couponSeries,
+		coupons: null,
+		couponSeries: null,
 		rewardTiers: rewardTiers.length > 0 ? rewardTiers : null,
-		socialStats,
+		socialStats: null,
 		rechargeBonusPill: null,
+	}
+
+	onCriticalModel?.(criticalModel)
+
+	const [couponRows, socialStats] = await Promise.all([
+		fetchMerchantCoupons(addr),
+		fetchCardProgramSocialSummary(addr),
+	])
+
+	return {
+		...criticalModel,
+		coupons: couponRows.coupons,
+		couponSeries: couponRows.series,
+		socialStats,
 	}
 }

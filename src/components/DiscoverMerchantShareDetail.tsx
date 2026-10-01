@@ -73,6 +73,15 @@ import { DiscoverMerchantSocialPointsCard } from './DiscoverMerchantSocialPoints
 
 const TIER_MEDALS = ['🥉', '🥈', '🥇', '💎'] as const
 
+function warmDiscoverImage(url: string): void {
+	const normalized = url.trim()
+	if (!normalized || typeof Image === 'undefined') return
+	const image = new Image()
+	image.decoding = 'async'
+	image.setAttribute('fetchpriority', 'high')
+	image.src = normalized
+}
+
 /** POS Claim button — orange→red gradient + white gift icon (SilentPassUI parity). */
 const POS_CLAIM_GRADIENT =
 	'linear-gradient(to bottom right, rgb(255,132,36), rgb(255,71,87))'
@@ -683,7 +692,13 @@ export function DiscoverMerchantShareDetail({
 	useEffect(() => {
 		let cancelled = false
 		setLoading(true)
-		void loadDiscoverMerchantLanding(cardAddress, shareMeta).then((loaded) => {
+		void loadDiscoverMerchantLanding(cardAddress, shareMeta, (critical) => {
+			if (cancelled) return
+			// Start the large IPFS fragment before React commits the image node.
+			// Coupon/social requests continue in the background.
+			warmDiscoverImage(critical.tierBackgroundImage)
+			setModel(critical)
+		}).then((loaded) => {
 			if (cancelled) return
 			if (loaded) setModel(loaded)
 			setLoading(false)
@@ -979,6 +994,11 @@ export function DiscoverMerchantShareDetail({
 						<img
 							src={tierBackgroundImage}
 							alt={`${merchantTitle} membership tier`}
+							width={660}
+							height={420}
+							loading="eager"
+							fetchPriority="high"
+							decoding="async"
 							className="mt-12 block max-h-[420px] w-full rounded-[30px] object-contain shadow-[0_8px_22px_rgba(15,23,42,0.12)]"
 							draggable={false}
 						/>
