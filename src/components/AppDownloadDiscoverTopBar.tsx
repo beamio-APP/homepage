@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Check, Heart, Loader2, QrCode, Share2 } from 'lucide-react'
+import { Check, Heart, Loader2, Share2 } from 'lucide-react'
 import { beamioFixedCapsuleTopStyle } from '../utils/beamioFixedTopCapsuleLayout'
 import type { AppDownloadVisitWalletProfile } from '../utils/beamioWebShareWallet'
 import {
@@ -26,7 +26,6 @@ type AppDownloadDiscoverTopBarProps = {
 	opacity?: number
 	socialStats?: CardProgramSocialSummary | null
 	onOpenWallet: () => void
-	onOpenPayCode: () => void
 	onSocialStatsRefresh?: () => void
 	/**
 	 * Coupon / redeem open-claim: Share pastes this URL instead of Discover merchant share.
@@ -45,7 +44,6 @@ type AppDownloadDiscoverTopBarProps = {
 
 /**
  * App-download Discover / coupon claim top chrome:
- * left Scan to Pay + `@beamioTag` capsule;
  * right: neon Open in App (Discover merchant) or share + like (coupon / redeem).
  */
 export default function AppDownloadDiscoverTopBar({
@@ -55,8 +53,6 @@ export default function AppDownloadDiscoverTopBar({
 	referrerEoa = null,
 	opacity = 1,
 	socialStats,
-	onOpenWallet,
-	onOpenPayCode,
 	onSocialStatsRefresh,
 	shareUrlOverride = null,
 	shareTitleOverride = null,
@@ -145,51 +141,12 @@ export default function AppDownloadDiscoverTopBar({
 
 	return (
 		<div
-			className="pointer-events-none fixed left-4 right-4 z-40 flex items-start justify-between gap-2 transition-opacity duration-300"
+			className="pointer-events-none fixed left-4 right-4 z-40 flex items-start justify-end gap-2 transition-opacity duration-300"
 			style={{
 				...beamioFixedCapsuleTopStyle(),
 				opacity,
 			}}
 		>
-			<div className="flex min-w-0 items-center gap-2 justify-self-start" style={{ pointerEvents: pointer }}>
-				<button
-					type="button"
-					onClick={onOpenPayCode}
-					className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-800/85 text-white shadow-lg ring-1 ring-white/10 transition active:scale-95"
-					aria-label="Scan to Pay"
-					title="Scan to Pay"
-				>
-					<QrCode className="h-5 w-5" strokeWidth={2.2} aria-hidden />
-				</button>
-				<button
-					type="button"
-					onClick={onOpenWallet}
-					disabled={!profile}
-					className="flex min-w-0 items-center disabled:opacity-50"
-					aria-label="Open wallet"
-				>
-					{profile ? (
-						<div className="flex min-w-0 max-w-[min(40vw,11rem)] items-center gap-2.5 rounded-full border border-slate-100/90 bg-white py-2 pl-2 pr-4 shadow-[0_4px_24px_rgba(15,23,42,0.08)] transition-transform active:scale-[0.98] sm:max-w-[min(48vw,13rem)]">
-							<div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/80">
-								<img
-									src={profile.avatarSrc}
-									alt=""
-									className="h-full w-full object-cover"
-									draggable={false}
-								/>
-							</div>
-							<span className="min-w-0 truncate text-[15px] font-bold tracking-tight text-[#0F172A]">
-								{profile.tagLabel}
-							</span>
-						</div>
-					) : (
-						<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-100/90 bg-white shadow-[0_4px_24px_rgba(15,23,42,0.08)]">
-							<Loader2 className="h-5 w-5 animate-spin text-slate-400" aria-hidden />
-						</div>
-					)}
-				</button>
-			</div>
-
 			<div className="flex shrink-0 items-center gap-2" style={{ pointerEvents: pointer }}>
 				{showOpenInApp && openInAppAction ? (
 					<OpenInAppNeonPillButton

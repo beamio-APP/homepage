@@ -949,7 +949,7 @@ export default function AppDownloadPage() {
 				Boolean(parseDiscoverMerchantOpenFromTarget(targetUrl)?.cardAddress)),
 	)
 
-	/** Coupon / redeem open-claim card (for top bar Scan to Pay + @tag, same as merchant). */
+	/** Coupon / redeem open-claim card data used by the Discover actions. */
 	const couponShareCardAddress = useMemo(() => {
 		const fromMeta = shareMeta?.cardAddress?.trim() ?? ''
 		if (fromMeta && ethers.isAddress(fromMeta) && shareMeta && isCouponShareMeta(shareMeta) && !isDiscoverMerchantMeta(shareMeta)) {
@@ -1105,6 +1105,7 @@ export default function AppDownloadPage() {
 					socialStats={discoverSocialStats}
 					userEoa={visitWalletProfile?.eoaAddress ?? null}
 					referrerEoa={discoverReferrerEoa}
+					onOpenInApp={() => void handleOpenInApp()}
 				/>
 			) : !isDiscoverMerchantShare ? (
 				<CouponSharePreview
@@ -1168,7 +1169,6 @@ export default function AppDownloadPage() {
 					opacity={capsuleOpacity}
 					socialStats={discoverSocialStats}
 					onOpenWallet={() => setMyWalletOpen(true)}
-					onOpenPayCode={() => setPayCodeOpen(true)}
 					onSocialStatsRefresh={() => {
 						void fetchCardProgramSocialSummary(topBarCardAddress).then((summary) => {
 							if (summary) setDiscoverSocialStats(summary)
