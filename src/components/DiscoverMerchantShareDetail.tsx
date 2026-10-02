@@ -1275,14 +1275,6 @@ function DiscoverMerchantJoinLanding({
 					>
 						Sign up &amp; join
 					</button>
-					<button
-						type="button"
-						className="mt-8 text-[clamp(1rem,2.8vw,1.25rem)] font-medium text-[#2862a9] underline-offset-4 hover:underline"
-						onClick={onOpenInApp}
-						aria-label="Unlock in Beamio"
-					>
-						Already on Beamio? Unlock
-					</button>
 				</div>
 			</div>
 	)
