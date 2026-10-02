@@ -518,6 +518,14 @@ export async function loadDiscoverMerchantLanding(
 	cardAddress: string,
 	shareFallback: CouponClaimShareMeta | null,
 	onCriticalModel?: (model: DiscoverMerchantLandingModel) => void,
+	opts?: {
+		/**
+		 * Join landing: only the card metadata is needed (title, logo, tier image).
+		 * Skips the heavy latestCards scan (unless cardMetadata is unavailable),
+		 * and the coupons / social summary reads.
+		 */
+		landingOnly?: boolean
+	},
 ): Promise<DiscoverMerchantLandingModel | null> {
 	let addr: string
 	try {
@@ -528,10 +536,19 @@ export async function loadDiscoverMerchantLanding(
 
 	// The tier image is the first-paint asset. Do not make it wait for
 	// coupons or social statistics, which are below the fold.
-	const [latestRow, cardMetaRow] = await Promise.all([
-		fetchLatestCardsMetadata(addr),
-		fetchCardMetadata(addr),
-	])
+	let latestRow: Awaited<ReturnType<typeof fetchLatestCardsMetadata>>
+	let cardMetaRow: Awaited<ReturnType<typeof fetchCardMetadata>>
+	if (opts?.landingOnly) {
+		cardMetaRow = await fetchCardMetadata(addr)
+		latestRow = cardMetaRow.metadata
+			? { metadata: null, currency: 'USD' }
+			: await fetchLatestCardsMetadata(addr)
+	} else {
+		;[latestRow, cardMetaRow] = await Promise.all([
+			fetchLatestCardsMetadata(addr),
+			fetchCardMetadata(addr),
+		])
+	}
 
 	const metadata = cardMetaRow.metadata ?? latestRow.metadata
 	const currency = cardMetaRow.currency || latestRow.currency || 'USD'
@@ -580,6 +597,7 @@ export async function loadDiscoverMerchantLanding(
 	}
 
 	onCriticalModel?.(criticalModel)
+	if (opts?.landingOnly) return criticalModel
 
 	const [couponRows, socialStats] = await Promise.all([
 		fetchMerchantCoupons(addr),

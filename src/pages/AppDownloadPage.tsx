@@ -848,6 +848,16 @@ export default function AppDownloadPage() {
 		})()
 	}, [location.search, openInAppBusy, targetUrl])
 
+	/**
+	 * The merchant landing CTA is a web-PWA entry point, not a native-app
+	 * probe. Reuse the validated /app target so beamiocard, discover and ref
+	 * parameters remain intact and correctly encoded.
+	 */
+	const handleOpenInPwa = useCallback(() => {
+		const pwaUrl = targetUrl || 'https://beamio.app/app/'
+		window.location.assign(pwaUrl)
+	}, [targetUrl])
+
 	useLayoutEffect(() => {
 		if (!shareClickStartedRef.current) {
 			const couponOpen = parseCouponOpenClaimFromTarget(targetUrl)
@@ -856,7 +866,9 @@ export default function AppDownloadPage() {
 				couponOpen?.cardAddress ??
 				openFromTarget?.cardAddress ??
 				parseDiscoverMerchantCardFromTarget(targetUrl)
-			if (cardFromTarget) {
+			// Discover merchant join landing stays read-only: recording a share click
+			// needs a visit wallet (temp wallet + signature), which we do not create here.
+			if (cardFromTarget && couponOpen) {
 				shareClickStartedRef.current = true
 				void recordDiscoverShareClickIfNeeded(cardFromTarget, {
 					referrerEoa: couponOpen?.referrerEoa ?? openFromTarget?.referrerEoa ?? null,
@@ -988,7 +1000,8 @@ export default function AppDownloadPage() {
 	}, [discoverMerchantCardAddress, shareMeta, shareUrl])
 
 	useEffect(() => {
-		const card = discoverMerchantCardAddress ?? couponShareCardAddress
+		// Merchant join landing does not show social stats; skip the chain read.
+		const card = isDiscoverMerchantShare ? null : couponShareCardAddress
 		if (!card) {
 			setDiscoverSocialStats(null)
 			return
@@ -1001,13 +1014,14 @@ export default function AppDownloadPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [couponShareCardAddress, discoverMerchantCardAddress])
+	}, [couponShareCardAddress, isDiscoverMerchantShare])
 
 	/** Visit / temp wallet for Discover top bar + coupon Show Pay QR (POS 核销). */
 	useEffect(() => {
 		if (redirectingToInnerTarget) return
+		// Merchant join landing never detects / provisions a visit wallet.
 		const needsVisitWallet =
-			isDiscoverMerchantShare ||
+			!isDiscoverMerchantShare &&
 			Boolean(parseCouponOpenClaimFromTarget(targetUrl)?.couponId)
 		if (!needsVisitWallet) return
 		let cancelled = false
@@ -1105,7 +1119,7 @@ export default function AppDownloadPage() {
 					socialStats={discoverSocialStats}
 					userEoa={visitWalletProfile?.eoaAddress ?? null}
 					referrerEoa={discoverReferrerEoa}
-					onOpenInApp={() => void handleOpenInApp()}
+					onOpenInApp={handleOpenInPwa}
 				/>
 			) : !isDiscoverMerchantShare ? (
 				<CouponSharePreview
