@@ -33,10 +33,10 @@ export function isMeaningfulConsumerAppDeepLink(raw: string): boolean {
 		const couponId = (u.searchParams.get('couponId') ?? u.searchParams.get('couponid') ?? '').trim()
 		const redeem = (u.searchParams.get('redeemcode') ?? u.searchParams.get('Redeemcode') ?? '').trim()
 		const claim = (u.searchParams.get('claim') ?? '').trim().toLowerCase()
-		if (discover === 'open' || discover === '1' || discover === 'true') return true
-		if (couponId && (!claim || claim === 'open' || claim === '1' || claim === 'true')) return true
 		if (redeem) return true
-		return false
+		if (couponId) return !claim || claim === 'open' || claim === '1' || claim === 'true'
+		// Merchant link: `discover=open|1|true`, or a bare `beamiocard` with no `discover`.
+		return !discover || discover === 'open' || discover === '1' || discover === 'true'
 	} catch {
 		return false
 	}
