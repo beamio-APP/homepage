@@ -854,9 +854,16 @@ export default function AppDownloadPage() {
 	 * parameters remain intact and correctly encoded.
 	 */
 	const handleOpenInPwa = useCallback(() => {
-		const pwaUrl = targetUrl || 'https://beamio.app/app/'
-		window.location.assign(pwaUrl)
-	}, [targetUrl])
+		// Carry EVERY deep-link param into the PWA: params inside `target` plus any
+		// outer params on this page (e.g. beamiocard / discover / ref / couponId
+		// sitting next to, or instead of, `target`). Inner params win on conflict.
+		const url = new URL(targetUrl || 'https://beamio.app/app/')
+		new URLSearchParams(location.search).forEach((value, key) => {
+			if (key === 'target') return
+			if (!url.searchParams.has(key)) url.searchParams.set(key, value)
+		})
+		window.location.assign(url.toString())
+	}, [targetUrl, location.search])
 
 	useLayoutEffect(() => {
 		if (!shareClickStartedRef.current) {
