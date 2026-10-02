@@ -153,7 +153,36 @@ function parseTierDiscountPct(description: string): number {
 	return m ? Number.parseFloat(m[1]) : 0
 }
 
+/** Landing card is shown at <=660 CSS px; 1320 covers 2x displays. */
+const LANDING_TIER_IMAGE_WIDTH = 1320
+
+/**
+ * IPFS fragments are stored as-uploaded (often multi-MB PNG). For display, ask the
+ * beamio.app proxy for a width-limited WebP: far fewer bytes, and a stable URL
+ * (no `t` cache-buster) so the browser/CDN cache is reused on every visit.
+ * Non-fragment URLs (data:, blob:, other hosts) are returned unchanged.
+ */
+export function optimizedFragmentImageUrl(raw: string, width: number): string {
+	const url = raw.trim()
+	if (!url) return url
+	try {
+		const u = new URL(url)
+		const isIpfs = u.hostname === 'ipfs.conet.network' && u.pathname.endsWith('/getFragment')
+		const isProxy = u.hostname === 'beamio.app' && u.pathname === '/api/fragment'
+		if (!isIpfs && !isProxy) return url
+		const hash = (u.searchParams.get('hash') || '').trim().toLowerCase()
+		if (!/^0x[a-f0-9]{64}$/.test(hash)) return url
+		return `https://beamio.app/api/fragment?hash=${hash}&w=${width}`
+	} catch {
+		return url
+	}
+}
+
 function readTierBackgroundImage(tier: Record<string, unknown>, nested: Record<string, unknown> | null): string {
+	return optimizedFragmentImageUrl(readTierBackgroundImageRaw(tier, nested), LANDING_TIER_IMAGE_WIDTH)
+}
+
+function readTierBackgroundImageRaw(tier: Record<string, unknown>, nested: Record<string, unknown> | null): string {
 	const image = asRecord(tier.image) ?? asRecord(nested?.image)
 	return (
 		readString(tier.backgroundImage) ||

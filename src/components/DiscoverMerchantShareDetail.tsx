@@ -1124,6 +1124,7 @@ function DiscoverMerchantJoinLanding({
 	const [model, setModel] = useState<DiscoverMerchantLandingModel | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [landingLogoLoaded, setLandingLogoLoaded] = useState(false)
+	const [tierImageLoaded, setTierImageLoaded] = useState(false)
 	// shareMeta arrives asynchronously from the parent; it is only a fallback, so
 	// it must not restart the card metadata fetch.
 	const shareMetaRef = useRef(shareMeta)
@@ -1174,6 +1175,10 @@ function DiscoverMerchantJoinLanding({
 		setLandingLogoLoaded(false)
 	}, [landingLogoUrl])
 
+	useEffect(() => {
+		setTierImageLoaded(false)
+	}, [tierBackgroundImage])
+
 	return (
 			<div className="min-h-[100dvh] w-full min-w-0 bg-[#f5f7f9] px-5 pb-[max(2rem,env(safe-area-inset-bottom,0px))] pt-[max(2.5rem,env(safe-area-inset-top,0px))] text-center text-[#1f2328] sm:px-8">
 				<div className="mx-auto flex w-full max-w-[660px] flex-col items-center">
@@ -1197,17 +1202,33 @@ function DiscoverMerchantJoinLanding({
 					</div>
 
 					{tierBackgroundImage ? (
-						<img
-							src={tierBackgroundImage}
-							alt={`${merchantTitle} membership tier`}
-							width={660}
-							height={420}
-							loading="eager"
-							fetchPriority="high"
-							decoding="async"
-							className="mt-12 block max-h-[420px] w-full rounded-[30px] object-contain shadow-[0_8px_22px_rgba(15,23,42,0.12)]"
-							draggable={false}
-						/>
+						<div className="relative mt-12 w-full">
+							{!tierImageLoaded ? (
+								<div
+									className="absolute inset-0 animate-pulse rounded-[30px] border border-slate-200/70 bg-slate-100/80"
+									aria-hidden
+								/>
+							) : null}
+							<img
+								ref={(node) => {
+									// Cached images can finish before React attaches onLoad.
+									if (node?.complete && node.naturalWidth > 0) setTierImageLoaded(true)
+								}}
+								src={tierBackgroundImage}
+								alt={`${merchantTitle} membership tier`}
+								width={660}
+								height={420}
+								loading="eager"
+								fetchPriority="high"
+								decoding="async"
+								onLoad={() => setTierImageLoaded(true)}
+								onError={() => setTierImageLoaded(true)}
+								className={`block max-h-[420px] w-full rounded-[30px] object-contain shadow-[0_8px_22px_rgba(15,23,42,0.12)] transition-opacity duration-200 ${
+									tierImageLoaded ? 'opacity-100' : 'opacity-0'
+								}`}
+								draggable={false}
+							/>
+						</div>
 					) : showLandingCardPlaceholder ? (
 						<div
 							className="mt-12 h-[222px] w-full animate-pulse rounded-[30px] border border-slate-200/70 bg-slate-100/80 shadow-[0_8px_22px_rgba(15,23,42,0.05)]"
