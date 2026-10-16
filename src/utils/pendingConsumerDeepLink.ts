@@ -16,7 +16,7 @@ function isBeamioAppPath(pathname: string): boolean {
 	return pathname === '/app' || pathname === '/app/' || pathname.startsWith('/app/')
 }
 
-/** True when URL carries merchant card / coupon / redeem (and optional `ref=`). */
+/** True when URL carries merchant card / coupon / redeem / agent invite. */
 export function isMeaningfulConsumerAppDeepLink(raw: string): boolean {
 	const input = raw?.trim() ?? ''
 	if (!input) return false
@@ -24,6 +24,9 @@ export function isMeaningfulConsumerAppDeepLink(raw: string): boolean {
 		const u = new URL(input)
 		if (u.origin !== 'https://beamio.app' && u.origin !== 'https://www.beamio.app') return false
 		if (!isBeamioAppPath(u.pathname)) return false
+		const invite =
+			u.searchParams.get('invite')?.trim() || u.searchParams.get('Invite')?.trim() || ''
+		if (invite && /^0x[0-9a-fA-F]{40}$/.test(invite)) return true
 		const card =
 			u.searchParams.get('beamiocard')?.trim() ||
 			u.searchParams.get('Beamiocard')?.trim() ||
