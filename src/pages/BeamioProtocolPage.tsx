@@ -45,9 +45,9 @@ const layers = [
         kicker: 'L1 · CoNET Blockchain',
         title: 'Shared settlement and state',
         copy:
-            'A live EVM-compatible proof-of-stake network. Its target networking direction carries geth and Prysm peer traffic through Layer Minus by wallet locator instead of requiring peers to expose public IP:port identities.',
+            'A live EVM-compatible proof-of-stake network, running the Ethereum Osaka execution and Fulu consensus rules since 2026-10-18. Its target networking direction carries geth and Prysm peer traffic through Layer Minus by wallet locator instead of requiring peers to expose public IP:port identities.',
         icon: Blocks,
-        status: 'Production L1 · wallet overlay under development',
+        status: 'Production L1 · Osaka/Fulu active · wallet overlay under development',
         statusHref: 'https://mainnet.conet.network',
     },
     {
@@ -587,7 +587,8 @@ export default function BeamioProtocolPage() {
                                 A conventional Ethereum-style L1 normally
                                 discovers and connects peers through exposed IP
                                 addresses and ports. CoNET keeps EVM-compatible
-                                execution and proof-of-stake consensus, while
+                                execution and proof-of-stake consensus on the
+                                Osaka/Fulu fork, while
                                 developing a different transport direction:
                                 peer streams addressed by wallet identity and
                                 carried through the encrypted Layer Minus
