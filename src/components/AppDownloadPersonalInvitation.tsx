@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ethers } from 'ethers'
 import { Crown } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { BEAMIO_ANDROID_STORE_URL, BEAMIO_IOS_STORE_URL, isAndroidDevice, isIosDevice } from '../utils/nativeAppDownload'
+import { isAndroidDevice, isIosDevice } from '../utils/nativeAppDownload'
 import {
 	fetchDiscoverIssuerProfile,
 	formatBeamioTagDisplayLine,
@@ -14,7 +14,7 @@ export type AppDownloadPersonalInvitationVariant = 'desktop' | 'mobile'
 
 type Props = {
 	variant: AppDownloadPersonalInvitationVariant
-	/** Absolute invite / app-download URL encoded in the QR (desktop). */
+	/** Absolute invite / app-download URL encoded in the QR (desktop / large screens). */
 	qrValue: string
 	/** Inviter EOA from `invite=` when present. */
 	inviteEoa: string | null
@@ -35,9 +35,7 @@ export default function AppDownloadPersonalInvitation({
 	variant,
 	qrValue,
 	inviteEoa,
-	storeUrl,
 	onEnterBeamio,
-	onStoreBadgeClick,
 }: Props) {
 	const [inviter, setInviter] = useState<DiscoverIssuerProfile | null>(null)
 
@@ -73,6 +71,7 @@ export default function AppDownloadPersonalInvitation({
 	const android = isAndroidDevice()
 	const deviceAttr = ios ? 'ios' : android ? 'android' : 'unknown'
 	const qrSize = 180
+	const showQrPanel = variant === 'desktop'
 
 	return (
 		<div
@@ -109,7 +108,7 @@ export default function AppDownloadPersonalInvitation({
 						<br />
 						<span>
 							More
-							<br />
+							<br className="bi-title-break" />{' '}
 							Possibilities.
 						</span>
 					</h1>
@@ -121,14 +120,18 @@ export default function AppDownloadPersonalInvitation({
 						</span>
 						<span>
 							Reward PT, usable across
-							<br />
+							<br className="bi-value-break" />
 							participating stores.
 						</span>
 					</div>
+					{/* Small screens: primary CTA without QR / app-store chrome */}
+					<button type="button" className="bi-primary bi-primary-compact" onClick={onEnterBeamio}>
+						Enter Beamio
+					</button>
 				</section>
 
-				<section className="bi-continue" aria-label="Continue your invitation">
-					{variant === 'desktop' ? (
+				{showQrPanel ? (
+					<section className="bi-continue" aria-label="Continue your invitation">
 						<div className="bi-desktop">
 							<h2>Scan to get started</h2>
 							<p className="bi-copy">Use your phone’s camera.</p>
@@ -156,46 +159,8 @@ export default function AppDownloadPersonalInvitation({
 								No app store install required on desktop.
 							</p>
 						</div>
-					) : (
-						<div className="bi-mobile">
-							{/* iPhone/Android samples: one platform CTA; unknown → both official badges. */}
-							{!ios && !android ? (
-								<p className="bi-store-label">Choose your app store</p>
-							) : null}
-							<div className="bi-badge-stack">
-								{ios || (!ios && !android) ? (
-									<a
-										href={BEAMIO_IOS_STORE_URL}
-										target="_blank"
-										rel="noopener noreferrer"
-										onClick={onStoreBadgeClick}
-										className="bi-badge-link"
-										aria-label="Download on the App Store"
-									>
-										<img src="/app-store-badge.png" alt="Download on the App Store" className="bi-badge-img" />
-									</a>
-								) : null}
-								{android || (!ios && !android) ? (
-									<a
-										href={storeUrl || BEAMIO_ANDROID_STORE_URL}
-										target="_blank"
-										rel="noopener noreferrer"
-										onClick={onStoreBadgeClick}
-										className="bi-badge-link"
-										aria-label="Get it on Google Play"
-									>
-										<img src="/google-play-badge.png" alt="Get it on Google Play" className="bi-badge-img" />
-									</a>
-								) : null}
-							</div>
-							<p className="bi-install-note">
-								Registration completes automatically
-								<br />
-								after installation.
-							</p>
-						</div>
-					)}
-				</section>
+					</section>
+				) : null}
 			</main>
 		</div>
 	)
@@ -258,27 +223,23 @@ const INVITE_CSS = `
 #beamio-invitation .bi-primary{width:100%;min-height:54px;border:0;border-radius:50px;background:var(--bi-blue);color:var(--bi-onblue);display:flex;align-items:center;justify-content:center;gap:9px;font-size:15px;font-weight:550;margin:0 0 19px;box-shadow:0 7px 18px #1261f31f}
 #beamio-invitation .bi-primary:hover{filter:brightness(1.05)}
 #beamio-invitation .bi-desktop .bi-primary{margin-top:4px}
-#beamio-invitation .bi-store-label{font-size:12px;color:var(--bi-sub);margin:0 0 12px}
-#beamio-invitation .bi-badge-stack{display:flex;flex-direction:column;align-items:center;gap:12px;margin:0 0 4px}
-#beamio-invitation .bi-badge-link{display:flex;justify-content:center;transition:opacity .15s}
-#beamio-invitation .bi-badge-link:hover{opacity:.85}
-#beamio-invitation .bi-badge-img{height:52px;width:auto;max-width:100%;display:block}
+#beamio-invitation .bi-primary-compact{display:none;margin:28px 0 0;max-width:100%}
 #beamio-invitation .bi-install-note{font-size:11px;line-height:1.6;margin-top:17px;color:var(--bi-sub)}
-#beamio-invitation[data-variant=mobile]{max-width:480px;padding:23px 22px 18px;border-radius:28px}
+#beamio-invitation[data-variant=mobile]{max-width:480px;padding:23px 22px 22px;border-radius:28px}
 #beamio-invitation[data-variant=mobile] .bi-header{gap:8px;padding-bottom:0}
 #beamio-invitation[data-variant=mobile] .bi-wordmark{font-size:22px}
 #beamio-invitation[data-variant=mobile] .bi-inviter{font-size:10px;padding-right:10px;gap:7px}
 #beamio-invitation[data-variant=mobile] .bi-avatar{width:25px;height:25px;font-size:11px}
-#beamio-invitation[data-variant=mobile] .bi-layout{display:block;padding:35px 0 10px}
+#beamio-invitation[data-variant=mobile] .bi-layout{display:block;padding:35px 0 6px}
 #beamio-invitation[data-variant=mobile] .bi-intro{text-align:left}
 #beamio-invitation[data-variant=mobile] h1{font-size:40px;letter-spacing:-1.7px;line-height:1.06;margin:0 0 15px}
+#beamio-invitation[data-variant=mobile] .bi-title-break{display:none}
+#beamio-invitation[data-variant=mobile] .bi-value-break{display:none}
 #beamio-invitation[data-variant=mobile] .bi-lead{font-size:15px;margin:0;letter-spacing:-.2px}
 #beamio-invitation[data-variant=mobile] .bi-accent{margin:18px 0}
-#beamio-invitation[data-variant=mobile] .bi-value{font-size:12px;gap:9px}
+#beamio-invitation[data-variant=mobile] .bi-value{font-size:12px;gap:9px;max-width:none}
 #beamio-invitation[data-variant=mobile] .bi-value-icon{width:30px;height:30px}
-#beamio-invitation[data-variant=mobile] .bi-continue{margin-top:26px;padding:21px 18px;border-radius:24px}
-#beamio-invitation[data-variant=mobile] .bi-badge-stack{margin:0}
-#beamio-invitation[data-variant=mobile] .bi-install-note{padding-top:15px;margin-top:0;border-top:1px solid var(--bi-line)}
+#beamio-invitation[data-variant=mobile] .bi-primary-compact{display:flex}
 @media(max-width:900px) and (min-width:701px){
   #beamio-invitation[data-variant=desktop]{padding:25px}
   #beamio-invitation[data-variant=desktop] .bi-layout{grid-template-columns:minmax(0,1fr) 290px;gap:28px}
@@ -286,10 +247,28 @@ const INVITE_CSS = `
   #beamio-invitation[data-variant=desktop] .bi-lead{font-size:15px}
   #beamio-invitation[data-variant=desktop] h1{letter-spacing:-1.6px}
 }
+/* Narrow viewport (incl. resized desktop UA): match mobile mock — no QR panel */
+@media(max-width:700px){
+  #beamio-invitation.bi-root{max-width:480px;padding:23px 22px 22px;border-radius:28px}
+  #beamio-invitation .bi-header{gap:8px;padding-bottom:0}
+  #beamio-invitation .bi-wordmark{font-size:22px}
+  #beamio-invitation .bi-inviter{font-size:10px;padding-right:10px;gap:7px}
+  #beamio-invitation .bi-avatar{width:25px;height:25px;font-size:11px}
+  #beamio-invitation .bi-layout{display:block;padding:35px 0 6px}
+  #beamio-invitation .bi-intro{text-align:left}
+  #beamio-invitation h1{font-size:40px;letter-spacing:-1.7px;line-height:1.06;margin:0 0 15px}
+  #beamio-invitation .bi-title-break{display:none}
+  #beamio-invitation .bi-value-break{display:none}
+  #beamio-invitation .bi-lead{font-size:15px;margin:0;letter-spacing:-.2px}
+  #beamio-invitation .bi-accent{margin:18px 0}
+  #beamio-invitation .bi-value{font-size:12px;gap:9px;max-width:none}
+  #beamio-invitation .bi-value-icon{width:30px;height:30px}
+  #beamio-invitation .bi-continue{display:none}
+  #beamio-invitation .bi-primary-compact{display:flex}
+}
 @media(max-width:350px){
-  #beamio-invitation[data-variant=mobile]{padding:20px 15px 16px}
-  #beamio-invitation[data-variant=mobile] h1{font-size:34px}
-  #beamio-invitation[data-variant=mobile] .bi-lead{font-size:13px}
-  #beamio-invitation[data-variant=mobile] .bi-continue{padding:18px 14px}
+  #beamio-invitation.bi-root{padding:20px 15px 16px}
+  #beamio-invitation h1{font-size:34px}
+  #beamio-invitation .bi-lead{font-size:13px}
 }
 `
