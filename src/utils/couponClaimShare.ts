@@ -1,10 +1,12 @@
 export type CouponClaimShareMeta = {
 	cardAddress: string
-	couponId: string
+	couponId?: string
 	merchantName?: string
 	shareHeadline?: string
-	shareKind?: 'open_claim' | 'redeem' | 'discover_merchant'
+	shareKind?: 'open_claim' | 'redeem' | 'discover_merchant' | 'personal_invite'
 	distributionKind?: 'coupon' | 'catalog' | 'merchant'
+	/** Personal invite — introducer EOA from `?invite=0x…`. */
+	introducerEoa?: string
 	/** Catalog video — YouTube OG layout from API (`catalogProductionVideoOg`). */
 	catalogLayout?: 'default' | 'videoOg'
 	title: string
@@ -45,15 +47,20 @@ function upsertMetaTag(attr: 'name' | 'property', key: string, content: string):
 
 export function applyCouponClaimShareMeta(meta: CouponClaimShareMeta): void {
 	if (typeof document === 'undefined') return
+	const isPersonalInvite = meta.shareKind === 'personal_invite'
 	const isCatalog = meta.distributionKind === 'catalog'
-	const isDiscoverMerchant = meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant'
-	const pageTitle = meta.shareHeadline?.trim()
-		? `${meta.shareHeadline} — Beamio`
-		: isDiscoverMerchant
-			? `${meta.title} — Beamio`
-			: isCatalog
+	const isDiscoverMerchant =
+		!isPersonalInvite &&
+		(meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant')
+	const pageTitle = isPersonalInvite
+		? `${meta.shareHeadline?.trim() || meta.title} — Beamio`
+		: meta.shareHeadline?.trim()
+			? `${meta.shareHeadline} — Beamio`
+			: isDiscoverMerchant
 				? `${meta.title} — Beamio`
-				: `${meta.title} — Beamio Coupon`
+				: isCatalog
+					? `${meta.title} — Beamio`
+					: `${meta.title} — Beamio Coupon`
 	document.title = pageTitle
 	upsertMetaTag('name', 'description', meta.subtitle)
 	upsertMetaTag('property', 'og:type', 'website')

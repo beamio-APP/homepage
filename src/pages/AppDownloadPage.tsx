@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ethers } from 'ethers'
 import { useLocation } from 'react-router-dom'
-import { AlertTriangle, Calendar, Check, Clock, Download, Gift, Loader2, QrCode, Smartphone, Ticket } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, Clock, Gift, Loader2, QrCode, Ticket } from 'lucide-react'
 import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
@@ -10,7 +10,6 @@ import {
 	isBeamioNativeShell,
 	isIosDevice,
 	isMobileDevice,
-	openBeamioAppStore,
 	openBeamioAppOrStore,
 	shouldSkipSilentNativeAppProbe,
 } from '../utils/nativeAppDownload'
@@ -48,6 +47,9 @@ import { DiscoverMerchantShareDetail } from '../components/DiscoverMerchantShare
 import AppDownloadDiscoverTopBar from '../components/AppDownloadDiscoverTopBar'
 import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
 import AppDownloadPayCodeSheet from '../components/AppDownloadPayCodeSheet'
+import AppDownloadPersonalInvitation, {
+	parseInviteEoaFromAppTarget,
+} from '../components/AppDownloadPersonalInvitation'
 import {
 	loadAppDownloadVisitWalletProfile,
 	prepareVisitWalletForOpenClaim,
@@ -67,7 +69,12 @@ type PagePhase = 'checking' | 'install' | 'desktop'
 /** POS Check Balance claim button — same orange/red gradient. */
 const CLAIM_GRADIENT = 'linear-gradient(to bottom right, rgb(255,132,36), rgb(255,71,87))'
 
+function isPersonalInviteMeta(meta: CouponClaimShareMeta | null | undefined): boolean {
+	return meta?.shareKind === 'personal_invite'
+}
+
 function isCouponShareMeta(meta: CouponClaimShareMeta): boolean {
+	if (isPersonalInviteMeta(meta)) return false
 	return meta.distributionKind !== 'catalog'
 }
 
@@ -343,6 +350,7 @@ function CatalogShareMetadataBlock({
 }
 
 function isDiscoverMerchantMeta(meta: CouponClaimShareMeta): boolean {
+	if (meta.shareKind === 'personal_invite') return false
 	return meta.shareKind === 'discover_merchant' || meta.distributionKind === 'merchant'
 }
 
@@ -1115,10 +1123,37 @@ export default function AppDownloadPage() {
 		if (targetUrl) stashPendingConsumerDeepLink(targetUrl)
 	}, [targetUrl])
 
+	const inviteEoa = useMemo(() => {
+		const fromTarget = parseInviteEoaFromAppTarget(targetUrl)
+		if (fromTarget) return fromTarget
+		const fromMeta = shareMeta?.introducerEoa?.trim() || ''
+		if (fromMeta && ethers.isAddress(fromMeta)) {
+			try {
+				return ethers.getAddress(fromMeta)
+			} catch {
+				return fromMeta
+			}
+		}
+		return null
+	}, [targetUrl, shareMeta])
+
+	const showPersonalInvitation =
+		Boolean(inviteEoa) || isPersonalInviteMeta(shareMeta) || isPersonalInviteMeta(effectiveShareMeta)
+
+	/** Full landing URL for desktop QR — phone scan continues the same invite flow. */
+	const invitationQrValue = useMemo(() => {
+		if (typeof window === 'undefined') return shareUrl || targetUrl || ''
+		try {
+			return shareUrl || `${window.location.origin}${window.location.pathname}${location.search}`
+		} catch {
+			return shareUrl || targetUrl || ''
+		}
+	}, [shareUrl, targetUrl, location.search])
+
 	const couponOpenClaim = useMemo(() => parseCouponOpenClaimFromTarget(targetUrl), [targetUrl])
 
 	const couponPreview =
-		effectiveShareMeta && shareUrl ? (
+		effectiveShareMeta && shareUrl && !isPersonalInviteMeta(effectiveShareMeta) ? (
 			isDiscoverMerchantShare && discoverMerchantCardAddress ? (
 				<DiscoverMerchantShareDetail
 					cardAddress={discoverMerchantCardAddress}
@@ -1223,7 +1258,9 @@ export default function AppDownloadPage() {
 				className={`relative z-[1] w-full min-w-0 ${
 					isDiscoverMerchantShare
 						? 'max-w-none px-0 pb-0 pt-0 text-left'
-						: 'mx-auto max-w-lg px-4 pb-16 text-center sm:px-6'
+						: showPersonalInvitation
+							? 'mx-auto max-w-[1160px] px-4 pb-16 text-left sm:px-6'
+							: 'mx-auto max-w-lg px-4 pb-16 text-center sm:px-6'
 				}`}
 				style={
 					!isDiscoverMerchantShare && showAppDownloadTopBar
@@ -1260,7 +1297,8 @@ export default function AppDownloadPage() {
 								<div>
 									<h1 className="text-2xl font-bold tracking-tight text-slate-900">
 										{shareMeta
-											? shareMeta.shareKind === 'discover_merchant'
+											? shareMeta.shareKind === 'discover_merchant' ||
+												shareMeta.shareKind === 'personal_invite'
 												? 'Opening Beamio'
 												: 'Opening Beamio Coupon'
 											: 'Opening Beamio'}
@@ -1284,51 +1322,15 @@ export default function AppDownloadPage() {
 								{couponClaimActions}
 							</div>
 						) : null}
-						{!shareMeta ? (
-							<>
-								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
-									<Download className="h-8 w-8" />
-								</div>
-								<div>
-									<h1 className="text-3xl font-black tracking-tight text-slate-900">Install Beamio</h1>
-									<p className="mt-4 text-lg leading-relaxed text-slate-600">
-										The Beamio app is not installed on this device. Download it from your app store to manage
-										balances, programs, and tap-to-pay features.
-									</p>
-								</div>
-
-								<div className="mx-auto w-full max-w-xs space-y-3">
-									{isAndroidDevice() && (
-										<a
-											href={storeUrl}
-											target="_blank"
-											rel="noopener noreferrer"
-											onClick={onStoreBadgeClick}
-											className="flex justify-center transition-opacity hover:opacity-80"
-										>
-											<img
-												src="/google-play-badge.png"
-												alt="Get it on Google Play"
-												className="h-12 w-auto max-w-full"
-											/>
-										</a>
-									)}
-									<a
-										href={storeUrl}
-										onClick={(e) => {
-											e.preventDefault()
-											void openBeamioAppOrStore(location.search, {
-												deepLinkUrl: targetUrl,
-												pageSearch: location.search,
-											})
-										}}
-										className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#1562f0] px-6 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#1250c4]"
-									>
-										<Download className="h-4 w-4" />
-										Open app store
-									</a>
-								</div>
-							</>
+						{showPersonalInvitation ? (
+							<AppDownloadPersonalInvitation
+								variant="mobile"
+								qrValue={invitationQrValue}
+								inviteEoa={inviteEoa}
+								storeUrl={storeUrl}
+								onEnterBeamio={handleOpenInPwa}
+								onStoreBadgeClick={onStoreBadgeClick}
+							/>
 						) : null}
 					</div>
 				)}
@@ -1345,51 +1347,15 @@ export default function AppDownloadPage() {
 								{couponClaimActions}
 							</div>
 						) : null}
-						{!shareMeta ? (
-							<>
-								<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
-									<Smartphone className="h-8 w-8" />
-								</div>
-								<div>
-									<h1 className="text-3xl font-black tracking-tight text-slate-900">Get Beamio on mobile</h1>
-									<p className="mt-4 text-lg leading-relaxed text-slate-600">
-										Open this page on your phone to launch the Beamio app, or install it from the stores below.
-									</p>
-								</div>
-
-								<div className="mx-auto w-full max-w-xs space-y-3">
-									<a
-										href={BEAMIO_IOS_STORE_URL}
-										target="_blank"
-										rel="noopener noreferrer"
-										onClick={onStoreBadgeClick}
-										className="flex justify-center transition-opacity hover:opacity-80"
-									>
-										<img
-											src="/app-store-badge.png"
-											alt="Download Beamio on the App Store"
-											className="h-12 w-auto max-w-full"
-										/>
-									</a>
-									<a
-										href={
-											targetUrl
-												? buildPlayStoreUrlWithDeepLinkReferrer(targetUrl)
-												: BEAMIO_ANDROID_STORE_URL
-										}
-										target="_blank"
-										rel="noopener noreferrer"
-										onClick={onStoreBadgeClick}
-										className="flex justify-center transition-opacity hover:opacity-80"
-									>
-										<img
-											src="/google-play-badge.png"
-											alt="Get Beamio on Google Play"
-											className="h-12 w-auto max-w-full"
-										/>
-									</a>
-								</div>
-							</>
+						{showPersonalInvitation ? (
+							<AppDownloadPersonalInvitation
+								variant="desktop"
+								qrValue={invitationQrValue}
+								inviteEoa={inviteEoa}
+								storeUrl={storeUrl}
+								onEnterBeamio={handleOpenInPwa}
+								onStoreBadgeClick={onStoreBadgeClick}
+							/>
 						) : null}
 					</div>
 				)}
