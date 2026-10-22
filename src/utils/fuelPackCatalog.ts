@@ -1,12 +1,11 @@
-export type FuelPackId =
-	| 'genesis_starter'
-	| 'testing_waters'
-	| 'growth'
-	| 'enterprise'
-	| 'institutional'
+/**
+ * Mirror of x402sdk `fuelPackCatalog.ts` — homepage cannot import across subprojects.
+ * User UI: price + total B-Units only (see beamio-fuel-pack-display-no-paid-free).
+ */
+export type FuelPackId = 'starter' | 'growth' | 'business' | 'scale'
 
 export type FuelPackCatalogEntry = {
-	id: FuelPackId
+	id: string
 	name: string
 	usdcAmount: string
 	/** Checkout allocation only — UI must show paid+free as a single B-Units total. */
@@ -15,50 +14,48 @@ export type FuelPackCatalogEntry = {
 	firstTimeOnly?: boolean
 }
 
-/** Mirror of x402sdk `fuelPackCatalog.ts` — homepage cannot import across subprojects. */
 export const FUEL_PACK_CATALOG: FuelPackCatalogEntry[] = [
 	{
-		id: 'genesis_starter',
-		name: 'Newcomer Genesis Pack',
-		usdcAmount: '15',
-		paidBUnits: 1500,
-		freeBUnits: 500,
-		firstTimeOnly: true,
-	},
-	{
-		id: 'testing_waters',
-		name: 'Testing the Waters Pack',
+		id: 'starter',
+		name: 'Starter',
 		usdcAmount: '49',
 		paidBUnits: 4900,
 		freeBUnits: 245,
 	},
 	{
 		id: 'growth',
-		name: 'Growth Pack',
+		name: 'Growth',
 		usdcAmount: '199',
 		paidBUnits: 19900,
 		freeBUnits: 1990,
 	},
 	{
-		id: 'enterprise',
-		name: 'Enterprise Pack',
+		id: 'business',
+		name: 'Business',
 		usdcAmount: '999',
 		paidBUnits: 99900,
 		freeBUnits: 14985,
 	},
 	{
-		id: 'institutional',
-		name: 'Institutional Pack',
+		id: 'scale',
+		name: 'Scale',
 		usdcAmount: '4999',
 		paidBUnits: 499900,
 		freeBUnits: 99980,
 	},
 ]
 
+const FUEL_PACK_ID_ALIASES: Record<string, FuelPackId> = {
+	testing_waters: 'starter',
+	enterprise: 'business',
+	institutional: 'scale',
+}
+
 export function lookupFuelPack(raw: unknown): FuelPackCatalogEntry | null {
-	const id = String(raw ?? '')
+	let id = String(raw ?? '')
 		.trim()
 		.toLowerCase()
 	if (!id) return null
+	id = FUEL_PACK_ID_ALIASES[id] ?? id
 	return FUEL_PACK_CATALOG.find((p) => p.id === id) ?? null
 }

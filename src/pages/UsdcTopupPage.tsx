@@ -97,7 +97,7 @@ type TopupParams = {
 	paymentToken: 'USDC' | 'CADD'
 	/** Evangelist L0 EOA (optional Genesis share attribution). */
 	referrerL0: string
-	/** Custom Fuel catalog id (`genesis_starter`, …); empty for custom USDC amount. */
+	/** Custom Fuel catalog id (`starter`, `growth`, …); empty for custom USDC amount. */
 	packId: string
 	/** Discover membership first-issue / upgrade (treasuryBridge). */
 	membershipTierIndex: number | null
