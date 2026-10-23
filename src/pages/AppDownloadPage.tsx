@@ -6,11 +6,15 @@ import {
 	attemptOpenNativeBeamioApp,
 	BEAMIO_ANDROID_STORE_URL,
 	BEAMIO_IOS_STORE_URL,
+	buildAndroidSilentProbeMissUrl,
+	consumeAndroidSilentProbeMiss,
 	isAndroidDevice,
 	isBeamioNativeShell,
 	isIosDevice,
 	isMobileDevice,
+	markConsumerAppInstalledHint,
 	openBeamioAppOrStore,
+	resolveAndroidConsumerAppLikelyInstalled,
 	shouldSkipSilentNativeAppProbe,
 } from '../utils/nativeAppDownload'
 import {
@@ -49,6 +53,7 @@ import AppDownloadMyWalletPanel from '../components/AppDownloadMyWalletPanel'
 import AppDownloadPayCodeSheet from '../components/AppDownloadPayCodeSheet'
 import AppDownloadPersonalInvitation, {
 	parseInviteEoaFromAppTarget,
+	type InvitationCtaMode,
 } from '../components/AppDownloadPersonalInvitation'
 import {
 	loadAppDownloadVisitWalletProfile,
@@ -831,6 +836,8 @@ export default function AppDownloadPage() {
 	const [payCodeOpen, setPayCodeOpen] = useState(false)
 	const [couponPayReady, setCouponPayReady] = useState(false)
 	const [openInAppBusy, setOpenInAppBusy] = useState(false)
+	/** Android silent probe detected Consumer installed (result === 'opened'). */
+	const [consumerAppLikelyInstalled, setConsumerAppLikelyInstalled] = useState(false)
 	const redirectingToInnerTarget = Boolean(targetUrl && shouldRedirectToInnerAppTarget())
 	const shareClickStartedRef = useRef(false)
 	const { opacity: capsuleOpacity } = useScrollCapsuleOpacity(true, 'window')
@@ -1059,10 +1066,11 @@ export default function AppDownloadPage() {
 	}, [myWalletOpen])
 
 	/**
-	 * Merchant / coupon share landings:
-	 * 1) Silently probe Consumer Beamio (not SoftPOS) — if installed, wake it with deep link.
-	 * 2) If missing (or in-app browser where silent probe would show a system sheet) → Open in App UI.
-	 * 3) Open in App → try native Consumer app first; App Store only if not installed.
+	 * Merchant / coupon / invitation landings (Android):
+	 * 0) Intent miss redirect (`?beamioNativeMiss=`) → store (definitive not installed).
+	 * 1) Digital Asset Links + `getInstalledRelatedApps` / localStorage latch.
+	 * 2) Else silent Intent + same-origin miss URL (no Play jump).
+	 * iOS / in-app browsers skip silent probe → store badges.
 	 */
 	useLayoutEffect(() => {
 		if (redirectingToInnerTarget) return
@@ -1071,40 +1079,67 @@ export default function AppDownloadPage() {
 
 		void (async () => {
 			if (!isMobileDevice()) {
+				setConsumerAppLikelyInstalled(false)
 				setPhase('desktop')
 				return
 			}
 
 			if (isIosDevice() && !targetUrl) {
+				setConsumerAppLikelyInstalled(false)
 				window.location.replace(BEAMIO_IOS_STORE_URL)
 				return
 			}
 
-			if (!targetUrl) {
+			/** Intent miss fallback landed here — Consumer not installed. */
+			if (isAndroidDevice() && consumeAndroidSilentProbeMiss(location.search)) {
+				setConsumerAppLikelyInstalled(false)
 				setPhase('install')
 				return
 			}
 
-			/** iOS / Telegram / in-app: skip silent `beamio://` (iOS cannot pin Consumer; POS used to claim it). */
+			/** iOS / Telegram / in-app: skip silent probe (iOS cannot pin Consumer). */
 			if (shouldSkipSilentNativeAppProbe()) {
+				setConsumerAppLikelyInstalled(false)
 				setPhase('install')
 				return
 			}
 
 			setPhase('checking')
 			window.scrollTo(0, 0)
+
+			/**
+			 * Invitation CTA needs install detection without a share target.
+			 * Sideloaded Consumer APKs often get relatedApps `[]` — do not skip Intent when
+			 * latch is empty; probe even without `?target=`.
+			 */
+			const relatedOrHint = await resolveAndroidConsumerAppLikelyInstalled()
+			if (cancelled) return
+			if (relatedOrHint) {
+				setConsumerAppLikelyInstalled(true)
+				setPhase('install')
+				return
+			}
+
+			/**
+			 * Silent probe: iframe `beamio://` then Intent + same-origin miss URL.
+			 * installed → finish('opened') latches immediately (survives frozen tab);
+			 * missing → reload with beamioNativeMiss (handled above; clears latch).
+			 */
+			const { failUrl } = buildAndroidSilentProbeMissUrl(window.location.href)
 			const result = await attemptOpenNativeBeamioApp(location.search, {
-				useLocationNavigation: false,
-				timeoutMs: 2200,
+				useLocationNavigation: true,
+				timeoutMs: 3200,
 				storeFallback: false,
+				browserFallbackUrl: failUrl,
 			})
 			if (cancelled) return
 			if (result === 'opened') {
-				window.setTimeout(() => {
-					if (!cancelled) setPhase('install')
-				}, 3500)
+				markConsumerAppInstalledHint()
+				setConsumerAppLikelyInstalled(true)
+				setPhase('install')
 				return
 			}
+			setConsumerAppLikelyInstalled(false)
 			setPhase('install')
 		})()
 
@@ -1112,6 +1147,29 @@ export default function AppDownloadPage() {
 			cancelled = true
 		}
 	}, [location.search, redirectingToInnerTarget, targetUrl])
+
+	/**
+	 * After silent Intent opens the app, Chrome often freezes the tab before React
+	 * paints `open_app`. On return, re-read latch / relatedApps so CTA flips.
+	 */
+	useEffect(() => {
+		if (redirectingToInnerTarget || !isAndroidDevice()) return
+		const refreshInstalledHint = () => {
+			if (document.visibilityState !== 'visible') return
+			void resolveAndroidConsumerAppLikelyInstalled().then((ok) => {
+				if (ok) {
+					setConsumerAppLikelyInstalled(true)
+					setPhase((p) => (p === 'checking' || p === 'install' ? 'install' : p))
+				}
+			})
+		}
+		document.addEventListener('visibilitychange', refreshInstalledHint)
+		window.addEventListener('focus', refreshInstalledHint)
+		return () => {
+			document.removeEventListener('visibilitychange', refreshInstalledHint)
+			window.removeEventListener('focus', refreshInstalledHint)
+		}
+	}, [redirectingToInnerTarget])
 
 	const storeUrl = isIosDevice()
 		? BEAMIO_IOS_STORE_URL
@@ -1123,9 +1181,27 @@ export default function AppDownloadPage() {
 		if (targetUrl) stashPendingConsumerDeepLink(targetUrl)
 	}, [targetUrl])
 
+	const invitationCtaMode: InvitationCtaMode = useMemo(() => {
+		if (!isMobileDevice()) return 'enter_pwa'
+		if (consumerAppLikelyInstalled) return 'open_app'
+		return 'store'
+	}, [consumerAppLikelyInstalled])
+
 	const inviteEoa = useMemo(() => {
 		const fromTarget = parseInviteEoaFromAppTarget(targetUrl)
 		if (fromTarget) return fromTarget
+		/** Also allow `?invite=0x…` on the app-download URL itself (not only nested target). */
+		try {
+			const raw =
+				new URLSearchParams(location.search).get('invite')?.trim() ||
+				new URLSearchParams(location.search).get('Invite')?.trim() ||
+				''
+			if (raw && /^0x[0-9a-fA-F]{40}$/.test(raw)) {
+				return ethers.getAddress(raw)
+			}
+		} catch {
+			/* ignore */
+		}
 		const fromMeta = shareMeta?.introducerEoa?.trim() || ''
 		if (fromMeta && ethers.isAddress(fromMeta)) {
 			try {
@@ -1135,10 +1211,25 @@ export default function AppDownloadPage() {
 			}
 		}
 		return null
-	}, [targetUrl, shareMeta])
+	}, [targetUrl, shareMeta, location.search])
+
+	/**
+	 * Show `#beamio-invitation` when:
+	 * - invite EOA / personal_invite meta, or
+	 * - hash `#beamio-invitation`, or
+	 * - plain /app-download with no merchant/coupon share (empty target → was a blank #f8fafc shell).
+	 */
+	const invitationHashActive =
+		location.hash === '#beamio-invitation' || location.hash.replace(/^#/, '') === 'beamio-invitation'
 
 	const showPersonalInvitation =
-		Boolean(inviteEoa) || isPersonalInviteMeta(shareMeta) || isPersonalInviteMeta(effectiveShareMeta)
+		!isDiscoverMerchantShare &&
+		!couponShareCardAddress &&
+		(Boolean(inviteEoa) ||
+			isPersonalInviteMeta(shareMeta) ||
+			isPersonalInviteMeta(effectiveShareMeta) ||
+			invitationHashActive ||
+			!targetUrl)
 
 	/** Full landing URL for desktop QR — phone scan continues the same invite flow. */
 	const invitationQrValue = useMemo(() => {
@@ -1327,7 +1418,9 @@ export default function AppDownloadPage() {
 								variant="mobile"
 								qrValue={invitationQrValue}
 								inviteEoa={inviteEoa}
+								ctaMode={invitationCtaMode}
 								storeUrl={storeUrl}
+								onOpenApp={handleOpenInApp}
 								onEnterBeamio={handleOpenInPwa}
 								onStoreBadgeClick={onStoreBadgeClick}
 							/>
@@ -1352,7 +1445,9 @@ export default function AppDownloadPage() {
 								variant="desktop"
 								qrValue={invitationQrValue}
 								inviteEoa={inviteEoa}
+								ctaMode="enter_pwa"
 								storeUrl={storeUrl}
+								onOpenApp={handleOpenInApp}
 								onEnterBeamio={handleOpenInPwa}
 								onStoreBadgeClick={onStoreBadgeClick}
 							/>

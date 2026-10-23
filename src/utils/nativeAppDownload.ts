@@ -11,6 +11,148 @@ export const BEAMIO_IOS_STORE_URL =
 	'https://apps.apple.com/us/app/beamio-smart-local-pass/id6755375110'
 
 /**
+ * Local hint that Consumer was opened from this origin (user gesture or relatedApps).
+ * Cleared only after a **user-gesture** native open fails (see `openBeamioAppOrStore`).
+ * Do **not** clear on relatedApps `[]` — sideloaded / non-Play APKs often return a false empty
+ * from Chrome (Play Statement List API cannot see asset_statements).
+ */
+const CONSUMER_APP_INSTALLED_LS_KEY = 'beamio:consumerAppInstalled:v1'
+/** Silent Intent probe: Play-free miss redirect token (sessionStorage). */
+const NATIVE_PROBE_TOKEN_SS_KEY = 'beamio:nativeProbeToken:v1'
+export const BEAMIO_NATIVE_PROBE_MISS_PARAM = 'beamioNativeMiss'
+
+type RelatedAppsInstalledResult =
+	| 'installed'
+	| 'not_installed'
+	| 'unsupported'
+	| 'error'
+
+function readConsumerAppInstalledHint(): boolean {
+	try {
+		return window.localStorage.getItem(CONSUMER_APP_INSTALLED_LS_KEY) === '1'
+	} catch {
+		return false
+	}
+}
+
+/** Persist after a successful native open or trusted relatedApps hit. */
+export function markConsumerAppInstalledHint(): void {
+	try {
+		window.localStorage.setItem(CONSUMER_APP_INSTALLED_LS_KEY, '1')
+	} catch {
+		/* private mode / quota */
+	}
+}
+
+/** Clear install latch after a user-gesture open attempt fails (likely uninstalled). */
+export function clearConsumerAppInstalledHint(): void {
+	try {
+		window.localStorage.removeItem(CONSUMER_APP_INSTALLED_LS_KEY)
+	} catch {
+		/* ignore */
+	}
+}
+
+/**
+ * Build same-origin fail URL for silent Android Intent (`S.browser_fallback_url`).
+ * When Consumer is missing, Chrome loads this URL instead of Play Store.
+ */
+export function buildAndroidSilentProbeMissUrl(currentHref: string): {
+	failUrl: string
+	token: string
+} {
+	const token = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+	try {
+		window.sessionStorage.setItem(NATIVE_PROBE_TOKEN_SS_KEY, token)
+	} catch {
+		/* private mode */
+	}
+	const u = new URL(currentHref, window.location.origin)
+	u.searchParams.set(BEAMIO_NATIVE_PROBE_MISS_PARAM, token)
+	return { failUrl: u.toString(), token }
+}
+
+/**
+ * True when this load is the Intent miss redirect (app not installed).
+ * Consumes the session token so a refresh does not keep forcing store mode.
+ */
+export function consumeAndroidSilentProbeMiss(search: string): boolean {
+	if (typeof window === 'undefined') return false
+	try {
+		const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+		const miss = params.get(BEAMIO_NATIVE_PROBE_MISS_PARAM)?.trim() || ''
+		if (!miss) return false
+		const expected = window.sessionStorage.getItem(NATIVE_PROBE_TOKEN_SS_KEY) || ''
+		window.sessionStorage.removeItem(NATIVE_PROBE_TOKEN_SS_KEY)
+		try {
+			const u = new URL(window.location.href)
+			u.searchParams.delete(BEAMIO_NATIVE_PROBE_MISS_PARAM)
+			window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`)
+		} catch {
+			/* ignore */
+		}
+		clearConsumerAppInstalledHint()
+		return !expected || miss === expected
+	} catch {
+		return false
+	}
+}
+
+type RelatedApplicationLike = { id?: string; platform?: string; url?: string }
+
+/**
+ * Chrome Android: Digital Asset Links + manifest `related_applications`
+ * → `navigator.getInstalledRelatedApps()` (no Intent / no focus steal).
+ */
+async function queryAndroidConsumerViaRelatedApps(): Promise<RelatedAppsInstalledResult> {
+	if (typeof navigator === 'undefined') return 'unsupported'
+	const nav = navigator as Navigator & {
+		getInstalledRelatedApps?: () => Promise<RelatedApplicationLike[]>
+	}
+	if (typeof nav.getInstalledRelatedApps !== 'function') return 'unsupported'
+	try {
+		/** Cap wait — hanging relatedApps left phase=checking / blank CTA forever. */
+		const RELATED_APPS_TIMEOUT_MS = 2500
+		const apps = await Promise.race([
+			nav.getInstalledRelatedApps(),
+			new Promise<RelatedApplicationLike[]>((_, reject) => {
+				window.setTimeout(() => reject(new Error('relatedApps_timeout')), RELATED_APPS_TIMEOUT_MS)
+			}),
+		])
+		if (!Array.isArray(apps)) return 'error'
+		const hit = apps.some((app) => {
+			const id = String(app?.id || '').trim()
+			const url = String(app?.url || '')
+			return (
+				id === BEAMIO_ANDROID_PACKAGE ||
+				url.includes(`id=${BEAMIO_ANDROID_PACKAGE}`) ||
+				url.includes(`id%3D${BEAMIO_ANDROID_PACKAGE}`)
+			)
+		})
+		return hit ? 'installed' : 'not_installed'
+	} catch {
+		return 'error'
+	}
+}
+
+/**
+ * Resolve whether Android Consumer is likely installed for invitation CTA.
+ * Prefer relatedApps hit; on empty/error keep localStorage latch (sideload-safe).
+ * Intent probe remains a separate fallback in AppDownloadPage.
+ */
+export async function resolveAndroidConsumerAppLikelyInstalled(): Promise<boolean> {
+	if (typeof window === 'undefined') return false
+	if (!isAndroidDevice() || isIosDevice()) return false
+	const related = await queryAndroidConsumerViaRelatedApps()
+	if (related === 'installed') {
+		markConsumerAppInstalledHint()
+		return true
+	}
+	/** Empty relatedApps is often a false negative for sideloaded Consumer APKs — keep latch. */
+	return readConsumerAppInstalledHint()
+}
+
+/**
  * Consumer custom scheme (`CashTrees_iOS` / CaehTrees, bundle `com.beamio.beamio`).
  * BeamioPOS must use `beamiopos://` only — iOS cannot pin a bundle ID on a custom scheme,
  * so a shared `beamio://` opens POS when Consumer is not installed.
@@ -181,10 +323,11 @@ export function buildBeamioOpenUrl(search: string): string {
  */
 export function buildAndroidIntentOpenUrl(
 	search: string,
-	options: { storeFallback?: boolean } = {},
+	options: { storeFallback?: boolean; browserFallbackUrl?: string | null } = {},
 ): string {
 	const query = buildBeamioOpenQuery(search)
 	const intentPath = query ? `open?${query}` : 'open'
+	const customFallback = options.browserFallbackUrl?.trim() || ''
 	const storeFallback = options.storeFallback !== false
 	const parts = [
 		`intent://${intentPath}#Intent;`,
@@ -192,7 +335,9 @@ export function buildAndroidIntentOpenUrl(
 		`package=${BEAMIO_ANDROID_PACKAGE};`,
 		`action=android.intent.action.VIEW;`,
 	]
-	if (storeFallback) {
+	if (customFallback) {
+		parts.push(`S.browser_fallback_url=${encodeURIComponent(customFallback)};`)
+	} else if (storeFallback) {
 		const deepLink = resolveBeamioAppTargetFromSearch(search)
 		const storeUrl = deepLink
 			? buildPlayStoreUrlWithDeepLinkReferrer(deepLink)
@@ -212,19 +357,28 @@ export type AttemptOpenNativeBeamioAppOptions = {
 	timeoutMs?: number
 	/**
 	 * When true (default), Android Intent includes Play Store `browser_fallback_url`.
-	 * Set false for silent install probes — missing app must NOT jump to the store.
+	 * Set false for silent install probes — missing app must NOT jump to the store
+	 * (unless `browserFallbackUrl` is set to a same-origin miss URL).
 	 */
 	storeFallback?: boolean
+	/**
+	 * Override Intent `S.browser_fallback_url` (e.g. same-origin `?beamioNativeMiss=`).
+	 * When set, wins over Play Store fallback.
+	 */
+	browserFallbackUrl?: string | null
 }
 
 function waitForNativeAppOpenOrTimeout(
 	openUrl: string,
 	timeoutMs: number,
 	useLocationNavigation: boolean,
+	options: { ignorePageHide?: boolean } = {},
 ): Promise<NativeAppOpenResult> {
 	return new Promise((resolve) => {
 		let settled = false
 		let iframe: HTMLIFrameElement | null = null
+		/** Miss-URL Intent: pagehide also fires on same-origin fallback nav — do not latch. */
+		const ignorePageHide = Boolean(options.ignorePageHide)
 
 		const cleanup = () => {
 			document.removeEventListener('visibilitychange', onVisibility)
@@ -239,13 +393,22 @@ function waitForNativeAppOpenOrTimeout(
 			settled = true
 			window.clearTimeout(timer)
 			cleanup()
+			/**
+			 * Latch immediately on opened — Chrome often freezes the tab after the
+			 * native app takes focus, so callers may never run post-await code.
+			 */
+			if (result === 'opened') {
+				markConsumerAppInstalledHint()
+			}
 			resolve(result)
 		}
 
 		const onVisibility = () => {
 			if (document.visibilityState === 'hidden') finish('opened')
 		}
-		const onPageHide = () => finish('opened')
+		const onPageHide = () => {
+			if (!ignorePageHide) finish('opened')
+		}
 		const onBlur = () => finish('opened')
 		const timer = window.setTimeout(() => finish('not_installed'), timeoutMs)
 
@@ -282,6 +445,47 @@ export async function attemptOpenNativeBeamioApp(
 	const useLocationNavigation = Boolean(options.useLocationNavigation)
 
 	if (isAndroidDevice()) {
+		const browserFallbackUrl = options.browserFallbackUrl?.trim() || ''
+		/**
+		 * Silent install probe with same-origin miss URL:
+		 * Intent `package=com.beamio.app` + `S.browser_fallback_url` → invite page
+		 * with `beamioNativeMiss`. Installed → app opens (visibility → opened + latch).
+		 * Missing → Chrome loads miss URL (consumeAndroidSilentProbeMiss → store).
+		 * Prefer Intent over bare `beamio://` so miss is definite (not a timeout guess).
+		 */
+		if (browserFallbackUrl && useLocationNavigation) {
+			/**
+			 * Silent install probe (invitation CTA):
+			 * 1) Hidden iframe `beamio://` — often blurs when Consumer is installed
+			 *    even without a user gesture (Intent top-level may be gesture-gated).
+			 * 2) Top-level Intent + same-origin miss URL — installed opens the app;
+			 *    missing reloads with `beamioNativeMiss` (consume clears any latch).
+			 *
+			 * Do **not** ignore pagehide: Chrome often only fires pagehide when the
+			 * app takes focus (visibility/blur may never run before the tab freezes).
+			 * Miss redirects also fire pagehide, but the miss page clears the latch.
+			 */
+			const schemeResult = await waitForNativeAppOpenOrTimeout(
+				buildBeamioOpenUrl(search),
+				Math.min(1800, timeoutMs),
+				false,
+			)
+			if (schemeResult === 'opened') return 'opened'
+
+			const openUrl = buildAndroidIntentOpenUrl(search, {
+				storeFallback: false,
+				browserFallbackUrl,
+			})
+			return waitForNativeAppOpenOrTimeout(openUrl, timeoutMs, true)
+		}
+		/**
+		 * User-gesture Open without Play auto-jump: try `beamio://open` first.
+		 * Chrome honors custom-scheme navigation more reliably with a tap than
+		 * auto `intent://` without gesture.
+		 */
+		if (!storeFallback && useLocationNavigation) {
+			return waitForNativeAppOpenOrTimeout(buildBeamioOpenUrl(search), timeoutMs, true)
+		}
 		const openUrl = buildAndroidIntentOpenUrl(search, { storeFallback })
 		if (storeFallback && useLocationNavigation) {
 			window.location.href = openUrl
@@ -292,8 +496,18 @@ export async function attemptOpenNativeBeamioApp(
 
 	if (isIosDevice()) {
 		// Do not navigate to `beamio://` on iOS. POS historically claimed the same
-		// scheme; iOS would open BeamioPOS when Consumer was missing. Universal
-		// Links + App Store are the Consumer-only paths.
+		// scheme; iOS would open BeamioPOS when Consumer was missing.
+		// User gesture: try Universal Link (`https://beamio.app/app/…`); if the app
+		// does not take focus, callers fall through to App Store.
+		if (useLocationNavigation) {
+			const fromSearch = resolveBeamioAppTargetFromSearch(search)
+			const openUrl =
+				fromSearch ||
+				(typeof window !== 'undefined'
+					? `${window.location.origin}/app/`
+					: 'https://beamio.app/app/')
+			return waitForNativeAppOpenOrTimeout(openUrl, timeoutMs, true)
+		}
 		return 'not_installed'
 	}
 
@@ -336,9 +550,9 @@ export type OpenBeamioAppOrStoreOptions = OpenBeamioAppStoreOptions & {
 }
 
 /**
- * 「Open in App」 CTA (user gesture):
+ * 「Open Beamio App」 / 「Open in App」 CTA (user gesture):
  * 1. Stash deep link (merchant/coupon + `ref=`)
- * 2. Android: Intent `package=com.beamio.app`. iOS: skip custom scheme (App Store / Universal Links).
+ * 2. Android: Intent `package=com.beamio.app`. iOS: Universal Link to `/app/…` (never `beamio://`).
  * 3. Only if the page stays in the foreground → open App Store / Play Store
  *
  * Unlike page-load silent probe, this always attempts open (including Telegram) because the
@@ -367,12 +581,17 @@ export async function openBeamioAppOrStore(
 		storeFallback: false,
 	})
 
-	if (result === 'opened') return 'opened'
+	if (result === 'opened') {
+		markConsumerAppInstalledHint()
+		return 'opened'
+	}
 	if (result === 'desktop') {
 		openBeamioAppStore({ ...options, pageSearch })
 		return 'desktop'
 	}
 
+	/** User gesture failed to open native app — trust uninstall / not installed over latch. */
+	clearConsumerAppInstalledHint()
 	openBeamioAppStore({ ...options, pageSearch })
 	return 'store'
 }
