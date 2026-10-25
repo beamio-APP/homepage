@@ -31,6 +31,8 @@ import {
 import { scrollToPageSection } from '../utils/scrollToPageSection'
 
 const gitbook = 'https://gitbook.conet.network/'
+const gbWhitepaper = 'https://gitbook.conet.network/l1/gb-whitepaper.html'
+const gbAmmWhitepaper = 'https://gitbook.conet.network/l1/gb-amm-whitepaper.html'
 
 const layers = [
     {
@@ -233,9 +235,10 @@ const aiCoordination = [
  * Homepage economics separates the L0 cloud-resource economy from
  * the L1 network-security economy.
  *
- * GB is the L0 service/reward/settlement asset. Its reference value is
- * designed around measurable cloud-resource purchasing power such as
- * 1 GB of forwarded data and 1 GB-month of storage.
+ * GB is the L0 payment token for measurable cloud services. In the
+ * proposed design (GB whitepaper v0.3, DAO discussion draft), the standard
+ * service price is 1 GB per 1 GB of traffic, and paid GB is issued and
+ * exited against conet-USDC at a DAO-voted official rate.
  *
  * $CNET is the native L1 gas/security asset used for consensus,
  * governance and state settlement.
@@ -1281,7 +1284,7 @@ export default function BeamioProtocolPage() {
                             </h2>
 
                             <p className="mt-5 leading-7 text-slate-400">
-                                CoNET separates decentralized-cloud resource economics from L1 network-security economics. GB is the L0 service, provider-reward, accounting, and settlement asset for measurable cloud resources. $CNET is the native L1 gas and security asset for consensus, governance, and shared state.
+                                CoNET separates decentralized-cloud resource economics from L1 network-security economics. GB is the L0 payment token for measurable cloud services. $CNET is the native L1 gas and security asset for consensus, governance, and shared state.
                             </p>
                         </div>
 
@@ -1304,52 +1307,78 @@ export default function BeamioProtocolPage() {
                                     </h3>
 
                                     <span className="text-sm font-semibold text-cyan-200">
-                                        service · reward · settlement
+                                        payment · settlement · exit
                                     </span>
                                 </div>
 
                                 <p className="mt-4 text-sm leading-6 text-slate-400">
-                                    Decentralized cloud providers earn GB for useful forwarding, storage, service-hosting, and compute work. Applications use GB to account for and settle the L0 resources they consume.
+                                    Users pay providers in GB for delivered forwarding, storage, hosting, and compute. The proposed design has two classes: paid GB, which can be transferred, traded, and exited, and free GB, which can only be spent on services.
                                 </p>
 
                                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                                     <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                                         <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                                            Forwarding reference
+                                            Standard price
                                         </p>
 
                                         <p className="mt-2 text-lg font-semibold text-white">
-                                            1 GB transferred
+                                            1 GB per 1 GB of traffic
                                         </p>
 
                                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                                            A measurable unit for decentralized data-forwarding cost.
+                                            Providers set their own markup or discount from the standard price.
                                         </p>
                                     </div>
 
                                     <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                                         <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                                            Storage reference
+                                            Official rate
                                         </p>
 
                                         <p className="mt-2 text-lg font-semibold text-white">
-                                            1 GB / month
+                                            R conet-USDC per GB
                                         </p>
 
                                         <p className="mt-1 text-xs leading-5 text-slate-500">
-                                            A measurable GB-month unit for persistent storage cost.
+                                            Set by DAO vote. Paid GB is issued by burning conet-USDC and exits back to it, with a 0.1% fee each way.
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="mt-6 rounded-xl border border-cyan-300/10 bg-cyan-300/[0.04] p-4">
                                     <p className="text-xs font-bold uppercase tracking-[0.12em] text-cyan-200">
-                                        Resource-referenced value
+                                        Reserve-backed, not fiat-pegged
                                     </p>
 
                                     <p className="mt-2 text-sm leading-6 text-slate-400">
-                                        GB is designed around cloud-resource purchasing power. Its reference value follows measurable cloud-service costs such as forwarded data and GB-month storage, rather than being described as a fiat-pegged stablecoin.
+                                        In the proposed design, each paid GB is backed by Base USDC when issued. Issuance and exit arbitrage, plus capped treasury market operations (AMO), keep its market price near the official rate. R can change by vote within set limits, so GB is not a fixed dollar value. This design is a DAO discussion draft and is not deployed.
                                     </p>
+                                </div>
+
+                                <div className="mt-6 flex flex-wrap gap-x-5 gap-y-3">
+                                    <SiteExternalLink
+                                        href={gbWhitepaper}
+                                        className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100"
+                                    >
+                                        GB whitepaper (draft)
+
+                                        <ArrowRight
+                                            className="h-4 w-4"
+                                            aria-hidden="true"
+                                        />
+                                    </SiteExternalLink>
+
+                                    <SiteExternalLink
+                                        href={gbAmmWhitepaper}
+                                        className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-100"
+                                    >
+                                        GB AMM whitepaper (draft)
+
+                                        <ArrowRight
+                                            className="h-4 w-4"
+                                            aria-hidden="true"
+                                        />
+                                    </SiteExternalLink>
                                 </div>
                             </article>
 
@@ -1451,7 +1480,7 @@ export default function BeamioProtocolPage() {
                                 </h3>
 
                                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                                    Applications consume decentralized cloud resources in the L0 economy, where GB accounts for useful service work. CoNET L1 provides shared state, gas, consensus security, and protocol-level settlement through $CNET.
+                                    Applications consume decentralized cloud resources in the L0 economy, where users pay for service work in GB. CoNET L1 provides shared state, gas, consensus security, and protocol-level settlement through $CNET.
                                 </p>
                             </div>
 
@@ -1466,11 +1495,11 @@ export default function BeamioProtocolPage() {
                                     </h4>
 
                                     <p className="mt-2 text-sm leading-6 text-slate-400">
-                                        Providers contribute measurable decentralized-cloud resources and receive GB for useful service work.
+                                        Providers deliver measurable decentralized-cloud resources and are paid in GB for completed service work.
                                     </p>
 
                                     <div className="mt-4 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-semibold text-cyan-100">
-                                        GB · resource accounting and settlement
+                                        GB · service payment and settlement
                                     </div>
                                 </div>
 
@@ -1514,7 +1543,7 @@ export default function BeamioProtocolPage() {
                                 </h3>
 
                                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                                    GB provides a resource-oriented unit for cloud providers and applications. $CNET remains the scarce native asset that secures CoNET L1. Separating these roles avoids forcing volatile L1 security economics directly into ordinary cloud-resource pricing.
+                                    GB is the payment unit for cloud providers and applications. $CNET remains the scarce native asset that secures CoNET L1. Separating these roles avoids forcing volatile L1 security economics directly into ordinary cloud-resource pricing.
                                 </p>
                             </div>
 
@@ -1524,11 +1553,11 @@ export default function BeamioProtocolPage() {
                                 </p>
 
                                 <h3 className="mt-2 text-xl font-semibold text-white">
-                                    GB is resource-referenced, not fiat-pegged.
+                                    GB is priced against services and an official rate, not a fiat peg.
                                 </h3>
 
                                 <p className="mt-3 text-sm leading-6 text-slate-400">
-                                    The intended stability comes from anchoring the service economy to real cloud-resource units and market costs. Forwarding, storage, and other L0 services can therefore be priced against measurable infrastructure consumption rather than an arbitrary token quantity.
+                                    Services are priced in GB from a standard of 1 GB per 1 GB of traffic. In the proposed design, the DAO-voted official rate R links paid GB to conet-USDC for issuance and exit. Market prices can still move outside that band, for example if reserves are restricted.
                                 </p>
                             </div>
                         </div>
@@ -1566,7 +1595,7 @@ export default function BeamioProtocolPage() {
                                                 <strong className="text-slate-200">
                                                     Validator economics:
                                                 </strong>{' '}
-                                                should be read separately from L0 provider rewards. GB rewards useful decentralized-cloud work; CNET staking secures L1 consensus.
+                                                should be read separately from L0 provider rewards. GB pays for useful decentralized-cloud work; CNET staking secures L1 consensus.
                                             </li>
 
                                             <li>
@@ -1633,7 +1662,7 @@ export default function BeamioProtocolPage() {
                                 </div>
 
                                 <p className="mt-5 text-xs leading-5 text-slate-500">
-                                    Resource prices, token values, economic parameters, allocations, emission projections, and burn scenarios may change. GB should be described as resource-referenced rather than as a guaranteed fiat peg. $CNET economic figures should not be interpreted as guaranteed investment returns or financial advice. Live contract state and current published governance decisions take precedence.
+                                    Resource prices, token values, economic parameters, allocations, emission projections, and burn scenarios may change. GB is not a fiat-pegged stablecoin, and the GB and GB AMM whitepapers are DAO discussion drafts, not deployed rules. $CNET economic figures should not be interpreted as guaranteed investment returns or financial advice. Live contract state and current published governance decisions take precedence.
                                 </p>
                             </div>
                         </details>
