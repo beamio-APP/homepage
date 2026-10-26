@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 
 import {
+    ArrowLeftRight,
     ArrowRight,
     Blocks,
     Bot,
@@ -106,6 +107,15 @@ const applications = [
             'https://gitbook.conet.network/applications/privacy-first-ai.html',
         icon: Bot,
         status: 'Design direction',
+    },
+    {
+        title: 'Order-book Exchange',
+        copy:
+            'A non-custodial order book on CoNET-DLE. Users freeze their own DLE balances instead of depositing them, miner committees split and match orders in batch auctions, and anyone can open a liquidity pool for a fast lane. It depends on DLE components that are not yet live.',
+        href:
+            'https://gitbook.conet.network/applications/miner-orderbook-dex-whitepaper.html',
+        icon: ArrowLeftRight,
+        status: 'Whitepaper draft',
     },
 ]
 
