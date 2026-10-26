@@ -109,13 +109,13 @@ const applications = [
         status: 'Design direction',
     },
     {
-        title: 'Order-book Exchange',
+        title: 'Miner-matched Order-book Exchange',
         copy:
-            'A non-custodial order book on CoNET-DLE. Users freeze their own DLE balances instead of depositing them, miner committees split and match orders in batch auctions, and anyone can open a liquidity pool for a fast lane. It depends on DLE components that are not yet live.',
+            'A non-custodial order book on CoNET-DLE. Users freeze their own DLE balances instead of depositing them. Idle miners that stake CNET race to match orders for a fee, while consensus miners recompute and confirm each batch. Markets, orders and settlement run on separate DLE chains, so capacity grows with miners. Anyone can open a liquidity pool for a fast lane. It depends on DLE components that are not yet live.',
         href:
             'https://gitbook.conet.network/applications/miner-orderbook-dex-whitepaper.html',
         icon: ArrowLeftRight,
-        status: 'Whitepaper draft',
+        status: 'Whitepaper draft · not deployed',
     },
 ]
 
