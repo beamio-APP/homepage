@@ -136,7 +136,7 @@ export default function BeamioLandingPage() {
 					<span className="text-[15px] font-bold tracking-tight">Beamio</span>
 				</Link>
 				<ExternalLink
-					href="https://biz.beamio.app/"
+					href="https://biz.beamio.ca/"
 					className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-[#171717] px-4 py-3 text-sm font-semibold text-white shadow-[0_4px_24px_rgba(15,23,42,0.12)] transition-colors hover:bg-[#2f73e0]"
 					style={{ pointerEvents: capsulePointerEvents }}
 				>
@@ -163,10 +163,10 @@ export default function BeamioLandingPage() {
 								Bring stablecoin settlement, Stripe payments, and Reward PT into one merchant program. Supported flows keep customer signing authority and merchant payment accounts distinct from Beamio&apos;s application, relay, and program services.
 							</p>
 							<div className="mt-9 flex flex-wrap gap-3">
-								<ExternalLink href="https://biz.beamio.app/" className="inline-flex items-center gap-2 rounded-full bg-[#171717] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#2f73e0]">
+								<ExternalLink href="https://biz.beamio.ca/" className="inline-flex items-center gap-2 rounded-full bg-[#171717] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#2f73e0]">
 									Start with Merchant OS <ArrowRight className="h-4 w-4" aria-hidden />
 								</ExternalLink>
-								<ExternalLink href="https://beamio.app/app/" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-6 py-3.5 text-sm font-bold transition hover:border-black/35">
+								<ExternalLink href="https://beamio.ca/app/" className="inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-6 py-3.5 text-sm font-bold transition hover:border-black/35">
 									Open Consumer App <ArrowUpRight className="h-4 w-4" aria-hidden />
 								</ExternalLink>
 							</div>
@@ -373,7 +373,7 @@ export default function BeamioLandingPage() {
 								<div className="mt-7 space-y-3">
 									<StoreBadges appStore={consumerStoreLinks.appStore} googlePlay={consumerStoreLinks.googlePlay} />
 									<a href={consumerStoreLinks.apk} download className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#2f73e0]/20 bg-[#e9edff] px-4 py-3 text-sm font-bold text-[#0051d1]"><Download className="h-4 w-4" aria-hidden /> Download Android APK</a>
-									<ExternalLink href="https://beamio.app/app/" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0051d1] px-4 py-3 text-sm font-bold text-white">Open Consumer App <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
+									<ExternalLink href="https://beamio.ca/app/" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0051d1] px-4 py-3 text-sm font-bold text-white">Open Consumer App <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
 								</div>
 							</article>
 
@@ -385,7 +385,7 @@ export default function BeamioLandingPage() {
 								<div className="mt-7 space-y-3">
 									<StoreBadges appStore={posStoreLinks.appStore} googlePlay={posStoreLinks.googlePlay} />
 									<a href={posStoreLinks.apk} download className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#2f73e0]/20 bg-[#e9edff] px-4 py-3 text-sm font-bold text-[#0051d1]"><Download className="h-4 w-4" aria-hidden /> Download Android APK</a>
-									<ExternalLink href="https://pos.beamio.app/" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0051d1] px-4 py-3 text-sm font-bold text-white">Open Beamio POS <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
+									<ExternalLink href="https://pos.beamio.ca/" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0051d1] px-4 py-3 text-sm font-bold text-white">Open Beamio POS <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
 								</div>
 							</article>
 
@@ -400,7 +400,7 @@ export default function BeamioLandingPage() {
 										<div><p className="text-sm font-bold">No installation required</p><p className="mt-1 text-xs leading-5 text-white/50">Use Merchant OS from a modern desktop or tablet browser.</p></div>
 									</div>
 								</div>
-								<ExternalLink href="https://biz.beamio.app/" className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#8d3a8b] px-4 py-3 text-sm font-bold text-white">Access Merchant OS <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
+								<ExternalLink href="https://biz.beamio.ca/" className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#8d3a8b] px-4 py-3 text-sm font-bold text-white">Access Merchant OS <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
 							</article>
 						</div>
 					</div>
@@ -416,7 +416,7 @@ export default function BeamioLandingPage() {
 									<p className="mt-5 max-w-2xl text-sm leading-6 text-blue-100/80">Start with Merchant OS, explore the Consumer experience, or review the product documentation, data practices, and trust boundaries.</p>
 								</div>
 								<div className="flex flex-col gap-3">
-									<ExternalLink href="https://biz.beamio.app/" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0051d1]">Start as a merchant <ArrowRight className="h-4 w-4" aria-hidden /></ExternalLink>
+									<ExternalLink href="https://biz.beamio.ca/" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-[#0051d1]">Start as a merchant <ArrowRight className="h-4 w-4" aria-hidden /></ExternalLink>
 									<ExternalLink href="https://gitbook.conet.network/applications/beamio.html" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 px-5 py-3 text-sm font-bold text-white">Read the whitepaper <ArrowUpRight className="h-4 w-4" aria-hidden /></ExternalLink>
 								</div>
 							</div>
@@ -434,9 +434,9 @@ export default function BeamioLandingPage() {
 					<div>
 						<h2 className="text-sm font-semibold">Products</h2>
 						<div className="mt-3 flex flex-col items-start gap-2 text-sm text-white/45">
-							<ExternalLink href="https://beamio.app/app/" className="hover:text-white">Consumer App</ExternalLink>
-							<ExternalLink href="https://pos.beamio.app/" className="hover:text-white">Beamio POS</ExternalLink>
-							<ExternalLink href="https://biz.beamio.app/" className="hover:text-white">Merchant OS</ExternalLink>
+							<ExternalLink href="https://beamio.ca/app/" className="hover:text-white">Consumer App</ExternalLink>
+							<ExternalLink href="https://pos.beamio.ca/" className="hover:text-white">Beamio POS</ExternalLink>
+							<ExternalLink href="https://biz.beamio.ca/" className="hover:text-white">Merchant OS</ExternalLink>
 						</div>
 					</div>
 					<div>
