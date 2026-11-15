@@ -108,7 +108,7 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 					</nav>
 
 					<div className="hidden items-center gap-3 lg:flex">
-						<ExternalLink href="https://beamio.app/" className={outlineAppButtonClass}>
+						<ExternalLink href="https://beamio.ca/" className={outlineAppButtonClass}>
 							Open Beamio <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
 						</ExternalLink>
 						<ExternalLink href="https://silentpass.io/" className={outlineAppButtonClass}>
@@ -152,7 +152,7 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 							<SectionNavLink onNavigate={closeMenu} sectionId="token-economy" className={navClass(false)}>
 								Economics
 							</SectionNavLink>
-							<ExternalLink href="https://beamio.app/" className={navClass(false)}>
+							<ExternalLink href="https://beamio.ca/" className={navClass(false)}>
 								Open Beamio
 							</ExternalLink>
 							<ExternalLink href="https://silentpass.io/" className={navClass(false)}>
@@ -183,7 +183,7 @@ export function ConetSiteShell({ children }: ConetSiteShellProps) {
 					<div>
 						<h2 className="text-sm font-semibold text-white">Related</h2>
 						<div className="mt-3 flex flex-col items-start gap-2 text-sm">
-							<ExternalLink href="https://beamio.app/" className="hover:text-white">Beamio application</ExternalLink>
+							<ExternalLink href="https://beamio.ca/" className="hover:text-white">Beamio application</ExternalLink>
 							<ExternalLink href="https://silentpass.io/" className="hover:text-white">SilentPass application</ExternalLink>
 							<Link to="/contact" className="hover:text-white">Contact</Link>
 							<Link to="/terms" className="hover:text-white">Terms</Link>

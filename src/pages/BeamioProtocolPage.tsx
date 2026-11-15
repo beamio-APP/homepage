@@ -86,7 +86,7 @@ const applications = [
         title: 'Beamio',
         copy:
             'Consumer wallet, Merchant OS, POS, and Cash and USDC workflows built with CoNET infrastructure.',
-        href: 'https://beamio.app/',
+        href: 'https://beamio.ca/',
         icon: CircleDot,
         status: 'Public application',
     },
