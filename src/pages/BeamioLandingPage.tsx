@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom'
 import {
 	ArrowRight,
 	ArrowUpRight,
+	BookOpen,
 	Check,
 	CircleDollarSign,
+	Code2,
 	CreditCard,
 	Download,
+	Github,
 	Globe2,
 	HeartHandshake,
 	Link2,
@@ -24,6 +27,10 @@ import {
 } from 'lucide-react'
 import BeamioBrandLogo from '../components/BeamioBrandLogo'
 import { useScrollCapsuleOpacity } from '../hooks/useScrollCapsuleOpacity'
+
+// Open-source consumer interface (Beamio UI).
+const BEAMIO_UI_REPO_URL = 'https://github.com/CoNET-project/beamio-UI'
+const BEAMIO_UI_DOCS_URL = 'https://gitbook.conet.network/applications/beamio/beamio-ui.html'
 
 function ExternalLink({
 	href,
@@ -406,6 +413,24 @@ export default function BeamioLandingPage() {
 					</div>
 				</section>
 
+				<section id="open-source" className="bg-white py-20 sm:py-28">
+					<div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+						<div className="rounded-[2.25rem] border border-black/10 bg-[#f6f7f9] p-8 sm:p-12">
+							<div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+								<div>
+									<div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#0051d1]"><Code2 className="h-4 w-4" aria-hidden /> Developers &amp; open source</div>
+									<h2 className="mt-4 text-4xl font-black leading-[0.96] tracking-[-0.05em] text-[#171717] sm:text-5xl">Beamio UI is open source.</h2>
+									<p className="mt-5 max-w-2xl text-sm leading-6 text-black/60">Beamio UI is the consumer interface behind the Beamio Consumer App: wallet, Discover, coupons, and messaging. Read the source, build it locally, and contribute on GitHub. The documentation explains how it relates to Beamio POS, Merchant OS, and the CoNET SDKs.</p>
+								</div>
+								<div className="flex flex-col gap-3">
+									<ExternalLink href={BEAMIO_UI_REPO_URL} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#171717] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#2f73e0]"><Github className="h-4 w-4" aria-hidden /> View on GitHub</ExternalLink>
+									<ExternalLink href={BEAMIO_UI_DOCS_URL} className="inline-flex items-center justify-center gap-2 rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-bold text-[#171717] transition hover:border-black/35"><BookOpen className="h-4 w-4" aria-hidden /> Developer docs</ExternalLink>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+
 				<section className="bg-[#171717] py-20 text-white sm:py-28">
 					<div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
 						<div className="rounded-[2.25rem] bg-[#2f73e0] p-8 sm:p-12">
@@ -426,7 +451,7 @@ export default function BeamioLandingPage() {
 			</main>
 
 			<footer className="border-t border-white/10 bg-[#171717] text-white">
-				<div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-8">
+				<div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr_1fr] lg:px-8">
 					<div>
 						<div className="flex items-center gap-2.5"><BeamioBrandLogo className="h-9 w-9 rounded-full object-cover" /><span className="font-bold">Beamio</span></div>
 						<p className="mt-4 max-w-sm text-sm leading-6 text-white/45">Direct authorization, merchant programs, and disclosed service boundaries built with CoNET infrastructure.</p>
@@ -437,6 +462,13 @@ export default function BeamioLandingPage() {
 							<ExternalLink href="https://beamio.ca/app/" className="hover:text-white">Consumer App</ExternalLink>
 							<ExternalLink href="https://pos.beamio.ca/" className="hover:text-white">Beamio POS</ExternalLink>
 							<ExternalLink href="https://biz.beamio.ca/" className="hover:text-white">Merchant OS</ExternalLink>
+						</div>
+					</div>
+					<div>
+						<h2 className="text-sm font-semibold">Developers</h2>
+						<div className="mt-3 flex flex-col items-start gap-2 text-sm text-white/45">
+							<ExternalLink href={BEAMIO_UI_REPO_URL} className="hover:text-white">Beamio UI on GitHub</ExternalLink>
+							<ExternalLink href={BEAMIO_UI_DOCS_URL} className="hover:text-white">Developer docs</ExternalLink>
 						</div>
 					</div>
 					<div>
